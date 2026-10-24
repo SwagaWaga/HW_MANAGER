@@ -1,8 +1,8 @@
-from datetime import date, timedelta  # e.g. "2026-10-09"
+from datetime import date, timedelta  
 
 def parse_homework(text: str) -> dict | None:
     separators = [":", "—", "-"]
-    today = date.today().isoformat()                      # e.g. "2026-10-08"
+    today = date.today().isoformat()                    
     tomorrow = (date.today() + timedelta(days=1)).isoformat()
     
     for sep in separators:
@@ -25,7 +25,7 @@ def parse_homework(text: str) -> dict | None:
                 due_date = (date.today() + timedelta(days=1)).isoformat()
                 clean_subject = raw_subject.title()
             return {
-                "subject": subject,
+                "subject": clean_subject,
                 "description": description,
                 "due_date": due_date
             }

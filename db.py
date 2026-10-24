@@ -64,9 +64,19 @@ def delete_task(task_id: int, user_id: int):
     conn.commit()
     conn.close()
 
+def delete_all_tasks(user_id: int):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    sql = """
+    DELETE FROM tasks WHERE user_id = ?
+    """
+    cursor.execute(sql, (user_id,))
+    conn.commit()
+    conn.close()
+
 def get_today_tasks(user_id: int, date_str: str):
     conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row  # lets us access columns like task["subject"]
+    conn.row_factory = sqlite3.Row  
     cursor = conn.cursor()
     
     sql = """
@@ -79,6 +89,20 @@ def get_today_tasks(user_id: int, date_str: str):
     conn.close()
     return tasks
 
+def get_overdue_tasks(user_id: int, today_str: str):
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    sql = """
+        SELECT id, subject, description, due_date
+        FROM tasks
+        WHERE user_id = ? AND due_date < ? AND is_done = 0
+        ORDER BY due_date ASC
+    """
+    cursor.execute(sql, (user_id, today_str))
+    tasks = cursor.fetchall()
+    conn.close()
+    return tasks
 
 if __name__ == "__main__":
     init_db()
