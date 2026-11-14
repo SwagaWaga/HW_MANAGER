@@ -177,7 +177,7 @@ def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
         return []
 
     try:
-        res = client.table("task_materials").select("id, task_id, file_id, caption, uploader_id, users(telegram_nick, full_name)").eq("task_id", task_id).execute()
+        res = client.table("task_materials").select("id, task_id, file_id, caption, uploader_id, users(telegram_nick, full_name)").eq("task_id", task_id).order("id").execute()
         materials = []
         for row in (res.data or []):
             u_info = row.get("users") or {}

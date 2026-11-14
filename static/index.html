@@ -963,25 +963,41 @@
           <textarea id="modal-desc" rows="3" maxlength="1500" oninput="updateCharCount(this)" placeholder="Например: Стр. 45, номера 12-18, параграф 4 выучить формулы" class="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none break-all"></textarea>
         </div>
 
-        <!-- Фото страницы учебника (Камера + Галерея) -->
+        <!-- Фото страниц учебника (Камера + Галерея, поддержка нескольких страниц) -->
         <div>
-          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
-            <span id="input-photo-icon" class="w-4 h-4 text-amber-500"></span>
-            <span>Фото страницы учебника</span>
-          </label>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span id="input-photo-icon" class="w-4 h-4 text-amber-500"></span>
+              <span>Страницы учебника / конспекта</span>
+            </label>
+            <span id="photos-count-badge" class="hidden text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+              0 / 10
+            </span>
+          </div>
 
-          <!-- Надежные инпуты для камеры и галереи (вынесены за экран вместо display:none, чтобы Safari и Telegram WebApp не блокировали вызов) -->
+          <!-- Надежные инпуты для камеры и галереи (вынесены за экран, accept="image/*", multiple для галереи) -->
           <input type="file" id="modal-photo-camera" accept="image/*" capture="environment" onchange="handlePhotoSelected(this)" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none;width:1px;height:1px;" />
-          <input type="file" id="modal-photo-gallery" accept="image/*" onchange="handlePhotoSelected(this)" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none;width:1px;height:1px;" />
+          <input type="file" id="modal-photo-gallery" accept="image/*" multiple onchange="handlePhotoSelected(this)" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none;width:1px;height:1px;" />
 
-          <!-- Кнопки выбора источника через нативный label for="..." (100% срабатывание камеры в iOS и Android Telegram WebApp) -->
+          <!-- Сетка предпросмотра прикрепленных страниц -->
+          <div id="photos-preview-container" class="hidden mb-3">
+            <div id="photos-preview-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-1.5 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200 dark:border-white/10">
+              <!-- Превью страниц генерируются динамически -->
+            </div>
+            <div class="flex items-center justify-between mt-2 px-1">
+              <span id="photos-status-text" class="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold">✓ Готово страниц: 0</span>
+              <button type="button" onclick="clearAllPhotos()" class="text-[11px] text-rose-500 hover:text-rose-600 font-bold transition active:scale-95">Очистить всё</button>
+            </div>
+          </div>
+
+          <!-- Кнопки выбора источника через нативный label for="..." -->
           <div id="photo-action-buttons" class="grid grid-cols-2 gap-2.5">
             <label for="modal-photo-camera" class="cursor-pointer py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs select-none">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                 <circle cx="12" cy="13" r="4"></circle>
               </svg>
-              <span>Сделать фото</span>
+              <span id="btn-camera-label">Сделать фото</span>
             </label>
 
             <label for="modal-photo-gallery" class="cursor-pointer py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 active:scale-95 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs select-none">
@@ -990,22 +1006,8 @@
                 <circle cx="8.5" cy="8.5" r="1.5"></circle>
                 <polyline points="21 15 16 10 5 21"></polyline>
               </svg>
-              <span>Из галереи</span>
+              <span id="btn-gallery-label">Из галереи</span>
             </label>
-          </div>
-
-          <!-- Контейнер предпросмотра прикрепленного фото -->
-          <div id="photo-preview-card" class="hidden mt-2 p-2 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5 min-w-0">
-              <img id="photo-preview-thumb" src="" alt="Превью" class="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-white/10 shrink-0 shadow-xs" />
-              <div class="min-w-0 flex-1">
-                <p id="photo-preview-name" class="text-xs font-bold text-slate-900 dark:text-white truncate">photo.jpg</p>
-                <p id="photo-preview-size" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">✓ Фото готово к отправке</p>
-              </div>
-            </div>
-            <button type="button" onclick="removeSelectedPhoto()" class="w-8 h-8 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0 active:scale-95 transition" title="Удалить фото">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            </button>
           </div>
 
           <div id="file-error-msg" class="text-[11px] text-rose-500 font-medium mt-1.5 hidden"></div>
@@ -1023,16 +1025,29 @@
     <div class="w-full max-w-xl mx-auto flex items-center justify-between z-10 pt-1" onclick="event.stopPropagation()">
       <div class="flex items-center gap-2.5 bg-slate-900/95 border border-slate-700/80 px-3.5 py-1.5 rounded-full text-xs shadow-xl backdrop-blur-md">
         <span id="photo-camera-icon" class="w-4 h-4 text-amber-400"></span>
-        <span class="text-slate-400">Снимок выложил:</span>
+        <span class="text-slate-400">Снимок:</span>
         <div id="photo-author-avatar" class="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"></div>
-        <span id="photo-author-nick" class="font-extrabold text-amber-300 font-mono tracking-tight text-sm truncate max-w-[150px]">@ник</span>
+        <span id="photo-author-nick" class="font-extrabold text-amber-300 font-mono tracking-tight text-sm truncate max-w-[130px]">@ник</span>
       </div>
-      <button onclick="closePhotoViewer()" class="w-9 h-9 rounded-full bg-slate-800/90 hover:bg-slate-700 text-white flex items-center justify-center font-bold text-base transition shadow-lg border border-slate-700 active:scale-95" title="Закрыть">
-        <span id="photo-close-icon" class="w-4 h-4"></span>
-      </button>
+      
+      <div class="flex items-center gap-2">
+        <!-- Индикатор страниц (например, "1 / 3") -->
+        <span id="photo-page-badge" class="hidden font-mono text-xs font-black text-amber-300 bg-amber-500/20 border border-amber-500/40 px-3 py-1.5 rounded-full shadow-md">
+          1 / 1
+        </span>
+        <button onclick="closePhotoViewer()" class="w-9 h-9 rounded-full bg-slate-800/90 hover:bg-slate-700 text-white flex items-center justify-center font-bold text-base transition shadow-lg border border-slate-700 active:scale-95" title="Закрыть">
+          <span id="photo-close-icon" class="w-4 h-4"></span>
+        </button>
+      </div>
     </div>
 
     <div id="photo-viewport" class="flex-1 w-full max-w-xl mx-auto flex items-center justify-center overflow-hidden my-3 relative" onclick="event.stopPropagation()">
+      <!-- Кнопки перелистывания страниц -->
+      <button id="photo-nav-prev" onclick="prevPhoto()" class="hidden absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-900/80 hover:bg-slate-800 text-white flex items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/20 active:scale-90 transition z-30 shadow-2xl select-none" title="Предыдущая страница">‹</button>
+      <button id="photo-nav-next" onclick="nextPhoto()" class="hidden absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-slate-900/80 hover:bg-slate-800 text-white flex items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/20 active:scale-90 transition z-30 shadow-2xl select-none" title="Следующая страница">›</button>
+
+      <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[68vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 cursor-grab active:cursor-grabbing origin-center" draggable="false" />
+    </div>
       <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[68vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 cursor-grab active:cursor-grabbing origin-center" draggable="false" />
     </div>
 
@@ -1202,7 +1217,7 @@
       document.getElementById('desc-char-count').innerText = `${el.value.length} / 1500`;
     }
 
-    let selectedPhotoFile = null;
+    let selectedPhotos = []; // Массив выбранных страниц: [{ file: File, previewUrl: string, sizeText: string }]
 
     function triggerCameraInput() {
       const camInput = document.getElementById('modal-photo-camera');
@@ -1252,7 +1267,7 @@
       reader.readAsDataURL(file);
     }
 
-    function handlePhotoSelected(input) {
+    async function handlePhotoSelected(input) {
       const errorDiv = document.getElementById('file-error-msg');
       if (errorDiv) {
         errorDiv.classList.add('hidden');
@@ -1260,67 +1275,124 @@
       }
 
       if (!input.files || input.files.length === 0) return;
-      const file = input.files[0];
+      const incomingFiles = Array.from(input.files);
 
-      // Проверка на изображение (принимаем любые форматы фото с камеры, в т.ч. HEIC, JPG, PNG, WEBP)
-      const isImg = (file.type && file.type.startsWith('image/')) || 
-                    /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name || '') ||
-                    file.type === '';
-      if (!isImg) {
+      const maxLimit = 10;
+      if (selectedPhotos.length + incomingFiles.length > maxLimit) {
         if (errorDiv) {
-          errorDiv.innerText = '⚠️ Пожалуйста, выберите снимок или фотографию (JPG, PNG, WebP)!';
+          errorDiv.innerText = `⚠️ Максимум можно прикрепить до ${maxLimit} страниц к одному заданию!`;
           errorDiv.classList.remove('hidden');
         }
-        input.value = '';
+      }
+
+      const availableSlots = Math.max(0, maxLimit - selectedPhotos.length);
+      const filesToProcess = incomingFiles.slice(0, availableSlots);
+
+      for (const file of filesToProcess) {
+        const isImg = (file.type && file.type.startsWith('image/')) || 
+                      /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name || '') ||
+                      file.type === '';
+        if (!isImg) continue;
+
+        await new Promise((resolve) => {
+          compressImage(file, 1920, 0.85, function(compressedBlob, dataUrl) {
+            let processedFile;
+            let previewData = dataUrl;
+            let sizeStr = '';
+
+            if (compressedBlob) {
+              const safeFileName = (file.name || `page_${selectedPhotos.length + 1}.jpg`).replace(/\.[^/.]+$/, "") + ".jpg";
+              processedFile = new File([compressedBlob], safeFileName, { type: "image/jpeg" });
+              sizeStr = `${Math.round(compressedBlob.size / 1024)} КБ`;
+            } else {
+              processedFile = file;
+              previewData = URL.createObjectURL(file);
+              sizeStr = `${(file.size / (1024 * 1024)).toFixed(1)} МБ`;
+            }
+
+            selectedPhotos.push({
+              file: processedFile,
+              previewUrl: previewData,
+              sizeText: sizeStr
+            });
+            resolve();
+          });
+        });
+      }
+
+      // Сбрасываем input value, чтобы можно было повторно выбрать тот же файл или добавить ещё
+      input.value = '';
+
+      renderPhotoPreviews();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    }
+
+    function renderPhotoPreviews() {
+      const container = document.getElementById('photos-preview-container');
+      const grid = document.getElementById('photos-preview-grid');
+      const countBadge = document.getElementById('photos-count-badge');
+      const statusText = document.getElementById('photos-status-text');
+      const btnCamLabel = document.getElementById('btn-camera-label');
+      const btnGalLabel = document.getElementById('btn-gallery-label');
+
+      if (!container || !grid) return;
+
+      if (selectedPhotos.length === 0) {
+        container.classList.add('hidden');
+        if (countBadge) countBadge.classList.add('hidden');
+        if (btnCamLabel) btnCamLabel.innerText = 'Сделать фото';
+        if (btnGalLabel) btnGalLabel.innerText = 'Из галереи';
         return;
       }
 
-      const card = document.getElementById('photo-preview-card');
-      const actionBtns = document.getElementById('photo-action-buttons');
-      const thumb = document.getElementById('photo-preview-thumb');
-      const nameEl = document.getElementById('photo-preview-name');
-      const sizeEl = document.getElementById('photo-preview-size');
+      container.classList.remove('hidden');
+      if (countBadge) {
+        countBadge.innerText = `${selectedPhotos.length} / 10`;
+        countBadge.classList.remove('hidden');
+      }
+      if (statusText) {
+        statusText.innerText = `✓ Прикреплено страниц: ${selectedPhotos.length}`;
+      }
+      if (btnCamLabel) btnCamLabel.innerText = '+ Сделать ещё';
+      if (btnGalLabel) btnGalLabel.innerText = '+ Из галереи';
 
-      if (actionBtns) actionBtns.classList.add('hidden');
-      if (card) card.classList.remove('hidden');
-      if (nameEl) nameEl.innerText = file.name || 'Снимок страницы учебника';
-      if (sizeEl) sizeEl.innerText = '⏳ Оптимизация снимка...';
+      grid.innerHTML = selectedPhotos.map((p, idx) => `
+        <div class="relative group rounded-xl overflow-hidden border border-slate-300 dark:border-white/10 bg-slate-900 aspect-[3/4] flex flex-col justify-between p-1.5 shadow-sm">
+          <img src="${p.previewUrl}" alt="Стр. ${idx + 1}" class="absolute inset-0 w-full h-full object-cover rounded-lg" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-black/50 pointer-events-none rounded-lg"></div>
+          
+          <div class="relative z-10 flex items-center justify-between">
+            <span class="px-1.5 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black text-[10px] shadow-sm tracking-tight">
+              Стр. ${idx + 1}
+            </span>
+            <button type="button" onclick="removePhoto(${idx})" class="w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center text-xs font-bold transition shadow-md" title="Удалить страницу">
+              ✕
+            </button>
+          </div>
 
-      compressImage(file, 1920, 0.85, function(compressedBlob, dataUrl) {
-        if (!compressedBlob) {
-          // Если браузер не поддерживает Canvas toBlob, используем исходный файл
-          selectedPhotoFile = file;
-          const reader = new FileReader();
-          reader.onload = function(e) {
-            if (thumb) thumb.src = e.target.result;
-            if (sizeEl) sizeEl.innerText = `✓ Готово (${(file.size / (1024*1024)).toFixed(1)} МБ)`;
-          };
-          reader.readAsDataURL(file);
-          return;
-        }
-
-        const safeFileName = (file.name || 'textbook_page.jpg').replace(/\.[^/.]+$/, "") + ".jpg";
-        selectedPhotoFile = new File([compressedBlob], safeFileName, { type: "image/jpeg" });
-        if (thumb) thumb.src = dataUrl;
-        if (nameEl) nameEl.innerText = safeFileName;
-        if (sizeEl) sizeEl.innerText = `✓ Снимок готов (${Math.round(compressedBlob.size / 1024)} КБ)`;
-        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
-      });
+          <div class="relative z-10 text-[9px] text-amber-200 font-mono text-center truncate px-0.5">
+            ${p.sizeText}
+          </div>
+        </div>
+      `).join('');
     }
 
-    function removeSelectedPhoto() {
-      selectedPhotoFile = null;
+    function removePhoto(index) {
+      if (index >= 0 && index < selectedPhotos.length) {
+        selectedPhotos.splice(index, 1);
+        renderPhotoPreviews();
+        if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      }
+    }
+
+    function clearAllPhotos() {
+      selectedPhotos = [];
       const camInput = document.getElementById('modal-photo-camera');
       const galInput = document.getElementById('modal-photo-gallery');
-      const card = document.getElementById('photo-preview-card');
-      const actionBtns = document.getElementById('photo-action-buttons');
-      const thumb = document.getElementById('photo-preview-thumb');
-
       if (camInput) camInput.value = '';
       if (galInput) galInput.value = '';
-      if (thumb) thumb.src = '';
-      if (card) card.classList.add('hidden');
-      if (actionBtns) actionBtns.classList.remove('hidden');
+      renderPhotoPreviews();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
     }
 
     function validateFileSecurity() {
@@ -1687,11 +1759,11 @@
           badge: 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10' 
         };
 
-        const firstMat = (t.materials && t.materials.length > 0) ? t.materials[0] : null;
-        const photoBtn = firstMat
-          ? `<button onclick="openPhotoViewer('/${escapeHtml(firstMat.file_id)}', '${escapeHtml(firstMat.uploader_id)}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold border border-amber-300/80 dark:border-amber-500/25 transition active:scale-95 shadow-xs">
+        const matCount = (t.materials && t.materials.length > 0) ? t.materials.length : 0;
+        const photoBtn = matCount > 0
+          ? `<button onclick="openTaskMaterials(${t.id})" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold border border-amber-300/80 dark:border-amber-500/25 transition active:scale-95 shadow-xs">
                <span class="w-3.5 h-3.5 inline-block shrink-0">${ICONS.bookPage}</span>
-               <span>Страница учебника (${t.materials.length})</span>
+               <span>${matCount === 1 ? 'Страница учебника' : `Страницы учебника (${matCount})`}</span>
              </button>`
           : '';
 
@@ -1869,18 +1941,14 @@
         const resData = await res.json();
         const createdTaskId = resData.task_id;
 
-        const camInput = document.getElementById('modal-photo-camera');
-        const galInput = document.getElementById('modal-photo-gallery');
-        const fileToUpload = selectedPhotoFile || 
-                             (camInput?.files && camInput.files.length > 0 ? camInput.files[0] : null) ||
-                             (galInput?.files && galInput.files.length > 0 ? galInput.files[0] : null);
-
-        if (fileToUpload && createdTaskId) {
-          submitBtn.innerText = 'Загрузка фото...';
+        if (selectedPhotos.length > 0 && createdTaskId) {
+          submitBtn.innerText = `Загрузка страниц (${selectedPhotos.length})...`;
           const formData = new FormData();
           formData.append('task_id', createdTaskId);
           formData.append('user_id', userId);
-          formData.append('photo', fileToUpload);
+          for (let i = 0; i < selectedPhotos.length; i++) {
+            formData.append('photos', selectedPhotos[i].file);
+          }
 
           try {
             const uploadRes = await fetch('/api/upload', {
@@ -1895,7 +1963,7 @@
           }
         }
 
-        removeSelectedPhoto();
+        clearAllPhotos();
         document.getElementById('modal-desc').value = '';
         document.getElementById('desc-char-count').innerText = '0 / 1500';
         closeAddModal();
@@ -1930,38 +1998,104 @@
     let currentRotation = 0;
     let currentZoom = 1;
 
+    let currentGallery = [];
+    let currentGalleryIndex = 0;
+
+    function openTaskMaterials(taskId) {
+      const task = allTasks.find(t => t.id === taskId);
+      if (!task || !task.materials || task.materials.length === 0) return;
+      openPhotoGallery(task.materials, 0);
+    }
+
     function openPhotoViewer(url, uploaderId) {
+      openPhotoGallery([{ file_id: url.replace(/^\//, ''), uploader_id: uploaderId }], 0);
+    }
+
+    function openPhotoGallery(materials, startIndex = 0) {
+      if (!materials || materials.length === 0) return;
+      currentGallery = materials.map(m => ({
+        url: m.file_id.startsWith('http') ? m.file_id : ('/' + m.file_id.replace(/^\//, '')),
+        uploaderId: m.uploader_id,
+        caption: m.caption || ''
+      }));
+      currentGalleryIndex = Math.max(0, Math.min(startIndex, currentGallery.length - 1));
+      showGalleryPhoto();
+
+      const modal = document.getElementById('photo-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function showGalleryPhoto() {
+      if (currentGallery.length === 0) return;
+      const current = currentGallery[currentGalleryIndex];
+
       currentRotation = 0;
       currentZoom = 1;
       updatePhotoTransform();
 
       const img = document.getElementById('modal-image-preview');
-      img.src = url;
+      img.src = current.url;
 
+      // Бейдж с номером страницы (например, "1 / 3")
+      const pageBadge = document.getElementById('photo-page-badge');
+      if (pageBadge) {
+        if (currentGallery.length > 1) {
+          pageBadge.innerText = `${currentGalleryIndex + 1} / ${currentGallery.length}`;
+          pageBadge.classList.remove('hidden');
+        } else {
+          pageBadge.classList.add('hidden');
+        }
+      }
+
+      // Кнопки навигации вперед/назад
+      const prevBtn = document.getElementById('photo-nav-prev');
+      const nextBtn = document.getElementById('photo-nav-next');
+      if (prevBtn) {
+        prevBtn.style.display = currentGallery.length > 1 ? 'flex' : 'none';
+      }
+      if (nextBtn) {
+        nextBtn.style.display = currentGallery.length > 1 ? 'flex' : 'none';
+      }
+
+      // Аватар и ник автора
       const avatarSlot = document.getElementById('photo-author-avatar');
-      avatarSlot.innerHTML = renderAvatarElement(uploaderId, 'w-7 h-7 text-xs');
+      if (avatarSlot) avatarSlot.innerHTML = renderAvatarElement(current.uploaderId, 'w-7 h-7 text-xs');
 
       const nickElem = document.getElementById('photo-author-nick');
-      if (uploaderId && uploaderId == userId) {
-        nickElem.innerText = `${userNick} (вы)`;
-      } else if (uploaderId && authorCache[uploaderId]?.nick) {
-        nickElem.innerText = authorCache[uploaderId].nick;
-      } else if (uploaderId && uploaderId !== 'undefined') {
-        nickElem.innerText = `@ученик_${uploaderId}`;
-      } else {
-        nickElem.innerText = '@одноклассник';
+      if (nickElem) {
+        if (current.uploaderId && current.uploaderId == userId) {
+          nickElem.innerText = `${userNick} (вы)`;
+        } else if (current.uploaderId && authorCache[current.uploaderId]?.nick) {
+          nickElem.innerText = authorCache[current.uploaderId].nick;
+        } else if (current.uploaderId && current.uploaderId !== 'undefined') {
+          nickElem.innerText = `@ученик_${current.uploaderId}`;
+        } else {
+          nickElem.innerText = '@одноклассник';
+        }
       }
 
+      // Кнопка скачивания
       const dlBtn = document.getElementById('photo-download-btn');
       if (dlBtn) {
-        dlBtn.href = url;
-        const filename = url.split('/').pop().replace(/[^a-zA-Z0-9._-]/g, '_') || 'textbook_page.jpg';
+        dlBtn.href = current.url;
+        const filename = current.url.split('/').pop().replace(/[^a-zA-Z0-9._-]/g, '_') || `page_${currentGalleryIndex + 1}.jpg`;
         dlBtn.setAttribute('download', filename);
       }
+    }
 
-      const modal = document.getElementById('photo-modal');
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+    function prevPhoto() {
+      if (currentGallery.length <= 1) return;
+      currentGalleryIndex = (currentGalleryIndex - 1 + currentGallery.length) % currentGallery.length;
+      showGalleryPhoto();
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+    }
+
+    function nextPhoto() {
+      if (currentGallery.length <= 1) return;
+      currentGalleryIndex = (currentGalleryIndex + 1) % currentGallery.length;
+      showGalleryPhoto();
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
     }
 
     function closePhotoViewer() {
@@ -1971,6 +2105,8 @@
       document.getElementById('modal-image-preview').src = '';
       currentRotation = 0;
       currentZoom = 1;
+      currentGallery = [];
+      currentGalleryIndex = 0;
     }
 
     function rotatePhoto(deg) {
@@ -2003,6 +2139,7 @@
       }
     }
 
+    // Листание колесиком мыши (с масштабированием)
     const viewport = document.getElementById('photo-viewport');
     if (viewport) {
       viewport.addEventListener('wheel', (e) => {
@@ -2013,7 +2150,38 @@
           zoomPhoto(-0.2);
         }
       }, { passive: false });
+
+      // Сенсорный свайп между страницами на смартфонах
+      let touchStartX = 0;
+      let touchEndX = 0;
+      viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          touchStartX = e.touches[0].clientX;
+        }
+      }, { passive: true });
+
+      viewport.addEventListener('touchend', (e) => {
+        if (e.changedTouches.length === 1 && currentZoom <= 1.05) {
+          touchEndX = e.changedTouches[0].clientX;
+          const diffX = touchEndX - touchStartX;
+          if (diffX > 50) {
+            prevPhoto();
+          } else if (diffX < -50) {
+            nextPhoto();
+          }
+        }
+      }, { passive: true });
     }
+
+    // Навигация стрелками на клавиатуре и закрытие по Esc
+    window.addEventListener('keydown', (e) => {
+      const modal = document.getElementById('photo-modal');
+      if (modal && !modal.classList.contains('hidden')) {
+        if (e.key === 'ArrowLeft') prevPhoto();
+        else if (e.key === 'ArrowRight') nextPhoto();
+        else if (e.key === 'Escape') closePhotoViewer();
+      }
+    });
 
             // ========================================================
     // РЮКЗАК И ТЕТРАДЬ STAR: АНИМАЦИЯ ОТКРЫТИЯ (КАК НА ФОТО)

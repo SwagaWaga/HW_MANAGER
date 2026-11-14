@@ -209,6 +209,7 @@ def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
         FROM task_materials m
         LEFT JOIN users u ON m.uploader_id = u.id
         WHERE m.task_id = ?
+        ORDER BY m.id ASC
     """
     cursor.execute(sql, (task_id,))
     rows = cursor.fetchall()

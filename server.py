@@ -2,7 +2,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from db import mark_task_done, get_pending_tasks, add_task, add_material, get_materials_for_task, upsert_user, is_using_supabase
 import uuid
 import os
@@ -81,23 +81,40 @@ def sync_user(data: UserSync):
     return {"status": "ok"}
 
 @app.post("/api/upload")
-async def upload_photo(task_id: int = Form(...), user_id: int = Form(...), photo: UploadFile = File(...)):
+async def upload_photos(
+    task_id: int = Form(...),
+    user_id: int = Form(...),
+    photos: List[UploadFile] = File(None),
+    photo: Optional[UploadFile] = File(None)
+):
     try:
         os.makedirs("uploads", exist_ok=True)
-        raw_name = photo.filename or "photo.jpg"
-        ext = os.path.splitext(raw_name)[1].lower()
-        if not ext or ext not in [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]:
-            ext = ".jpg"
-        
-        unique_name = f"{task_id}_{uuid.uuid4().hex[:8]}{ext}"
-        file_path = f"uploads/{unique_name}"
-        
-        contents = await photo.read()
-        with open(file_path, "wb") as f:
-            f.write(contents)
-        
-        add_material(task_id, file_path, raw_name, user_id)
-        return {"status": "ok", "url": file_path}
+        all_incoming: List[UploadFile] = []
+        if photos:
+            all_incoming.extend(photos)
+        if photo:
+            all_incoming.append(photo)
+
+        uploaded_results = []
+        for p in all_incoming:
+            raw_name = p.filename or "photo.jpg"
+            ext = os.path.splitext(raw_name)[1].lower()
+            if not ext or ext not in [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]:
+                ext = ".jpg"
+            
+            unique_name = f"{task_id}_{uuid.uuid4().hex[:8]}{ext}"
+            file_path = f"uploads/{unique_name}"
+            
+            contents = await p.read()
+            with open(file_path, "wb") as f:
+                f.write(contents)
+            
+            add_material(task_id, file_path, raw_name, user_id)
+            uploaded_results.append({"url": file_path, "name": raw_name})
+
+        # Возвращаем url первого файла для обратной совместимости + список всех
+        first_url = uploaded_results[0]["url"] if uploaded_results else ""
+        return {"status": "ok", "url": first_url, "uploaded": uploaded_results}
     except Exception as e:
         print(f"Error in /api/upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
