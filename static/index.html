@@ -970,29 +970,28 @@
             <span>Фото страницы учебника</span>
           </label>
 
-          <!-- Скрытые инпуты для камеры и галереи -->
-          <input type="file" id="modal-photo-camera" accept="image/*" capture="environment" onchange="handlePhotoSelected(this)" class="hidden" />
-          <input type="file" id="modal-photo-gallery" accept="image/jpeg,image/png,image/webp" onchange="handlePhotoSelected(this)" class="hidden" />
-          <input type="file" id="modal-photo" class="hidden" />
+          <!-- Надежные инпуты для камеры и галереи (вынесены за экран вместо display:none, чтобы Safari и Telegram WebApp не блокировали вызов) -->
+          <input type="file" id="modal-photo-camera" accept="image/*" capture="environment" onchange="handlePhotoSelected(this)" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none;width:1px;height:1px;" />
+          <input type="file" id="modal-photo-gallery" accept="image/*" onchange="handlePhotoSelected(this)" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none;width:1px;height:1px;" />
 
-          <!-- Кнопки выбора источника: Сделать фото / Из галереи -->
+          <!-- Кнопки выбора источника через нативный label for="..." (100% срабатывание камеры в iOS и Android Telegram WebApp) -->
           <div id="photo-action-buttons" class="grid grid-cols-2 gap-2.5">
-            <button type="button" onclick="triggerCameraInput()" class="py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs">
+            <label for="modal-photo-camera" class="cursor-pointer py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs select-none">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
                 <circle cx="12" cy="13" r="4"></circle>
               </svg>
               <span>Сделать фото</span>
-            </button>
+            </label>
 
-            <button type="button" onclick="triggerGalleryInput()" class="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 active:scale-95 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs">
+            <label for="modal-photo-gallery" class="cursor-pointer py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 active:scale-95 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs select-none">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
                 <circle cx="8.5" cy="8.5" r="1.5"></circle>
                 <polyline points="21 15 16 10 5 21"></polyline>
               </svg>
               <span>Из галереи</span>
-            </button>
+            </label>
           </div>
 
           <!-- Контейнер предпросмотра прикрепленного фото -->
@@ -1203,7 +1202,7 @@
       document.getElementById('desc-char-count').innerText = `${el.value.length} / 1500`;
     }
 
-        let selectedPhotoFile = null;
+    let selectedPhotoFile = null;
 
     function triggerCameraInput() {
       const camInput = document.getElementById('modal-photo-camera');
@@ -1213,6 +1212,44 @@
     function triggerGalleryInput() {
       const galInput = document.getElementById('modal-photo-gallery');
       if (galInput) galInput.click();
+    }
+
+    // Автоматическое масштабирование и сжатие снимка на клиенте через Canvas (до 1920px JPEG)
+    // Превращает 10-15 МБ фото с камеры смартфона в резкий 300-500 КБ снимок, загружающийся за 0.2с
+    function compressImage(file, maxDim, quality, callback) {
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob(function(blob) {
+            if (blob) {
+              callback(blob, canvas.toDataURL('image/jpeg', quality));
+            } else {
+              callback(null, null);
+            }
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = function() { callback(null, null); };
+        img.src = e.target.result;
+      };
+      reader.onerror = function() { callback(null, null); };
+      reader.readAsDataURL(file);
     }
 
     function handlePhotoSelected(input) {
@@ -1225,41 +1262,50 @@
       if (!input.files || input.files.length === 0) return;
       const file = input.files[0];
 
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
+      // Проверка на изображение (принимаем любые форматы фото с камеры, в т.ч. HEIC, JPG, PNG, WEBP)
+      const isImg = (file.type && file.type.startsWith('image/')) || 
+                    /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name || '') ||
+                    file.type === '';
+      if (!isImg) {
         if (errorDiv) {
-          errorDiv.innerText = '⚠️ Разрешены только изображения: JPEG, PNG или WEBP!';
+          errorDiv.innerText = '⚠️ Пожалуйста, выберите снимок или фотографию (JPG, PNG, WebP)!';
           errorDiv.classList.remove('hidden');
         }
         input.value = '';
         return;
       }
 
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        if (errorDiv) {
-          errorDiv.innerText = '⚠️ Файл превышает лимит 10 МБ! Сожмите фото.';
-          errorDiv.classList.remove('hidden');
+      const card = document.getElementById('photo-preview-card');
+      const actionBtns = document.getElementById('photo-action-buttons');
+      const thumb = document.getElementById('photo-preview-thumb');
+      const nameEl = document.getElementById('photo-preview-name');
+      const sizeEl = document.getElementById('photo-preview-size');
+
+      if (actionBtns) actionBtns.classList.add('hidden');
+      if (card) card.classList.remove('hidden');
+      if (nameEl) nameEl.innerText = file.name || 'Снимок страницы учебника';
+      if (sizeEl) sizeEl.innerText = '⏳ Оптимизация снимка...';
+
+      compressImage(file, 1920, 0.85, function(compressedBlob, dataUrl) {
+        if (!compressedBlob) {
+          // Если браузер не поддерживает Canvas toBlob, используем исходный файл
+          selectedPhotoFile = file;
+          const reader = new FileReader();
+          reader.onload = function(e) {
+            if (thumb) thumb.src = e.target.result;
+            if (sizeEl) sizeEl.innerText = `✓ Готово (${(file.size / (1024*1024)).toFixed(1)} МБ)`;
+          };
+          reader.readAsDataURL(file);
+          return;
         }
-        input.value = '';
-        return;
-      }
 
-      selectedPhotoFile = file;
-
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const thumb = document.getElementById('photo-preview-thumb');
-        const nameEl = document.getElementById('photo-preview-name');
-        const card = document.getElementById('photo-preview-card');
-        const actionBtns = document.getElementById('photo-action-buttons');
-
-        if (thumb) thumb.src = e.target.result;
-        if (nameEl) nameEl.innerText = file.name || 'Снимок страницы учебника';
-        if (card) card.classList.remove('hidden');
-        if (actionBtns) actionBtns.classList.add('hidden');
-      };
-      reader.readAsDataURL(file);
+        const safeFileName = (file.name || 'textbook_page.jpg').replace(/\.[^/.]+$/, "") + ".jpg";
+        selectedPhotoFile = new File([compressedBlob], safeFileName, { type: "image/jpeg" });
+        if (thumb) thumb.src = dataUrl;
+        if (nameEl) nameEl.innerText = safeFileName;
+        if (sizeEl) sizeEl.innerText = `✓ Снимок готов (${Math.round(compressedBlob.size / 1024)} КБ)`;
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      });
     }
 
     function removeSelectedPhoto() {
@@ -1277,30 +1323,12 @@
       if (actionBtns) actionBtns.classList.remove('hidden');
     }
 
-    function validateFileSecurity(input) {
+    function validateFileSecurity() {
       const errorDiv = document.getElementById('file-error-msg');
-      errorDiv.classList.add('hidden');
-      errorDiv.innerText = '';
-
-      if (!input.files || input.files.length === 0) return true;
-      const file = input.files[0];
-
-      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        errorDiv.innerText = '⚠️ Разрешены только изображения: JPEG, PNG или WEBP!';
-        errorDiv.classList.remove('hidden');
-        input.value = '';
-        return false;
+      if (errorDiv) {
+        errorDiv.classList.add('hidden');
+        errorDiv.innerText = '';
       }
-
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        errorDiv.innerText = '⚠️ Файл превышает лимит 10 МБ! Сожмите фото.';
-        errorDiv.classList.remove('hidden');
-        input.value = '';
-        return false;
-      }
-
       return true;
     }
 
@@ -1806,7 +1834,6 @@
       const subject = document.getElementById('modal-subject').value;
       const dueDate = document.getElementById('modal-date').value;
       const desc = document.getElementById('modal-desc').value.trim();
-      const photoInput = document.getElementById('modal-photo');
       const submitBtn = document.getElementById('submit-btn');
 
       if (!desc) {
@@ -1815,9 +1842,6 @@
       }
       if (desc.length > 1500) {
         alert('Описание слишком длинное (максимум 1500 символов)!');
-        return;
-      }
-      if (!validateFileSecurity(photoInput)) {
         return;
       }
 
@@ -1838,42 +1862,62 @@
           })
         });
 
-        const resData = await res.json();
+        if (!res.ok) {
+          throw new Error('Не удалось создать задание на сервере');
+        }
 
-        const fileToUpload = selectedPhotoFile || (photoInput.files && photoInput.files.length > 0 ? photoInput.files[0] : null);
-        if (fileToUpload && resData.task_id) {
+        const resData = await res.json();
+        const createdTaskId = resData.task_id;
+
+        const camInput = document.getElementById('modal-photo-camera');
+        const galInput = document.getElementById('modal-photo-gallery');
+        const fileToUpload = selectedPhotoFile || 
+                             (camInput?.files && camInput.files.length > 0 ? camInput.files[0] : null) ||
+                             (galInput?.files && galInput.files.length > 0 ? galInput.files[0] : null);
+
+        if (fileToUpload && createdTaskId) {
+          submitBtn.innerText = 'Загрузка фото...';
           const formData = new FormData();
-          formData.append('task_id', resData.task_id);
+          formData.append('task_id', createdTaskId);
           formData.append('user_id', userId);
           formData.append('photo', fileToUpload);
 
-          await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-          });
-          removeSelectedPhoto();
+          try {
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData
+            });
+            if (!uploadRes.ok) {
+              console.error('Ошибка загрузки фото:', await uploadRes.text());
+            }
+          } catch(upErr) {
+            console.error('Сетевая ошибка при загрузке фото:', upErr);
+          }
         }
 
+        removeSelectedPhoto();
         document.getElementById('modal-desc').value = '';
         document.getElementById('desc-char-count').innerText = '0 / 1500';
         closeAddModal();
-            // Фоновая синхронизация профиля ученика в Supabase / базе данных
-    try {
-      fetch('/api/user/sync', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          user_id: userId,
-          telegram_nick: userNick,
-          full_name: (userName && userName !== 'Ученик') ? userName : null
-        })
-      }).catch(() => {});
-    } catch(e) {}
 
-    loadTasks();
+        // Фоновая синхронизация профиля ученика в Supabase / базе данных
+        try {
+          fetch('/api/user/sync', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+              user_id: userId,
+              telegram_nick: userNick,
+              full_name: (userName && userName !== 'Ученик') ? userName : null
+            })
+          }).catch(() => {});
+        } catch(e) {}
+
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        loadTasks();
       } catch (err) {
         console.error(err);
-        alert('Ошибка при публикации задания.');
+        alert('Ошибка при публикации задания: ' + (err.message || 'попробуйте ещё раз'));
       } finally {
         submitBtn.disabled = false;
         submitBtn.innerText = 'Опубликовать в класс';

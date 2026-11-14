@@ -82,10 +82,22 @@ def sync_user(data: UserSync):
 
 @app.post("/api/upload")
 async def upload_photo(task_id: int = Form(...), user_id: int = Form(...), photo: UploadFile = File(...)):
-    safe_name = photo.filename.replace(" ", "_")
-    file_path = f"uploads/{task_id}_{safe_name}"
-    contents = await photo.read()
-    with open(file_path, "wb") as f:
-        f.write(contents)
-    add_material(task_id, file_path, photo.filename, user_id)
-    return {"status": "ok", "url": file_path}
+    try:
+        os.makedirs("uploads", exist_ok=True)
+        raw_name = photo.filename or "photo.jpg"
+        ext = os.path.splitext(raw_name)[1].lower()
+        if not ext or ext not in [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]:
+            ext = ".jpg"
+        
+        unique_name = f"{task_id}_{uuid.uuid4().hex[:8]}{ext}"
+        file_path = f"uploads/{unique_name}"
+        
+        contents = await photo.read()
+        with open(file_path, "wb") as f:
+            f.write(contents)
+        
+        add_material(task_id, file_path, raw_name, user_id)
+        return {"status": "ok", "url": file_path}
+    except Exception as e:
+        print(f"Error in /api/upload: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
