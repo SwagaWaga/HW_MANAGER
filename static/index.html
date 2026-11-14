@@ -1048,8 +1048,6 @@
 
       <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[68vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 cursor-grab active:cursor-grabbing origin-center" draggable="false" />
     </div>
-      <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[68vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 cursor-grab active:cursor-grabbing origin-center" draggable="false" />
-    </div>
 
     <div class="w-full max-w-xl mx-auto flex items-center justify-center gap-2 pb-3 z-10" onclick="event.stopPropagation()">
       <div class="flex items-center gap-1.5 bg-slate-900/95 border border-slate-700/80 p-1.5 rounded-2xl shadow-2xl backdrop-blur-md">
@@ -1229,42 +1227,63 @@
       if (galInput) galInput.click();
     }
 
-    // Автоматическое масштабирование и сжатие снимка на клиенте через Canvas (до 1920px JPEG)
-    // Превращает 10-15 МБ фото с камеры смартфона в резкий 300-500 КБ снимок, загружающийся за 0.2с
+    // Сверхэффективное сжатие снимков через Canvas / ObjectURL с минимальным потреблением RAM
+    // Исключает OOM краши и перезапуск мобильного браузера Telegram WebApp
     function compressImage(file, maxDim, quality, callback) {
-      const reader = new FileReader();
-      reader.onload = function(e) {
-        const img = new Image();
-        img.onload = function() {
-          let w = img.width;
-          let h = img.height;
-          if (w > maxDim || h > maxDim) {
-            if (w > h) {
-              h = Math.round((h * maxDim) / w);
-              w = maxDim;
-            } else {
-              w = Math.round((w * maxDim) / h);
-              h = maxDim;
-            }
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+
+      img.onload = function() {
+        URL.revokeObjectURL(objectUrl); // Освобождаем память исходного файла сразу после загрузки декодера
+
+        let w = img.width;
+        let h = img.height;
+        if (w > maxDim || h > maxDim) {
+          if (w > h) {
+            h = Math.round((h * maxDim) / w);
+            w = maxDim;
+          } else {
+            w = Math.round((w * maxDim) / h);
+            h = maxDim;
           }
-          const canvas = document.createElement('canvas');
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          canvas.toBlob(function(blob) {
-            if (blob) {
-              callback(blob, canvas.toDataURL('image/jpeg', quality));
-            } else {
-              callback(null, null);
-            }
-          }, 'image/jpeg', quality);
-        };
-        img.onerror = function() { callback(null, null); };
-        img.src = e.target.result;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
+        
+        // Белый фон для четкого контраста страниц и формул
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, 0, 0, w, h);
+
+        // Очищаем ссылку на декодированный битмап
+        img.src = '';
+        img.onload = null;
+        img.onerror = null;
+
+        canvas.toBlob(function(blob) {
+          // Освобождаем холст сразу
+          canvas.width = 0;
+          canvas.height = 0;
+
+          if (blob) {
+            // URL.createObjectURL вместо огромной base64 строки toDataURL экономит десятки мегабайт RAM
+            const previewUrl = URL.createObjectURL(blob);
+            callback(blob, previewUrl);
+          } else {
+            callback(null, null);
+          }
+        }, 'image/jpeg', quality);
       };
-      reader.onerror = function() { callback(null, null); };
-      reader.readAsDataURL(file);
+
+      img.onerror = function() {
+        URL.revokeObjectURL(objectUrl);
+        callback(null, null);
+      };
+
+      img.src = objectUrl;
     }
 
     async function handlePhotoSelected(input) {
@@ -1295,9 +1314,9 @@
         if (!isImg) continue;
 
         await new Promise((resolve) => {
-          compressImage(file, 1920, 0.85, function(compressedBlob, dataUrl) {
+          // 1440px обеспечивает идеальную резкость формул при весе всего ~200-300 КБ и минимальной нагрузке на RAM
+          compressImage(file, 1440, 0.82, function(compressedBlob, previewData) {
             let processedFile;
-            let previewData = dataUrl;
             let sizeStr = '';
 
             if (compressedBlob) {
@@ -1379,6 +1398,10 @@
 
     function removePhoto(index) {
       if (index >= 0 && index < selectedPhotos.length) {
+        const item = selectedPhotos[index];
+        if (item?.previewUrl && item.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
         selectedPhotos.splice(index, 1);
         renderPhotoPreviews();
         if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
@@ -1386,6 +1409,11 @@
     }
 
     function clearAllPhotos() {
+      selectedPhotos.forEach(p => {
+        if (p?.previewUrl && p.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(p.previewUrl);
+        }
+      });
       selectedPhotos = [];
       const camInput = document.getElementById('modal-photo-camera');
       const galInput = document.getElementById('modal-photo-gallery');
@@ -1860,14 +1888,55 @@
     // ========================================================
     // МОДАЛЬНОЕ ОКНО СОЗДАНИЯ ЗАДАНИЯ
     // ========================================================
+    function saveDraftState() {
+      try {
+        const draft = {
+          subject: document.getElementById('modal-subject')?.value || 'Алгебра',
+          date: document.getElementById('modal-date')?.value || '',
+          desc: document.getElementById('modal-desc')?.value || '',
+          isOpen: !document.getElementById('add-modal')?.classList.contains('hidden')
+        };
+        sessionStorage.setItem('hw_modal_draft', JSON.stringify(draft));
+      } catch(e) {}
+    }
+
+    function restoreDraftState() {
+      try {
+        const raw = sessionStorage.getItem('hw_modal_draft');
+        if (!raw) return;
+        const draft = JSON.parse(raw);
+        if (draft.subject) {
+          document.getElementById('modal-subject').value = draft.subject;
+        }
+        if (draft.date) {
+          document.getElementById('modal-date').value = draft.date;
+          const picker = document.getElementById('modal-date-picker');
+          if (picker) picker.value = draft.date;
+        }
+        if (draft.desc) {
+          const descEl = document.getElementById('modal-desc');
+          if (descEl) {
+            descEl.value = draft.desc;
+            document.getElementById('desc-char-count').innerText = `${draft.desc.length} / 1500`;
+          }
+        }
+        if (draft.isOpen) {
+          document.getElementById('add-modal').classList.remove('hidden');
+          document.getElementById('add-modal').classList.add('flex');
+        }
+      } catch(e) {}
+    }
+
     function openAddModal() {
       document.getElementById('add-modal').classList.remove('hidden');
       document.getElementById('add-modal').classList.add('flex');
+      saveDraftState();
     }
     function closeAddModal() {
       document.getElementById('add-modal').classList.add('hidden');
       document.getElementById('add-modal').classList.remove('flex');
-      removeSelectedPhoto();
+      clearAllPhotos();
+      try { sessionStorage.removeItem('hw_modal_draft'); } catch(e) {}
     }
 
     function selectSubject(subj, el) {
@@ -1876,6 +1945,7 @@
         b.className = 'subject-btn py-2 px-1 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 font-medium flex items-center justify-center gap-1.5 transition';
       });
       el.className = 'subject-btn py-2 px-1 text-xs rounded-xl border border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 font-bold flex items-center justify-center gap-1.5 transition';
+      saveDraftState();
     }
 
     function selectDate(when, el) {
@@ -1891,6 +1961,7 @@
         b.className = 'date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1';
       });
       el.className = 'date-btn py-2 text-xs font-bold rounded-xl border border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 flex items-center justify-center gap-1';
+      saveDraftState();
     }
 
     function onCustomDateChange(el) {
@@ -2256,13 +2327,24 @@
       }
     }
 
-    // Запуск плавной анимации сразу в свободном фрейме браузера
-    requestAnimationFrame(() => {
-      startAutoUnzip();
-    });
+    // Запуск анимации рюкзака только при первом открытии в сессии
+    // Если мобильный браузер перезагружается при возврате из камеры смартфона, рюкзак не показывается повторно
+    if (sessionStorage.getItem('hw_splash_seen')) {
+      const bp = document.getElementById('backpack-screen');
+      if (bp) {
+        bp.style.display = 'none';
+        bp.remove();
+      }
+    } else {
+      sessionStorage.setItem('hw_splash_seen', '1');
+      requestAnimationFrame(() => {
+        startAutoUnzip();
+      });
+    }
 
     // Загрузка данных асинхронно без блокировки потока анимации
     loadTasks();
+    restoreDraftState();
   </script>
 </body>
 </html>
