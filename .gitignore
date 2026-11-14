@@ -6,6 +6,16 @@ __pycache__/
 # Secrets & Environment Variables
 .env
 
-# Database
+# Database (local fallback)
 *.db
 *.sqlite3
+
+# Binaries & Temporary files
+cloudflared.exe
+*.log
+ACTIVE_URL.txt
+scratch/
+
+# Uploads directory contents (keep empty folder or let server create it)
+uploads/*
+!uploads/.gitkeep

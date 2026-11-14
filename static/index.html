@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ДЗ Портал • 10-й Класс</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            blackboard: '#0f151b',
+            chalkSlate: '#18222b',
+            chalkBorder: '#233240',
+            chalkYellow: '#f6c343',
+            amberAccent: '#f59e0b',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* ======================================================== */
+    /* ТЕМНАЯ И СВЕТЛАЯ ТЕМЫ (СИММЕТРИЧНЫЙ ЧИСТЫЙ ДИЗАЙН)       */
+    /* ======================================================== */
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      overflow-x: hidden;
+      max-width: 100vw;
+      -webkit-overflow-scrolling: touch;
+      touch-action: pan-y;
+      background-attachment: fixed;
+    }
+
+    html.dark body {
+      background-color: #071322;
+      background-image: 
+        radial-gradient(ellipse 90% 45% at 50% -8%, rgba(56, 189, 248, 0.14) 0%, rgba(245, 158, 11, 0.06) 35%, transparent 75%),
+        linear-gradient(160deg, rgba(255, 255, 255, 0.03) 0%, transparent 35%, rgba(255, 255, 255, 0.01) 65%, transparent 100%),
+        radial-gradient(#192a3e 1px, transparent 1px),
+        linear-gradient(to bottom, #091728, #050d18);
+      background-size: 100% 100%, 100% 100%, 24px 24px, 100% 100%;
+      background-attachment: fixed;
+      color: #f1f5f9;
+    }
+
+    html.light body {
+      background-color: #f8fafc;
+      background-image: 
+        radial-gradient(ellipse 90% 45% at 50% -8%, rgba(255, 255, 255, 0.9) 0%, rgba(245, 158, 11, 0.04) 45%, transparent 80%),
+        radial-gradient(#cbd5e1 1.2px, transparent 1.2px),
+        linear-gradient(to bottom, #ffffff, #f1f5f9);
+      background-size: 100% 100%, 26px 26px, 100% 100%;
+      background-attachment: fixed;
+      color: #0f172a;
+    }
+
+    /* Изоляция отрисовки карточек для исключения рефлоу всего экрана */
+    .glossy-card {
+      contain: content;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      will-change: transform;
+    }
+
+    html.dark .glossy-card {
+      background: linear-gradient(160deg, #111f31 0%, #0c1724 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-top: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 
+        0 10px 24px -4px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.12);
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    html.light .glossy-card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 
+        0 6px 18px -3px rgba(15, 23, 42, 0.06),
+        0 2px 4px -1px rgba(15, 23, 42, 0.03);
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    .word-break-safe {
+      overflow-wrap: anywhere !important;
+      word-break: break-word !important;
+      word-wrap: break-word !important;
+      hyphens: auto;
+      max-width: 100%;
+    }
+
+    #tasks-container {
+      contain: layout style;
+    }
+
+    /* ======================================================== */
+    /* РЮКЗАК И ТЕТРАДЬ STAR: АНИМАЦИЯ ОТКРЫТИЯ (КАК НА ФОТО)  */
+    /* ======================================================== */
+    #backpack-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 30%, #162438 0%, #060a10 85%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      z-index: 999;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      will-change: opacity, transform;
+      transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+    }
+
+    #backpack-screen.screen-dismissed {
+      opacity: 0;
+      transform: translate3d(0, 0, 0) scale(1.06);
+      pointer-events: none;
+    }
+
+    /* Главный контейнер рюкзака с GPU-ускорением */
+    .backpack-container {
+      position: relative;
+      width: min(340px, 90vw);
+      height: min(540px, 78vh);
+      perspective: 1400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+
+    /* Верхняя ручка рюкзака */
+    .backpack-handle {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 78px;
+      height: 32px;
+      border: 7px solid #334155;
+      border-bottom: none;
+      border-radius: 18px 18px 0 0;
+      z-index: 2;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.6);
+    }
+
+    /* Боковые сетчатые карманы как на реальном рюкзаке пользователя */
+    .side-mesh-l, .side-mesh-r {
+      position: absolute;
+      bottom: 30px;
+      width: 22px;
+      height: 190px;
+      background: linear-gradient(to right, #1e293b, #0f172a);
+      border: 1px solid rgba(255,255,255,0.06);
+      z-index: 3;
+    }
+    .side-mesh-l {
+      left: -12px;
+      border-radius: 16px 0 0 20px;
+      transform: rotate(-3deg);
+    }
+    .side-mesh-r {
+      right: -12px;
+      border-radius: 0 16px 20px 0;
+      transform: rotate(3deg);
+    }
+
+    /* Задний корпус рюкзака (серый меланжевый материал как на фото) */
+    .backpack-rear {
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(circle at 50% 20%, rgba(255,255,255,0.1) 0%, transparent 70%),
+        linear-gradient(175deg, #718096 0%, #4a5568 50%, #2d3748 100%);
+      border-radius: 95px 95px 42px 42px;
+      box-shadow: 
+        0 35px 75px -10px rgba(0, 0, 0, 0.95),
+        inset 0 2px 4px rgba(255, 255, 255, 0.3),
+        inset 0 -4px 10px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      overflow: visible;
+      z-index: 5;
+    }
+
+    /* Внутренняя глубокая полость рюкзака (черная подкладка как на фото) */
+    .backpack-cavity {
+      position: absolute;
+      top: 35px;
+      left: 18px;
+      right: 18px;
+      bottom: 22px;
+      background: radial-gradient(circle at 50% 25%, #182230 0%, #06090e 90%);
+      border-radius: 75px 75px 30px 30px;
+      box-shadow: inset 0 20px 35px rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 10;
+      overflow: visible;
+    }
+
+    /* Нижний карман-фиксатор внутри рюкзака */
+    .inner-pocket-sleeve {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 120px;
+      background: linear-gradient(to top, #090e15 80%, rgba(9,14,21,0.5) 100%);
+      border-top: 1.5px solid rgba(255,255,255,0.06);
+      border-radius: 0 0 30px 30px;
+      z-index: 25;
+      pointer-events: none;
+    }
+
+    /* Учебник/тетрадь (выходит из самого низа полости рюкзака) */
+    /* ======================================================== */
+    /* ПАКЕТ ИЗ 3 УЧЕБНИКОВ (ВЫХОДИТ ИЗ САМОГО НИЗА)            */
+    /* ======================================================== */
+    .textbook-wrapper {
+      position: absolute;
+      bottom: 0;
+      width: 90%;
+      height: 420px;
+      transform-origin: center bottom;
+      transform: translate3d(0, 440px, 0) scale(0.75);
+      opacity: 0;
+      will-change: transform, opacity;
+      backface-visibility: hidden;
+      transition: transform 1.1s cubic-bezier(0.14, 1, 0.22, 1), opacity 0.35s ease-out;
+      z-index: 20;
+    }
+
+    #backpack-screen.emerged .textbook-wrapper {
+      transform: translate3d(0, -50px, 0) scale(1);
+      opacity: 1;
+    }
+
+    /* Базовый стиль учебника с аппаратным ускорением */
+    .book-item {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px 18px 18px 12px;
+      box-shadow: 
+        -5px 0 14px rgba(0, 0, 0, 0.8),
+        3px 3px 0 #cbd5e1,
+        6px 6px 0 #94a3b8,
+        0 30px 60px rgba(0, 0, 0, 0.9);
+      border-left: 14px solid rgba(0, 0, 0, 0.6);
+      position: absolute;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px 16px 16px 20px;
+      transform-origin: center bottom;
+      will-change: transform;
+      backface-visibility: hidden;
+      transform: translateZ(0);
+      transition: transform 1.1s cubic-bezier(0.14, 1, 0.22, 1);
+    }
+
+    /* Верхний срез бумажных листов */
+    .book-item::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 14px;
+      right: 0;
+      height: 9px;
+      background: linear-gradient(to bottom, #fef9c3 0%, #f1f5f9 45%, #94a3b8 100%);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    /* Внутренняя рамка */
+    .book-item::after {
+      content: '';
+      position: absolute;
+      inset: 6px 6px 6px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px 12px 12px 8px;
+      pointer-events: none;
+    }
+
+    /* Шелковая закладка-ленточка */
+    .book-item-ribbon {
+      position: absolute;
+      top: 0;
+      width: 13px;
+      height: 42px;
+      clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 80%, 0 100%);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.5);
+      z-index: 15;
+    }
+
+    /* 1. ХИМИЯ 10 (СЛЕВА СЗАДИ - ЗЕЛЕНАЯ) */
+    .book-chem-left {
+      background: linear-gradient(155deg, #065f46 0%, #022c22 70%, #011b15 100%);
+      border: 1px solid rgba(52, 211, 153, 0.4);
+      z-index: 10;
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+    #backpack-screen.emerged .book-chem-left {
+      transform: translate3d(-34px, -36px, 0) rotate(-8deg) scale(0.95);
+    }
+
+    /* 2. ФИЗИКА 10 (СПРАВА СЗАДИ - ЛАЗУРНАЯ) */
+    .book-phys-right {
+      background: linear-gradient(155deg, #0e7490 0%, #082f49 70%, #041928 100%);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      z-index: 12;
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+    #backpack-screen.emerged .book-phys-right {
+      transform: translate3d(34px, -36px, 0) rotate(8deg) scale(0.95);
+    }
+
+    /* 3. АЛГЕБРА 10 (ПО ЦЕНТРУ СПЕРЕДИ - САПФИР И ЗОЛОТО) */
+    .book-alg-center {
+      background: linear-gradient(155deg, #1e3a8a 0%, #0f2347 50%, #081220 100%);
+      border: 1.5px solid rgba(251, 191, 36, 0.45);
+      z-index: 15;
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+    #backpack-screen.emerged .book-alg-center {
+      transform: translate3d(0, -14px, 0) rotate(0deg) scale(1.03);
+    }
+
+    /* Внутренние элементы учебника */
+    .b-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: relative;
+      z-index: 10;
+    }
+    .b-badge {
+      font-size: 9px;
+      font-weight: 900;
+      padding: 2px 6px;
+      border-radius: 4px;
+      letter-spacing: 1px;
+    }
+    .b-class-tag {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+    }
+
+    .b-center {
+      text-align: center;
+      position: relative;
+      z-index: 10;
+      margin: 8px 0;
+    }
+    .b-icon-wrap {
+      width: 58px;
+      height: 58px;
+      margin: 0 auto 8px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+    }
+    .b-icon-wrap svg {
+      width: 32px;
+      height: 32px;
+    }
+    .b-title {
+      font-size: 23px;
+      font-weight: 900;
+      letter-spacing: 2.5px;
+      color: #ffffff;
+      text-shadow: 0 3px 10px rgba(0,0,0,0.8);
+      line-height: 1.1;
+    }
+    .b-subtitle {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      margin-top: 3px;
+      text-transform: uppercase;
+    }
+
+    .b-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      position: relative;
+      z-index: 10;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    .b-author {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #e2e8f0;
+    }
+    .b-grade {
+      font-size: 13px;
+      font-weight: 900;
+      color: #fbbf24;
+    }
+
+    /* ПЕРЕДНИЙ КЛАПАН РЮКЗАКА (ОТКИДЫВАЕТСЯ ВПЕРЕД И ВНИЗ КАК НА ФОТО 3 И 1) */
+    .backpack-front-flap {
+      position: absolute;
+      top: 65px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(175deg, #718096 0%, #4a5568 50%, #2d3748 100%);
+      border-radius: 75px 75px 42px 42px;
+      box-shadow: 
+        0 18px 40px rgba(0, 0, 0, 0.85),
+        inset 0 2px 4px rgba(255, 255, 255, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      transform-origin: center bottom;
+      transform-style: preserve-3d;
+      transition: transform 1.1s cubic-bezier(0.2, 0.9, 0.25, 1);
+      z-index: 30;
+      overflow: visible;
+    }
+
+    /* Когда замок расстегнут: клапан открывается и ложится вперед и вниз */
+    #backpack-screen.unzipped .backpack-front-flap {
+      transform: rotateX(-80deg) translateY(55px);
+    }
+
+    /* Лицевая сторона клапана с банджи-шнуром и спортивными полосами */
+    .flap-exterior {
+      position: absolute;
+      inset: 0;
+      border-radius: 75px 75px 42px 42px;
+      backface-visibility: hidden;
+      overflow: hidden;
+      background: linear-gradient(175deg, #718096 0%, #4a5568 50%, #2d3748 100%);
+    }
+
+    /* Внутренняя черная подкладка клапана с карманом на молнии (видна при откидывании как на фото 1) */
+    .flap-interior-lining {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 20%, #1e293b 0%, #090e15 80%);
+      border-radius: 75px 75px 42px 42px;
+      transform: rotateY(180deg);
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 35px;
+      box-shadow: inset 0 6px 15px rgba(0,0,0,0.8);
+    }
+    .flap-inner-pocket-line {
+      width: 75%;
+      height: 2px;
+      background: #334155;
+      border-radius: 2px;
+      position: relative;
+    }
+    .flap-inner-zip-slider {
+      position: absolute;
+      top: -6px;
+      left: 35%;
+      width: 14px;
+      height: 14px;
+      background: #475569;
+      border-radius: 3px;
+      box-shadow: 0 1px 3px #000;
+    }
+
+    /* Спортивные полосы на клапане как на реальном рюкзаке */
+    .sports-stripes {
+      position: absolute;
+      top: 45px;
+      right: 15px;
+      width: 150px;
+      height: 190px;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .sports-stripes path {
+      stroke: #1a202c;
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+
+    /* Банджи-шнур (крест-накрест) с центральным замком */
+    .bungee-system {
+      position: absolute;
+      top: 60px;
+      left: 20px;
+      right: 20px;
+      height: 250px;
+      pointer-events: none;
+    }
+
+    /* Желтые петли под шнур как на фото */
+    .yellow-loop {
+      width: 9px;
+      height: 16px;
+      background: #f59e0b;
+      border-radius: 3px;
+      position: absolute;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+      z-index: 5;
+    }
+    .loop-tl { top: 60px; left: 16px; }
+    .loop-tr { top: 60px; right: 16px; }
+    .loop-ml { top: 175px; left: 16px; }
+    .loop-mr { top: 175px; right: 16px; }
+    .loop-bl { top: 290px; left: 24px; }
+    .loop-br { top: 290px; right: 24px; }
+
+    /* Верхний изогнутый замок-молния (Arched Top Zipper) */
+    .zipper-arch-svg {
+      position: absolute;
+      top: 28px;
+      left: 0;
+      right: 0;
+      width: 100%;
+      height: 90px;
+      z-index: 35;
+      pointer-events: none;
+    }
+
+    /* Бегунки молнии (двойной замок) */
+    .slider-puller {
+      position: absolute;
+      width: 24px;
+      height: 42px;
+      top: 35px;
+      z-index: 40;
+      pointer-events: none;
+      will-change: transform;
+      backface-visibility: hidden;
+      transition: transform 0.75s cubic-bezier(0.25, 1, 0.3, 1);
+    }
+    .slider-left {
+      left: 50%;
+      transform: translate3d(-24px, 0, 0);
+    }
+    .slider-right {
+      left: 50%;
+      transform: translate3d(0px, 0, 0);
+    }
+    #backpack-screen.unzipped .slider-left {
+      transform: translate3d(-138px, 45px, 0) rotate(-65deg);
+    }
+    #backpack-screen.unzipped .slider-right {
+      transform: translate3d(114px, 45px, 0) rotate(65deg);
+    }
+
+    /* Подсказка снизу */
+    .skip-prompt {
+      margin-top: 25px;
+      font-size: 11px;
+      color: #94a3b8;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      opacity: 0.8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body class="p-4 pb-28 max-w-lg mx-auto select-none transition-colors duration-200">
+
+  <!-- ======================================================== -->
+  <!-- РЮКЗАК И ТЕТРАДЬ STAR: АНИМАЦИЯ ОТКРЫТИЯ (КАК НА ФОТО)    -->
+  <!-- ======================================================== -->
+  <div id="backpack-screen">
+    <div class="backpack-container">
+      <!-- Ручка рюкзака -->
+      <div class="backpack-handle"></div>
+
+      <!-- Боковые сетчатые карманы -->
+      <div class="side-mesh-l"></div>
+      <div class="side-mesh-r"></div>
+
+      <!-- Задний корпус рюкзака -->
+      <div class="backpack-rear">
+        <!-- Внутренняя глубокая полость -->
+        <div class="backpack-cavity">
+          <!-- Нижний карман-фиксатор -->
+          <div class="inner-pocket-sleeve"></div>
+
+          <!-- Учебник/тетрадь (выходит вверх из глубины) -->
+          <div class="textbook-wrapper">
+
+            <!-- 1. ХИМИЯ 10 (СЛЕВА СЗАДИ - ИЗУМРУДНАЯ) -->
+            <div class="book-item book-chem-left">
+              <div class="book-item-ribbon" style="background: #10b981; right: 28px;"></div>
+              <div class="b-header">
+                <span class="b-badge" style="background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.4);">ФГОС</span>
+                <span class="b-class-tag" style="color: #a7f3d0;">10 КЛАСС</span>
+              </div>
+              <div class="b-center">
+                <div class="b-icon-wrap" style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 2v7.31L4.69 17.5A2 2 0 0 0 6.36 21h11.28a2 2 0 0 0 1.67-3.5L14 9.31V2"/>
+                    <line x1="8.5" y1="2" x2="15.5" y2="2"/>
+                    <line x1="14" y1="13" x2="10" y2="13"/>
+                  </svg>
+                </div>
+                <div class="b-title">ХИМИЯ</div>
+                <div class="b-subtitle" style="color: #6ee7b7;">Габриелян О.С.</div>
+              </div>
+              <div class="b-footer">
+                <span class="b-author">ДРОФА</span>
+                <span class="b-grade" style="color: #6ee7b7;">10</span>
+              </div>
+            </div>
+
+            <!-- 2. ФИЗИКА 10 (СПРАВА СЗАДИ - ЛАЗУРНАЯ) -->
+            <div class="book-item book-phys-right">
+              <div class="book-item-ribbon" style="background: #0284c7; right: 34px;"></div>
+              <div class="b-header">
+                <span class="b-badge" style="background: rgba(2, 132, 199, 0.2); color: #7dd3fc; border: 1px solid rgba(2, 132, 199, 0.4);">ФГОС</span>
+                <span class="b-class-tag" style="color: #bae6fd;">10 КЛАСС</span>
+              </div>
+              <div class="b-center">
+                <div class="b-icon-wrap" style="background: rgba(2, 132, 199, 0.15); border: 1px solid rgba(2, 132, 199, 0.35);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"/>
+                    <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(30 12 12)"/>
+                    <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(-30 12 12)"/>
+                  </svg>
+                </div>
+                <div class="b-title">ФИЗИКА</div>
+                <div class="b-subtitle" style="color: #7dd3fc;">Мякишев Г.Я.</div>
+              </div>
+              <div class="b-footer">
+                <span class="b-author">ПРОСВЕЩЕНИЕ</span>
+                <span class="b-grade" style="color: #7dd3fc;">10</span>
+              </div>
+            </div>
+
+            <!-- 3. АЛГЕБРА 10 (ПО ЦЕНТРУ СПЕРЕДИ - САПФИР И ЗОЛОТО) -->
+            <div class="book-item book-alg-center">
+              <div class="book-item-ribbon" style="background: #dc2626; right: 30px;"></div>
+              <div class="b-header">
+                <span class="b-badge" style="background: rgba(245, 158, 11, 0.18); color: #fef08a; border: 1px solid rgba(245, 158, 11, 0.5);">ФГОС</span>
+                <span class="b-class-tag" style="color: #93c5fd;">10-А • ДЗ ПОРТАЛ</span>
+              </div>
+              <div class="b-center">
+                <div class="b-icon-wrap" style="background: radial-gradient(circle, rgba(245, 158, 11, 0.25) 0%, transparent 70%); border: 1.5px solid rgba(251, 191, 36, 0.5);">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                    <polyline points="2 17 12 22 22 17"></polyline>
+                    <polyline points="2 12 12 17 22 12"></polyline>
+                  </svg>
+                </div>
+                <div class="b-title">АЛГЕБРА</div>
+                <div class="b-subtitle" style="color: #fbbf24;">И начала анализа</div>
+              </div>
+              <div class="b-footer">
+                <span class="b-author">Алимов • Колягин</span>
+                <span class="b-grade">10</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Изогнутый замок-молния по верхнему куполу -->
+      <svg class="zipper-arch-svg" viewBox="0 0 340 90">
+        <path d="M 20 80 Q 170 12 320 80" fill="none" stroke="#1e293b" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 20 80 Q 170 12 320 80" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-dasharray="3,3" stroke-linecap="round"/>
+      </svg>
+
+      <!-- Бегунки молнии со шнурками-пуллерами -->
+      <div class="slider-puller slider-left">
+        <svg viewBox="0 0 24 42" fill="none">
+          <rect x="5" y="2" width="14" height="12" rx="3" fill="#1e293b" stroke="#64748b" stroke-width="1.2"/>
+          <path d="M12 14 v22" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="12" cy="36" r="3.5" fill="#f59e0b"/>
+        </svg>
+      </div>
+      <div class="slider-puller slider-right">
+        <svg viewBox="0 0 24 42" fill="none">
+          <rect x="5" y="2" width="14" height="12" rx="3" fill="#1e293b" stroke="#64748b" stroke-width="1.2"/>
+          <path d="M12 14 v22" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="12" cy="36" r="3.5" fill="#f59e0b"/>
+        </svg>
+      </div>
+
+      <!-- Желтые петли под банджи-шнур как на фото -->
+      <div class="yellow-loop loop-tl"></div>
+      <div class="yellow-loop loop-tr"></div>
+      <div class="yellow-loop loop-ml"></div>
+      <div class="yellow-loop loop-mr"></div>
+      <div class="yellow-loop loop-bl"></div>
+      <div class="yellow-loop loop-br"></div>
+
+      <!-- Передний откидной клапан рюкзака -->
+      <div class="backpack-front-flap">
+        <!-- Внешняя сторона клапана -->
+        <div class="flap-exterior">
+          <!-- Спортивные косые полосы -->
+          <svg class="sports-stripes" viewBox="0 0 150 190">
+            <path d="M25 20 Q 85 55 140 115 M15 65 Q 65 95 120 155 M8 105 Q 45 125 100 175"/>
+          </svg>
+
+          <!-- Банджи-шнур (крест-накрест) -->
+          <svg class="bungee-system" viewBox="0 0 300 250">
+            <path d="M 8 10 L 292 95 L 8 180 L 150 220 L 292 180 L 8 95 L 292 10" fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+            <circle cx="150" cy="75" r="9" fill="#0f172a" stroke="#64748b" stroke-width="2"/>
+            <path d="M150 84 v32" stroke="#0f172a" stroke-width="3.5"/>
+            <circle cx="150" cy="118" r="4.5" fill="#f59e0b"/>
+          </svg>
+        </div>
+
+        <!-- Внутренняя сторона клапана (черная подкладка с карманом как на фото 1) -->
+        <div class="flap-interior-lining">
+          <div class="flap-inner-pocket-line">
+            <div class="flap-inner-zip-slider"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Подсказка -->
+    <div class="skip-prompt">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <span>Нажмите, чтобы пропустить</span>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- ВЕРХНЯЯ ШАПКА (БЕЗ НАДПИСИ ОНЛАЙН, ШКОЛЬНЫЙ СТИЛЬ)        -->
+  <!-- ======================================================== -->
+  <header class="mb-5">
+    <!-- Верхняя панель профиля (Симметричное расположение) -->
+    <div class="flex items-center justify-between mb-4 pt-1">
+      <div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <h1 id="user-greeting-name" class="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Ученик</h1>
+          <span class="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-600 dark:text-amber-400 text-xs font-bold">10-А класс</span>
+          <span id="school-date" class="text-xs text-slate-500 dark:text-slate-400 font-medium"></span>
+        </div>
+      </div>
+
+      <!-- Кнопка темы + Фирменная школьная аватарка (Симметричные круглые элементы) -->
+      <div class="flex items-center gap-2.5">
+        <button onclick="toggleTheme()" id="theme-btn" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white flex items-center justify-center transition active:scale-95 shadow-sm" title="Сменить тему">
+          <span id="theme-icon-slot"></span>
+        </button>
+        <div id="header-avatar-slot" class="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center shadow-md ring-2 ring-amber-400"></div>
+      </div>
+    </div>
+
+    <!-- HERO-КАРТОЧКА: ПРОГРЕСС ЗА НЕДЕЛЮ (Четкая читаемость в обеих темах) -->
+    <div class="rounded-[26px] p-5 shadow-lg relative overflow-hidden bg-white dark:bg-gradient-to-r dark:from-[#0d2238] dark:via-[#10273f] dark:to-[#142e4a] border border-slate-200/90 dark:border-white/10 text-slate-900 dark:text-white transition-colors duration-200">
+      <div class="absolute -right-8 -top-8 w-44 h-44 bg-cyan-500/15 rounded-full blur-3xl pointer-events-none"></div>
+
+      <div class="flex items-center justify-between gap-4 relative z-10">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 mb-1">
+            <span class="w-3.5 h-3.5 text-amber-400 inline-block shrink-0" id="hero-bolt-slot"></span>
+            <span class="text-[10px] font-mono font-bold tracking-widest text-amber-400 uppercase">⚡ НЕДЕЛЬНЫЙ ПРОГРЕСС</span>
+          </div>
+          <h2 id="hero-title" class="text-xl font-black text-slate-900 dark:text-white leading-tight">
+            Прогресс за неделю
+          </h2>
+          <p id="hero-stat-text" class="text-xs text-slate-500 dark:text-slate-300 mt-1 font-medium leading-relaxed truncate">
+            Загрузка выполнения...
+          </p>
+        </div>
+
+        <!-- Круглый бейдж прогресса -->
+        <div id="hero-percent-badge" class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-950 font-black text-base flex flex-col items-center justify-center shadow-lg shadow-amber-500/35 shrink-0 active:scale-95 transition">
+          <span id="hero-percent-label" class="leading-none text-base font-black">0%</span>
+          <span class="text-[8px] font-black uppercase tracking-tighter opacity-80 mt-0.5">НЕДЕЛЯ</span>
+        </div>
+      </div>
+
+      <!-- Полоса шкалы прогресса (Progress Bar) -->
+      <div class="mt-4 pt-1 relative z-10">
+        <div class="w-full bg-slate-100 dark:bg-black/40 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200/80 dark:border-white/10 shadow-inner">
+          <div id="hero-progress-bar" class="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-300 rounded-full transition-all duration-700 ease-out shadow-sm shadow-amber-400/50" style="width: 0%"></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- БЫСТРЫЕ ДЕЙСТВИЯ: 3 СИММЕТРИЧНЫХ СКВИРКЛА (ДЛЯ ДНЯ И НОЧИ) -->
+  <section class="grid grid-cols-3 gap-3 mb-3">
+    <!-- Кнопка 1: Добавить Д/З -->
+    <button onclick="openAddModal()" class="bg-white dark:bg-[#111f31] text-slate-900 dark:text-white rounded-[24px] p-4 shadow-sm hover:shadow-md dark:shadow-xl dark:hover:shadow-2xl active:scale-95 transition flex flex-col items-center justify-center text-center gap-2 border border-slate-200/90 dark:border-white/10 border-t-white dark:border-t-white/20">
+      <div class="w-10 h-10 rounded-full bg-amber-500/15 dark:bg-white/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
+        <span class="w-5 h-5 flex items-center justify-center" id="quick-icon-add"></span>
+      </div>
+      <span class="text-xs font-black tracking-tight">Добавить</span>
+    </button>
+
+    <!-- Кнопка 2: На сегодня -->
+    <button onclick="setFilter('today')" class="bg-white dark:bg-[#111f31] text-slate-900 dark:text-white rounded-[24px] p-4 shadow-sm hover:shadow-md dark:shadow-xl dark:hover:shadow-2xl active:scale-95 transition flex flex-col items-center justify-center text-center gap-2 border border-slate-200/90 dark:border-white/10 border-t-white dark:border-t-white/20 relative">
+      <div class="w-10 h-10 rounded-full bg-cyan-500/15 dark:bg-white/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+        <span class="w-5 h-5 flex items-center justify-center" id="quick-icon-today"></span>
+      </div>
+      <span class="text-xs font-black tracking-tight">На сегодня</span>
+      <span id="badge-count-today" class="hidden absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-cyan-500 text-white shadow-sm">0</span>
+    </button>
+
+    <!-- Кнопка 3: На завтра -->
+    <button onclick="setFilter('tomorrow')" class="bg-white dark:bg-[#111f31] text-slate-900 dark:text-white rounded-[24px] p-4 shadow-sm hover:shadow-md dark:shadow-xl dark:hover:shadow-2xl active:scale-95 transition flex flex-col items-center justify-center text-center gap-2 border border-slate-200/90 dark:border-white/10 border-t-white dark:border-t-white/20 relative">
+      <div class="w-10 h-10 rounded-full bg-emerald-500/15 dark:bg-white/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+        <span class="w-5 h-5 flex items-center justify-center" id="quick-icon-tomorrow"></span>
+      </div>
+      <span class="text-xs font-black tracking-tight">На завтра</span>
+      <span id="badge-count-tomorrow" class="hidden absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white shadow-sm">0</span>
+    </button>
+  </section>
+
+  <!-- ВТОРИЧНЫЕ КАРТОЧКИ: СИММЕТРИЧНАЯ СЕТКА 2 КАРТОЧЕК -->
+  <section class="grid grid-cols-2 gap-3 mb-5">
+    <button onclick="setFilter('overdue')" class="glossy-card text-slate-900 dark:text-white rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-95 transition flex items-center gap-3 text-left">
+      <div class="w-10 h-10 rounded-2xl bg-rose-500/15 dark:bg-white/5 text-rose-500 dark:text-rose-400 flex items-center justify-center shrink-0">
+        <span class="w-5 h-5" id="quick-icon-overdue"></span>
+      </div>
+      <div class="min-w-0 flex-1">
+        <span class="text-xs font-bold block text-slate-900 dark:text-white">Мониторинг</span>
+        <span id="badge-count-overdue" class="text-[11px] text-rose-600 dark:text-rose-400 font-bold block truncate">0 долгов</span>
+      </div>
+    </button>
+
+    <button onclick="setFilter('pending')" class="glossy-card text-slate-900 dark:text-white rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-95 transition flex items-center gap-3 text-left">
+      <div class="w-10 h-10 rounded-2xl bg-amber-500/15 dark:bg-white/5 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+        <span class="w-5 h-5" id="quick-icon-all"></span>
+      </div>
+      <div class="min-w-0 flex-1">
+        <span class="text-xs font-bold block text-slate-900 dark:text-white">Все задания</span>
+        <span id="badge-count-all" class="text-[11px] text-amber-600 dark:text-amber-300 font-bold block truncate">0 заданий</span>
+      </div>
+    </button>
+  </section>
+
+  <!-- ГОРИЗОНТАЛЬНЫЕ ПИЛЛЫ-РАЗДЕЛЫ (ЧЕТКАЯ ВИДИМОСТЬ В СВЕТЛОЙ И ТЕМНОЙ ТЕМЕ) -->
+  <nav class="flex space-x-2.5 mb-4 overflow-x-auto pb-1 no-scrollbar select-none">
+    <button onclick="setFilter('pending')" id="tab-pending" class="py-2.5 px-5 text-xs font-black rounded-full bg-amber-400 text-slate-950 shadow-md transition shrink-0 flex items-center gap-1.5 active:scale-95">
+      <span class="w-3.5 h-3.5 inline-block" id="tab-icon-pending"></span>
+      <span>Все задания</span>
+    </button>
+    <button onclick="setFilter('today')" id="tab-today" class="py-2.5 px-5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
+      <span class="w-3.5 h-3.5 inline-block" id="tab-icon-today"></span>
+      <span>На сегодня</span>
+    </button>
+    <button onclick="setFilter('tomorrow')" id="tab-tomorrow" class="py-2.5 px-5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
+      <span class="w-3.5 h-3.5 inline-block" id="tab-icon-tomorrow"></span>
+      <span>На завтра</span>
+    </button>
+    <button onclick="setFilter('overdue')" id="tab-overdue" class="py-2.5 px-5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
+      <span class="w-3.5 h-3.5 inline-block" id="tab-icon-overdue"></span>
+      <span>Долги</span>
+    </button>
+  </nav>
+
+  <!-- Список домашних заданий -->
+  <main id="tasks-container" class="space-y-3.5">
+    <div class="animate-pulse glossy-card p-4.5 rounded-[24px] h-24"></div>
+    <div class="animate-pulse glossy-card p-4.5 rounded-[24px] h-24"></div>
+  </main>
+
+    <!-- ПЛАВАЮЩИЙ НИЖНИЙ ДОК (КАК "ВАША ЛЕНТА" В PAYME / TBC) -->
+  <div class="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40 bg-white/90 dark:bg-[#081524]/90 backdrop-blur-xl border border-slate-200/90 dark:border-white/15 rounded-full p-2 flex items-center justify-between shadow-xl shadow-slate-900/10 dark:shadow-2xl transition-colors duration-200">
+    <!-- Левая кнопка: Долги / Мониторинг -->
+    <button onclick="setFilter('overdue')" class="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white flex items-center justify-center active:scale-95 transition" title="Мониторинг долгов">
+      <span class="w-5 h-5" id="dock-icon-monitoring"></span>
+    </button>
+
+    <!-- Центральная кнопка: Белая/янтарная пилюля "Ваша лента" (в точности как в Payme) -->
+    <button onclick="setFilter('pending')" class="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md flex items-center gap-2 active:scale-95 transition">
+      <span class="w-4 h-4" id="dock-icon-feed"></span>
+      <span>Ваша лента</span>
+      <span id="dock-counter" class="ml-1 px-1.5 py-0.5 rounded-full bg-slate-950 text-amber-300 text-[10px] font-bold">0</span>
+    </button>
+
+    <!-- Правая кнопка: Добавить Д/З (плюсик) -->
+    <button onclick="openAddModal()" class="w-11 h-11 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black flex items-center justify-center shadow-md active:scale-95 transition" title="Добавить Д/З">
+      <span class="w-5 h-5" id="dock-icon-add"></span>
+    </button>
+  </div>
+
+  <!-- Модальное окно создания задания -->
+  <div id="add-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+    <div class="bg-white dark:bg-[#131d27] text-slate-900 dark:text-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-2 border-slate-200 dark:border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-200 dark:border-white/10">
+        <div class="flex items-center gap-2">
+          <div id="modal-title-icon" class="w-6 h-6 text-amber-400"></div>
+          <h2 class="text-base font-bold">Опубликовать Д/З</h2>
+        </div>
+        <button onclick="closeAddModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">
+          <span id="modal-close-icon" class="w-4 h-4"></span>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <!-- Выбор предмета -->
+        <div>
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Предмет</label>
+          <div class="grid grid-cols-3 gap-2" id="subject-selector-grid"></div>
+          <input type="hidden" id="modal-subject" value="Алгебра" />
+        </div>
+
+        <!-- Гибкий выбор даты сдачи -->
+        <div>
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Когда сдать?</label>
+          <div class="grid grid-cols-4 gap-1.5 mb-2">
+            <button type="button" onclick="selectDate('tomorrow', this)" class="date-btn py-2 text-xs font-bold rounded-xl border border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 flex items-center justify-center gap-1">
+              <span id="date-icon-tomorrow" class="w-3.5 h-3.5"></span>
+              <span>Завтра</span>
+            </button>
+            <button type="button" onclick="selectDate('today', this)" class="date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1">
+              <span id="date-icon-today" class="w-3.5 h-3.5"></span>
+              <span>Сегодня</span>
+            </button>
+            <button type="button" onclick="selectDate('in2days', this)" class="date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1">
+              <span id="date-icon-in2days" class="w-3.5 h-3.5"></span>
+              <span>+2 Дня</span>
+            </button>
+            <button type="button" onclick="selectDate('monday', this)" class="date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1">
+              <span id="date-icon-monday" class="w-3.5 h-3.5"></span>
+              <span>Пн</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-xs text-slate-500 dark:text-slate-400">Или точная дата:</span>
+            <input type="date" id="modal-date-picker" onchange="onCustomDateChange(this)" class="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-400" />
+          </div>
+          <input type="hidden" id="modal-date" />
+        </div>
+
+        <!-- Описание задания -->
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Задание / Номера</label>
+            <span id="desc-char-count" class="text-[10px] text-slate-400 font-mono">0 / 1500</span>
+          </div>
+          <textarea id="modal-desc" rows="3" maxlength="1500" oninput="updateCharCount(this)" placeholder="Например: Стр. 45, номера 12-18, параграф 4 выучить формулы" class="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none break-all"></textarea>
+        </div>
+
+        <!-- Фото страницы учебника (Камера + Галерея) -->
+        <div>
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+            <span id="input-photo-icon" class="w-4 h-4 text-amber-500"></span>
+            <span>Фото страницы учебника</span>
+          </label>
+
+          <!-- Скрытые инпуты для камеры и галереи -->
+          <input type="file" id="modal-photo-camera" accept="image/*" capture="environment" onchange="handlePhotoSelected(this)" class="hidden" />
+          <input type="file" id="modal-photo-gallery" accept="image/jpeg,image/png,image/webp" onchange="handlePhotoSelected(this)" class="hidden" />
+          <input type="file" id="modal-photo" class="hidden" />
+
+          <!-- Кнопки выбора источника: Сделать фото / Из галереи -->
+          <div id="photo-action-buttons" class="grid grid-cols-2 gap-2.5">
+            <button type="button" onclick="triggerCameraInput()" class="py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <span>Сделать фото</span>
+            </button>
+
+            <button type="button" onclick="triggerGalleryInput()" class="py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 active:scale-95 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <span>Из галереи</span>
+            </button>
+          </div>
+
+          <!-- Контейнер предпросмотра прикрепленного фото -->
+          <div id="photo-preview-card" class="hidden mt-2 p-2 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <img id="photo-preview-thumb" src="" alt="Превью" class="w-12 h-12 rounded-xl object-cover border border-slate-200 dark:border-white/10 shrink-0 shadow-xs" />
+              <div class="min-w-0 flex-1">
+                <p id="photo-preview-name" class="text-xs font-bold text-slate-900 dark:text-white truncate">photo.jpg</p>
+                <p id="photo-preview-size" class="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold mt-0.5">✓ Фото готово к отправке</p>
+              </div>
+            </div>
+            <button type="button" onclick="removeSelectedPhoto()" class="w-8 h-8 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0 active:scale-95 transition" title="Удалить фото">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          </div>
+
+          <div id="file-error-msg" class="text-[11px] text-rose-500 font-medium mt-1.5 hidden"></div>
+        </div>
+
+        <button onclick="submitNewTask()" id="submit-btn" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black rounded-xl shadow-lg transition active:scale-95 text-sm flex items-center justify-center gap-2">
+          <span>Опубликовать в класс</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Интерактивный просмотрщик фото -->
+  <div id="photo-modal" class="fixed inset-0 bg-black/95 backdrop-blur-lg hidden flex-col justify-between p-3 sm:p-5 z-50 select-none overflow-hidden" onclick="closePhotoViewer()">
+    <div class="w-full max-w-xl mx-auto flex items-center justify-between z-10 pt-1" onclick="event.stopPropagation()">
+      <div class="flex items-center gap-2.5 bg-slate-900/95 border border-slate-700/80 px-3.5 py-1.5 rounded-full text-xs shadow-xl backdrop-blur-md">
+        <span id="photo-camera-icon" class="w-4 h-4 text-amber-400"></span>
+        <span class="text-slate-400">Снимок выложил:</span>
+        <div id="photo-author-avatar" class="w-7 h-7 rounded-full overflow-hidden flex items-center justify-center"></div>
+        <span id="photo-author-nick" class="font-extrabold text-amber-300 font-mono tracking-tight text-sm truncate max-w-[150px]">@ник</span>
+      </div>
+      <button onclick="closePhotoViewer()" class="w-9 h-9 rounded-full bg-slate-800/90 hover:bg-slate-700 text-white flex items-center justify-center font-bold text-base transition shadow-lg border border-slate-700 active:scale-95" title="Закрыть">
+        <span id="photo-close-icon" class="w-4 h-4"></span>
+      </button>
+    </div>
+
+    <div id="photo-viewport" class="flex-1 w-full max-w-xl mx-auto flex items-center justify-center overflow-hidden my-3 relative" onclick="event.stopPropagation()">
+      <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[68vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 cursor-grab active:cursor-grabbing origin-center" draggable="false" />
+    </div>
+
+    <div class="w-full max-w-xl mx-auto flex items-center justify-center gap-2 pb-3 z-10" onclick="event.stopPropagation()">
+      <div class="flex items-center gap-1.5 bg-slate-900/95 border border-slate-700/80 p-1.5 rounded-2xl shadow-2xl backdrop-blur-md">
+        <button onclick="rotatePhoto(-90)" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 active:scale-90 text-slate-200 flex items-center justify-center transition" title="Повернуть влево (на 90°)">
+          <span id="icon-rot-left" class="w-5 h-5"></span>
+        </button>
+        <button onclick="rotatePhoto(90)" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 active:scale-90 text-slate-200 flex items-center justify-center transition" title="Повернуть вправо (на 90°)">
+          <span id="icon-rot-right" class="w-5 h-5"></span>
+        </button>
+        <div class="w-px h-5 bg-slate-700 mx-1"></div>
+        <button onclick="zoomPhoto(-0.25)" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 active:scale-90 text-slate-200 font-bold flex items-center justify-center transition" title="Уменьшить">
+          <span id="icon-zoom-out" class="w-5 h-5"></span>
+        </button>
+        <button onclick="resetPhotoTransform()" id="photo-zoom-label" class="px-2.5 h-10 rounded-xl bg-slate-800/50 hover:bg-slate-800 text-amber-300 font-mono text-xs font-bold flex items-center justify-center transition active:scale-95" title="Сбросить масштаб (100%)">
+          100%
+        </button>
+        <button onclick="zoomPhoto(0.25)" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 active:scale-90 text-slate-200 font-bold flex items-center justify-center transition" title="Увеличить">
+          <span id="icon-zoom-in" class="w-5 h-5"></span>
+        </button>
+        <div class="w-px h-5 bg-slate-700 mx-1"></div>
+        <a id="photo-download-btn" href="#" download class="px-3.5 h-10 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 active:scale-95 text-slate-950 font-black text-xs flex items-center gap-1.5 transition shadow-md" title="Скачать снимок">
+          <span id="icon-download-tray" class="w-4 h-4"></span>
+          <span>Скачать</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========================================================
+    // ФУНКЦИЯ ЭКРАНИРОВАНИЯ HTML (XSS DEFENSE)
+    // ========================================================
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    // ========================================================
+    // ВЕКТОРНЫЕ SVG ИКОНКИ С НУЛЯ
+    // ========================================================
+    const ICONS = {
+            eye: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>`,
+      dots: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>`,
+      monitoring: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>`,
+      feed: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>`,
+      plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 5v14M5 12h14"/></svg>`,
+      backpack: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M5 10v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a5 5 0 0 0-5-5H10a5 5 0 0 0-5 5Z"/><path d="M9 5V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M9 13h6"/><path d="M8 17h8"/></svg>`,
+      bolt: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
+      moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg>`,
+      sun: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
+      allTasks: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M9 12h6"/><path d="M9 16h6"/><path d="m9 9 1 1 2-2"/></svg>`,
+      today: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+      overdue: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+      pencil: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>`,
+      note: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>`,
+      close: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
+      calendar: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+      camera: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>`,
+      bookPage: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
+      rotLeft: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>`,
+      rotRight: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 12a9 9 0 1 1-9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>`,
+      zoomIn: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`,
+      zoomOut: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`,
+      download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
+      check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="20 6 9 17 4 12"/></svg>`,
+
+      // Предметы
+      algebra: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 21h18"/><path d="M5 21l14-14"/><path d="M19 21V7"/><path d="M8 21v-3"/><path d="M11 21v-2"/><path d="M14 21v-3"/><path d="M17 21v-2"/></svg>`,
+      physics: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(-30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(90 12 12)"/></svg>`,
+      chemistry: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M9 3h6"/><path d="M10 3v5l-6 10a2 2 0 0 0 1.7 3h12.6a2 2 0 0 0 1.7-3L14 8V3"/><path d="M6.5 16h11"/><circle cx="10" cy="18" r="1" fill="currentColor"/><circle cx="14" cy="18" r="1" fill="currentColor"/></svg>`,
+      russian: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/><path d="M4 19.5a2.5 2.5 0 0 1 2.5-2.5H20"/></svg>`,
+      english: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>`,
+      history: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 4h16v3H4z"/><path d="M4 17h16v3H4z"/><path d="M7 7v10"/><path d="M12 7v10"/><path d="M17 7v10"/><path d="M2 20h20"/></svg>`,
+      cs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/><path d="m8 9-2 2 2 2"/><path d="m12 9 2 2-2 2"/></svg>`,
+      biology: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m2 15 20-6"/><path d="m2 9 20 6"/><path d="M12 4v16"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><circle cx="6" cy="6.5" r="1.5" fill="currentColor"/><circle cx="18" cy="17.5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>`,
+      geography: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4a12.5 12.5 0 0 1 0 16 12.5 12.5 0 0 1 0-16"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M8 22h8"/></svg>`
+    };
+
+    // Вставка иконок в DOM
+    const setSafeHtml = (id, html) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = html;
+    };
+
+// header eye and dots removed
+    setSafeHtml('dock-icon-monitoring', ICONS.monitoring);
+    setSafeHtml('dock-icon-feed', ICONS.feed);
+    setSafeHtml('dock-icon-add', ICONS.plus);
+    setSafeHtml('hero-bolt-slot', ICONS.bolt);
+    document.getElementById('quick-icon-add').innerHTML = ICONS.pencil;
+    document.getElementById('quick-icon-today').innerHTML = ICONS.today;
+    document.getElementById('quick-icon-tomorrow').innerHTML = ICONS.calendar;
+    document.getElementById('quick-icon-overdue').innerHTML = ICONS.overdue;
+    document.getElementById('quick-icon-all').innerHTML = ICONS.allTasks;
+    document.getElementById('tab-icon-pending').innerHTML = ICONS.allTasks;
+    document.getElementById('tab-icon-today').innerHTML = ICONS.today;
+    document.getElementById('tab-icon-tomorrow').innerHTML = ICONS.calendar;
+    document.getElementById('tab-icon-overdue').innerHTML = ICONS.overdue;
+    setSafeHtml('btn-add-pencil', ICONS.pencil);
+    document.getElementById('modal-title-icon').innerHTML = ICONS.note;
+    document.getElementById('modal-close-icon').innerHTML = ICONS.close;
+    document.getElementById('photo-close-icon').innerHTML = ICONS.close;
+    document.getElementById('photo-camera-icon').innerHTML = ICONS.camera;
+    document.getElementById('input-photo-icon').innerHTML = ICONS.camera;
+    document.getElementById('date-icon-tomorrow').innerHTML = ICONS.calendar;
+    document.getElementById('date-icon-today').innerHTML = ICONS.today;
+    document.getElementById('date-icon-in2days').innerHTML = ICONS.calendar;
+    document.getElementById('date-icon-monday').innerHTML = ICONS.calendar;
+    document.getElementById('icon-rot-left').innerHTML = ICONS.rotLeft;
+    document.getElementById('icon-rot-right').innerHTML = ICONS.rotRight;
+    document.getElementById('icon-zoom-out').innerHTML = ICONS.zoomOut;
+    document.getElementById('icon-zoom-in').innerHTML = ICONS.zoomIn;
+    document.getElementById('icon-download-tray').innerHTML = ICONS.download;
+
+    // Стили предметов (Классическая школьная палитра)
+    const subjectStyles = {
+      'Алгебра': { icon: ICONS.algebra, border: 'border-l-amber-500', badge: 'bg-amber-500/15 text-amber-500 dark:text-amber-300 border-amber-500/30' },
+      'Физика': { icon: ICONS.physics, border: 'border-l-cyan-500', badge: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/30' },
+      'Химия': { icon: ICONS.chemistry, border: 'border-l-emerald-500', badge: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30' },
+      'Русский язык': { icon: ICONS.russian, border: 'border-l-blue-500', badge: 'bg-blue-500/15 text-blue-600 dark:text-blue-300 border-blue-500/30' },
+      'Англ. язык': { icon: ICONS.english, border: 'border-l-rose-500', badge: 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30' },
+      'История': { icon: ICONS.history, border: 'border-l-orange-500', badge: 'bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30' },
+      'Информатика': { icon: ICONS.cs, border: 'border-l-purple-500', badge: 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30' },
+      'Биология': { icon: ICONS.biology, border: 'border-l-lime-500', badge: 'bg-lime-500/15 text-lime-600 dark:text-lime-300 border-lime-500/30' },
+      'География': { icon: ICONS.geography, border: 'border-l-teal-500', badge: 'bg-teal-500/15 text-teal-600 dark:text-teal-300 border-teal-500/30' },
+      'Math': { icon: ICONS.algebra, border: 'border-l-amber-500', badge: 'bg-amber-500/15 text-amber-500 dark:text-amber-300 border-amber-500/30' },
+      'Physics': { icon: ICONS.physics, border: 'border-l-cyan-500', badge: 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border-cyan-500/30' },
+      'Chemistry': { icon: ICONS.chemistry, border: 'border-l-emerald-500', badge: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 border-emerald-500/30' },
+      'English': { icon: ICONS.english, border: 'border-l-rose-500', badge: 'bg-rose-500/15 text-rose-600 dark:text-rose-300 border-rose-500/30' },
+      'History': { icon: ICONS.history, border: 'border-l-orange-500', badge: 'bg-orange-500/15 text-orange-600 dark:text-orange-300 border-orange-500/30' },
+      'CS': { icon: ICONS.cs, border: 'border-l-purple-500', badge: 'bg-purple-500/15 text-purple-600 dark:text-purple-300 border-purple-500/30' }
+    };
+
+    const subjectList = [
+      { name: 'Алгебра', label: 'Алгебра', icon: ICONS.algebra },
+      { name: 'Физика', label: 'Физика', icon: ICONS.physics },
+      { name: 'Химия', label: 'Химия', icon: ICONS.chemistry },
+      { name: 'Русский язык', label: 'Русский', icon: ICONS.russian },
+      { name: 'Англ. язык', label: 'Английский', icon: ICONS.english },
+      { name: 'История', label: 'История', icon: ICONS.history },
+      { name: 'Информатика', label: 'Информат.', icon: ICONS.cs },
+      { name: 'Биология', label: 'Биология', icon: ICONS.biology },
+      { name: 'География', label: 'География', icon: ICONS.geography }
+    ];
+
+    const subjectGrid = document.getElementById('subject-selector-grid');
+    subjectGrid.innerHTML = subjectList.map((s, idx) => {
+      const activeClass = (idx === 0)
+        ? 'border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 font-bold'
+        : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 font-medium';
+      return `
+        <button type="button" onclick="selectSubject('${s.name}', this)" class="subject-btn py-2 px-1 text-xs rounded-xl border ${activeClass} flex items-center justify-center gap-1.5 transition">
+          <span class="w-3.5 h-3.5 inline-block shrink-0">${s.icon}</span>
+          <span class="truncate">${s.label}</span>
+        </button>
+      `;
+    }).join('');
+
+    function updateCharCount(el) {
+      document.getElementById('desc-char-count').innerText = `${el.value.length} / 1500`;
+    }
+
+        let selectedPhotoFile = null;
+
+    function triggerCameraInput() {
+      const camInput = document.getElementById('modal-photo-camera');
+      if (camInput) camInput.click();
+    }
+
+    function triggerGalleryInput() {
+      const galInput = document.getElementById('modal-photo-gallery');
+      if (galInput) galInput.click();
+    }
+
+    function handlePhotoSelected(input) {
+      const errorDiv = document.getElementById('file-error-msg');
+      if (errorDiv) {
+        errorDiv.classList.add('hidden');
+        errorDiv.innerText = '';
+      }
+
+      if (!input.files || input.files.length === 0) return;
+      const file = input.files[0];
+
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        if (errorDiv) {
+          errorDiv.innerText = '⚠️ Разрешены только изображения: JPEG, PNG или WEBP!';
+          errorDiv.classList.remove('hidden');
+        }
+        input.value = '';
+        return;
+      }
+
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        if (errorDiv) {
+          errorDiv.innerText = '⚠️ Файл превышает лимит 10 МБ! Сожмите фото.';
+          errorDiv.classList.remove('hidden');
+        }
+        input.value = '';
+        return;
+      }
+
+      selectedPhotoFile = file;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const thumb = document.getElementById('photo-preview-thumb');
+        const nameEl = document.getElementById('photo-preview-name');
+        const card = document.getElementById('photo-preview-card');
+        const actionBtns = document.getElementById('photo-action-buttons');
+
+        if (thumb) thumb.src = e.target.result;
+        if (nameEl) nameEl.innerText = file.name || 'Снимок страницы учебника';
+        if (card) card.classList.remove('hidden');
+        if (actionBtns) actionBtns.classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function removeSelectedPhoto() {
+      selectedPhotoFile = null;
+      const camInput = document.getElementById('modal-photo-camera');
+      const galInput = document.getElementById('modal-photo-gallery');
+      const card = document.getElementById('photo-preview-card');
+      const actionBtns = document.getElementById('photo-action-buttons');
+      const thumb = document.getElementById('photo-preview-thumb');
+
+      if (camInput) camInput.value = '';
+      if (galInput) galInput.value = '';
+      if (thumb) thumb.src = '';
+      if (card) card.classList.add('hidden');
+      if (actionBtns) actionBtns.classList.remove('hidden');
+    }
+
+    function validateFileSecurity(input) {
+      const errorDiv = document.getElementById('file-error-msg');
+      errorDiv.classList.add('hidden');
+      errorDiv.innerText = '';
+
+      if (!input.files || input.files.length === 0) return true;
+      const file = input.files[0];
+
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        errorDiv.innerText = '⚠️ Разрешены только изображения: JPEG, PNG или WEBP!';
+        errorDiv.classList.remove('hidden');
+        input.value = '';
+        return false;
+      }
+
+      const maxSize = 10 * 1024 * 1024;
+      if (file.size > maxSize) {
+        errorDiv.innerText = '⚠️ Файл превышает лимит 10 МБ! Сожмите фото.';
+        errorDiv.classList.remove('hidden');
+        input.value = '';
+        return false;
+      }
+
+      return true;
+    }
+
+    // ========================================================
+    // TELEGRAM WEBAPP И ПОЛЬЗОВАТЕЛЬ
+    // ========================================================
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+      tg.ready();
+      tg.expand();
+    }
+
+    const tgUser = tg?.initDataUnsafe?.user;
+    const userId = tgUser?.id || 12345;
+    const userName = tgUser?.first_name ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : 'Ученик';
+    const userNick = tgUser?.username ? `@${tgUser.username}` : (tgUser?.first_name ? `@${tgUser.first_name}` : '@ученик_10а');
+    const userPhoto = tgUser?.photo_url || '';
+
+    let authorCache = {};
+    try {
+      authorCache = JSON.parse(localStorage.getItem('hw_author_cache') || '{}');
+    } catch(e) {}
+    authorCache[userId] = { nick: userNick, photo: userPhoto, name: userName };
+    try {
+      localStorage.setItem('hw_author_cache', JSON.stringify(authorCache));
+    } catch(e) {}
+
+    // Определение никнейма автора (для подсказки при наведении и в окне фото)
+    function getAuthorNick(uid) {
+      if (!uid || uid === 'undefined') return '@одноклассник';
+      if (uid == userId) return `${userNick} (вы)`;
+      if (authorCache[uid]?.nick) return authorCache[uid].nick;
+      return `@ученик_${uid}`;
+    }
+
+    // Генерация стильной аватарки
+    function renderAvatarElement(uid, sizeClass = 'w-7 h-7') {
+      const isMe = (uid == userId);
+      const photo = isMe ? userPhoto : (authorCache[uid]?.photo || '');
+      
+      if (photo) {
+        return `<img src="${escapeHtml(photo)}" class="${sizeClass} rounded-full object-cover ring-2 ring-amber-400 shadow-sm shrink-0" alt="Аватар" />`;
+      }
+
+      const gradients = [
+        'from-amber-400 via-orange-500 to-amber-600',
+        'from-cyan-400 via-blue-500 to-indigo-600',
+        'from-emerald-400 via-teal-500 to-cyan-500',
+        'from-purple-500 via-violet-600 to-pink-500',
+        'from-rose-400 via-pink-500 to-orange-400'
+      ];
+      const grad = gradients[Math.abs(Number(uid) || 0) % gradients.length];
+      
+      let initial = 'У';
+      if (isMe) {
+        const parts = userName.split(' ');
+        initial = (parts.length > 1) ? `${parts[0][0]}${parts[1][0]}` : (parts[0][0] || 'У');
+      } else {
+        const cachedName = authorCache[uid]?.name || '';
+        const parts = cachedName.split(' ');
+        initial = (parts.length > 1) ? `${parts[0][0]}${parts[1][0]}` : (parts[0]?.[0] || 'У');
+      }
+
+      return `<div class="${sizeClass} rounded-full bg-gradient-to-tr ${grad} ring-2 ring-amber-400/80 flex items-center justify-center font-black text-slate-950 text-xs shadow-sm shrink-0 tracking-tighter">${escapeHtml(initial.toUpperCase())}</div>`;
+    }
+
+    // Верхняя аватарка и приветствие (БЕЗ НАДПИСИ ОНЛАЙН)
+    document.getElementById('header-avatar-slot').innerHTML = renderAvatarElement(userId, 'w-12 h-12 text-sm');
+    document.getElementById('user-greeting-name').innerText = userName;
+
+    // Переключение темы
+    function initTheme() {
+      const savedTheme = localStorage.getItem('school_theme') || (tg?.colorScheme === 'light' ? 'light' : 'dark');
+      applyTheme(savedTheme);
+    }
+
+    function toggleTheme() {
+      const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+      const next = current === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+      localStorage.setItem('school_theme', next);
+    }
+
+    function applyTheme(theme) {
+      const html = document.documentElement;
+      const slot = document.getElementById('theme-icon-slot');
+      if (theme === 'light') {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        slot.innerHTML = `<span class="w-5 h-5 text-amber-500 block">${ICONS.sun}</span>`;
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        slot.innerHTML = `<span class="w-5 h-5 text-amber-300 block">${ICONS.moon}</span>`;
+      }
+    }
+    initTheme();
+
+    const now = new Date();
+    const sd = document.getElementById('school-date'); if (sd) sd.innerText = now.toLocaleDateString('ru-RU', {
+      weekday: 'short', month: 'short', day: 'numeric'
+    });
+
+    let currentFilter = 'pending';
+    let allTasks = [];
+
+    function getISODate(offsetDays = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offsetDays);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    function getNextMonday() {
+      const d = new Date();
+      const day = d.getDay();
+      const diff = (day === 0 ? 1 : 8 - day);
+      d.setDate(d.getDate() + diff);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const dayStr = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${dayStr}`;
+    }
+
+    const defaultDate = getISODate(1);
+    document.getElementById('modal-date').value = defaultDate;
+    document.getElementById('modal-date-picker').value = defaultDate;
+
+    // Вспомогательная функция определения границ текущей недели (ПН - ВС)
+    function getWeekInfo() {
+      const now = new Date();
+      const day = now.getDay(); // 0 - Вс, 1 - Пн ... 6 - Сб
+      const diffToMonday = (day === 0 ? -6 : 1) - day;
+      const monday = new Date(now);
+      monday.setDate(now.getDate() + diffToMonday);
+      monday.setHours(0, 0, 0, 0);
+
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      sunday.setHours(23, 59, 59, 999);
+
+      const toISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      const mondayStr = toISO(monday);
+      const sundayStr = toISO(sunday);
+      const weekKey = mondayStr;
+
+      return { monday, sunday, mondayStr, sundayStr, weekKey };
+    }
+
+    // Функция правильного склонения числительных в русском языке
+    function formatPlural(n, one, few, many) {
+      const mod10 = n % 10;
+      const mod100 = n % 100;
+      if (mod100 >= 11 && mod100 <= 19) return `${n} ${many}`;
+      if (mod10 === 1) return `${n} ${one}`;
+      if (mod10 >= 2 && mod10 <= 4) return `${n} ${few}`;
+      return `${n} ${many}`;
+    }
+
+    // ========================================================
+    // НЕДЕЛЬНЫЙ ПРОГРЕСС И СЧЕТЧИКИ (PROGRESS BAR & BADGES)
+    // ========================================================
+    function updateProgressBar() {
+      const todayStr = getISODate(0);
+      const tomorrowStr = getISODate(1);
+      const { sundayStr, weekKey } = getWeekInfo();
+
+      // Точный подсчет заданий по категориям
+      const todayCount = allTasks.filter(t => (t.due_date || '').trim() === todayStr).length;
+      const tomorrowCount = allTasks.filter(t => (t.due_date || '').trim() === tomorrowStr).length;
+      const overdueCount = allTasks.filter(t => (t.due_date || '').trim() < todayStr).length;
+      const pendingCount = allTasks.length;
+
+      let doneThisWeek = parseInt(localStorage.getItem('hw_done_week_' + weekKey) || '0', 10);
+      const doneToday = parseInt(localStorage.getItem('hw_done_' + todayStr) || '0', 10);
+      if (doneThisWeek === 0 && doneToday > 0) {
+        doneThisWeek = doneToday;
+        localStorage.setItem('hw_done_week_' + weekKey, doneThisWeek);
+      }
+
+      // Все активные задания недели (включая просроченные)
+      const pendingThisWeek = allTasks.filter(t => (t.due_date || '').trim() <= sundayStr).length;
+      const totalWeek = doneThisWeek + pendingThisWeek;
+
+      let percent = 0;
+      if (totalWeek > 0) {
+        percent = Math.round((doneThisWeek / totalWeek) * 100);
+      } else if (allTasks.length === 0) {
+        percent = 100;
+      }
+
+      const bar = document.getElementById('hero-progress-bar');
+      if (bar) bar.style.width = `${percent}%`;
+
+      const percentLabel = document.getElementById('hero-percent-label');
+      if (percentLabel) percentLabel.innerText = `${percent}%`;
+
+      const statText = document.getElementById('hero-stat-text');
+      if (statText) {
+        if (totalWeek === 0 && allTasks.length === 0) {
+          statText.innerText = `🎉 Все задания недели закрыты! Отличная успеваемость!`;
+        } else if (percent === 100) {
+          statText.innerText = `Все ${doneThisWeek} заданий этой недели успешно выполнены! ✨`;
+        } else {
+          statText.innerText = `Выполнено ${doneThisWeek} из ${totalWeek} заданий на этой неделе`;
+        }
+      }
+
+      // Обновление бейджей на кнопках быстрого доступа
+      const bToday = document.getElementById('badge-count-today');
+      if (bToday) {
+        bToday.innerText = todayCount;
+        if (todayCount > 0) {
+          bToday.classList.remove('hidden');
+        } else {
+          bToday.classList.add('hidden');
+        }
+      }
+
+      const bTomorrow = document.getElementById('badge-count-tomorrow');
+      if (bTomorrow) {
+        bTomorrow.innerText = tomorrowCount;
+        if (tomorrowCount > 0) {
+          bTomorrow.classList.remove('hidden');
+        } else {
+          bTomorrow.classList.add('hidden');
+        }
+      }
+
+      // Обновление вторичных карточек ("1 долг", "2 долга", "0 долгов")
+      const bOverdue = document.getElementById('badge-count-overdue');
+      if (bOverdue) bOverdue.innerText = formatPlural(overdueCount, 'долг', 'долга', 'долгов');
+
+      const bAll = document.getElementById('badge-count-all');
+      if (bAll) bAll.innerText = formatPlural(pendingCount, 'задание', 'задания', 'заданий');
+
+// Вкладки без лишнего визуального шума счетчиков
+
+      // Обновление плавающего дока
+      const dockCounter = document.getElementById('dock-counter');
+      if (dockCounter) dockCounter.innerText = pendingCount;
+    }
+
+    // ========================================================
+    // ФИЛЬТРАЦИЯ ВКЛАДОК (С КЛАССИЧЕСКИМ АМБЕРНЫМ СТИЛЕМ)
+    // ========================================================
+    function setFilter(filter) {
+      currentFilter = filter;
+      const tabs = ['pending', 'today', 'tomorrow', 'overdue'];
+      
+      tabs.forEach(f => {
+        const btn = document.getElementById(`tab-${f}`);
+        if (!btn) return;
+
+        if (f === filter) {
+          btn.className = 'py-2.5 px-5 text-xs font-black rounded-full bg-amber-400 text-slate-950 shadow-md transition shrink-0 flex items-center gap-1.5 active:scale-95';
+        } else {
+          btn.className = 'py-2.5 px-5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95';
+        }
+      });
+
+      renderTasks();
+    }
+
+    // ========================================================
+    // РЕНДЕР КАРТОЧЕК С ПОЛНЫМ УСТРАНЕНИЕМ ВЫПИРАНИЯ ТЕКСТА
+    // ========================================================
+    // Форматирование даты в понятный дружелюбный вид (без сырых ISO строк)
+    function formatCardDueDate(dueDateStr, todayStr, tomorrowStr) {
+      if (!dueDateStr) return { text: '', badgeColor: '', badgeBg: '' };
+      
+      const parts = dueDateStr.split('-');
+      let dateFormatted = dueDateStr;
+      if (parts.length === 3) {
+        const months = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'нояб', 'дек'];
+        const day = parseInt(parts[2], 10);
+        const month = months[parseInt(parts[1], 10) - 1] || '';
+        dateFormatted = `${day} ${month}`;
+      }
+
+      if (dueDateStr < todayStr) {
+        return {
+          text: `⚠️ Долг • ${dateFormatted}`,
+          badgeColor: 'text-rose-600 dark:text-rose-400 font-bold',
+          badgeBg: 'bg-rose-500/10 dark:bg-rose-500/15 border-rose-500/25 dark:border-rose-500/30'
+        };
+      }
+      if (dueDateStr === todayStr) {
+        return {
+          text: `⏰ Сдать сегодня`,
+          badgeColor: 'text-amber-600 dark:text-amber-400 font-bold',
+          badgeBg: 'bg-amber-500/10 dark:bg-amber-500/15 border-amber-500/25 dark:border-amber-500/30'
+        };
+      }
+      if (dueDateStr === tomorrowStr) {
+        return {
+          text: `🗓️ На завтра`,
+          badgeColor: 'text-emerald-600 dark:text-emerald-400 font-bold',
+          badgeBg: 'bg-emerald-500/10 dark:bg-emerald-500/15 border-emerald-500/25 dark:border-emerald-500/30'
+        };
+      }
+      return {
+        text: `Срок: ${dateFormatted}`,
+        badgeColor: 'text-slate-600 dark:text-slate-400 font-medium',
+        badgeBg: 'bg-slate-100 dark:bg-white/5 border-slate-200 dark:border-white/10'
+      };
+    }
+
+    function renderTasks() {
+      const container = document.getElementById('tasks-container');
+      const todayStr = getISODate(0);
+      const tomorrowStr = getISODate(1);
+
+      let filtered = allTasks;
+      if (currentFilter === 'today') {
+        filtered = allTasks.filter(t => (t.due_date || '').trim() === todayStr);
+      } else if (currentFilter === 'tomorrow') {
+        filtered = allTasks.filter(t => (t.due_date || '').trim() === tomorrowStr);
+      } else if (currentFilter === 'overdue') {
+        filtered = allTasks.filter(t => (t.due_date || '').trim() < todayStr);
+      }
+
+      if (filtered.length === 0) {
+        let emptyTitle = "Всё сделано!";
+        let emptySubtitle = "В этом разделе нет заданий. Отдыхай!";
+        
+        if (currentFilter === 'tomorrow') {
+          emptyTitle = "На завтра ничего не задано!";
+          emptySubtitle = "Все уроки на завтра сделаны или ещё не записаны. Отличный повод отдохнуть!";
+        } else if (currentFilter === 'today') {
+          emptyTitle = "На сегодня уроков нет!";
+          emptySubtitle = "На сегодня ничего не осталось. Ты свободен!";
+        } else if (currentFilter === 'overdue') {
+          emptyTitle = "🎉 Долгов нет!";
+          emptySubtitle = "Все хвосты закрыты вовремя. Отличная работа!";
+        }
+
+        container.innerHTML = `
+          <div class="text-center py-16 text-slate-500">
+            <div class="w-14 h-14 mx-auto mb-3 text-amber-400">${ICONS.backpack}</div>
+            <p class="text-base font-bold text-slate-900 dark:text-slate-100">${escapeHtml(emptyTitle)}</p>
+            <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">${escapeHtml(emptySubtitle)}</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = filtered.map(t => {
+        const safeSubject = escapeHtml(t.subject);
+        const safeDesc = escapeHtml(t.description);
+        const dueDateInfo = formatCardDueDate(t.due_date, todayStr, tomorrowStr);
+
+        const style = subjectStyles[t.subject] || { 
+          icon: ICONS.note, 
+          badge: 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10' 
+        };
+
+        const firstMat = (t.materials && t.materials.length > 0) ? t.materials[0] : null;
+        const photoBtn = firstMat
+          ? `<button onclick="openPhotoViewer('/${escapeHtml(firstMat.file_id)}', '${escapeHtml(firstMat.uploader_id)}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/10 dark:hover:bg-amber-500/20 text-amber-800 dark:text-amber-300 text-xs font-bold border border-amber-300/80 dark:border-amber-500/25 transition active:scale-95 shadow-xs">
+               <span class="w-3.5 h-3.5 inline-block shrink-0">${ICONS.bookPage}</span>
+               <span>Страница учебника (${t.materials.length})</span>
+             </button>`
+          : '';
+
+        const authorAvatarHTML = renderAvatarElement(t.user_id, 'w-7 h-7 text-[11px]');
+        const authorNickText = (t.author_name && t.author_name.trim()) ? t.author_name : (t.author_nick || getAuthorNick(t.user_id));
+
+        return `
+          <div id="card-${t.id}" class="glossy-card p-4.5 rounded-[24px] transition hover:shadow-lg dark:hover:border-white/20 w-full max-w-full box-border relative flex flex-col justify-between">
+            <!-- Верхняя строка карточки: Предмет, Срок сдачи и Аватар автора -->
+            <div class="flex items-center justify-between gap-2 mb-2.5">
+              <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+                <!-- Бейдж предмета -->
+                <span class="text-xs font-bold px-2.5 py-1 rounded-xl border ${style.badge} flex items-center gap-1.5 shrink-0 shadow-xs">
+                  <span class="w-3.5 h-3.5 inline-block shrink-0">${style.icon}</span>
+                  <span class="truncate max-w-[130px]">${safeSubject}</span>
+                </span>
+
+                <!-- Бейдж срока сдачи -->
+                <span class="text-[11px] px-2.5 py-1 rounded-xl border ${dueDateInfo.badgeBg} ${dueDateInfo.badgeColor} shrink-0 shadow-xs">
+                  ${dueDateInfo.text}
+                </span>
+              </div>
+
+              <!-- Аватар автора задания в аккуратной капсуле -->
+              <div class="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shrink-0" title="Опубликовал ${escapeHtml(authorNickText)}">
+                ${authorAvatarHTML}
+                <span class="text-[10px] font-bold text-slate-600 dark:text-slate-400 font-mono">${escapeHtml(authorNickText)}</span>
+              </div>
+            </div>
+
+            <!-- Текст задания -->
+            <div class="w-full min-w-0 max-w-full overflow-hidden my-2">
+              <p class="text-[15px] text-slate-900 dark:text-slate-100 font-medium leading-relaxed break-all [overflow-wrap:anywhere] [word-break:break-word] break-words">${safeDesc}</p>
+            </div>
+
+            <!-- Нижняя панель карточки: Страница учебника (слева) и Кнопка выполнения (справа) -->
+            <div class="flex items-center justify-between gap-2 mt-2 pt-1 flex-wrap">
+              <div>
+                ${photoBtn}
+              </div>
+
+              <button onclick="markDone(${t.id}, this)" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-white/10 bg-slate-100/90 dark:bg-white/5 hover:border-emerald-500 hover:bg-emerald-500 hover:text-white text-slate-700 dark:text-slate-300 transition active:scale-95 text-xs font-bold shadow-xs ml-auto group" title="Сдать задание">
+                <span class="w-4 h-4 text-slate-400 dark:text-slate-400 group-hover:text-white transition">${ICONS.check}</span>
+                <span>Сдать</span>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function markDone(taskId, btn) {
+      if (btn) {
+        btn.className = 'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-500 text-white border border-emerald-500 text-xs font-bold shadow-sm ml-auto transition';
+        btn.innerHTML = `<span class="w-4 h-4 text-white">${ICONS.check}</span><span>Сдано! ✨</span>`;
+      }
+
+      if (tg?.HapticFeedback) {
+        tg.HapticFeedback.notificationOccurred('success');
+      }
+
+      const todayStr = getISODate(0);
+      let doneToday = parseInt(localStorage.getItem('hw_done_' + todayStr) || '0', 10);
+      localStorage.setItem('hw_done_' + todayStr, doneToday + 1);
+
+      const { weekKey } = getWeekInfo();
+      let doneWeek = parseInt(localStorage.getItem('hw_done_week_' + weekKey) || '0', 10);
+      localStorage.setItem('hw_done_week_' + weekKey, doneWeek + 1);
+
+      const card = document.getElementById(`card-${taskId}`);
+      if (card) {
+        setTimeout(() => {
+          card.classList.add('fade-out');
+        }, 120);
+      }
+
+      setTimeout(() => {
+        allTasks = allTasks.filter(t => t.id !== taskId);
+        updateProgressBar();
+        renderTasks();
+      }, 450);
+
+      try {
+        await fetch('/api/done', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({ task_id: taskId, user_id: userId })
+        });
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    // ========================================================
+    // МОДАЛЬНОЕ ОКНО СОЗДАНИЯ ЗАДАНИЯ
+    // ========================================================
+    function openAddModal() {
+      document.getElementById('add-modal').classList.remove('hidden');
+      document.getElementById('add-modal').classList.add('flex');
+    }
+    function closeAddModal() {
+      document.getElementById('add-modal').classList.add('hidden');
+      document.getElementById('add-modal').classList.remove('flex');
+      removeSelectedPhoto();
+    }
+
+    function selectSubject(subj, el) {
+      document.getElementById('modal-subject').value = subj;
+      document.querySelectorAll('.subject-btn').forEach(b => {
+        b.className = 'subject-btn py-2 px-1 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 font-medium flex items-center justify-center gap-1.5 transition';
+      });
+      el.className = 'subject-btn py-2 px-1 text-xs rounded-xl border border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 font-bold flex items-center justify-center gap-1.5 transition';
+    }
+
+    function selectDate(when, el) {
+      let dateVal = getISODate(1);
+      if (when === 'today') dateVal = getISODate(0);
+      if (when === 'in2days') dateVal = getISODate(2);
+      if (when === 'monday') dateVal = getNextMonday();
+
+      document.getElementById('modal-date').value = dateVal;
+      document.getElementById('modal-date-picker').value = dateVal;
+
+      document.querySelectorAll('.date-btn').forEach(b => {
+        b.className = 'date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1';
+      });
+      el.className = 'date-btn py-2 text-xs font-bold rounded-xl border border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 flex items-center justify-center gap-1';
+    }
+
+    function onCustomDateChange(el) {
+      if (el.value) {
+        document.getElementById('modal-date').value = el.value;
+        document.querySelectorAll('.date-btn').forEach(b => {
+          b.className = 'date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1';
+        });
+      }
+    }
+
+    async function submitNewTask() {
+      const subject = document.getElementById('modal-subject').value;
+      const dueDate = document.getElementById('modal-date').value;
+      const desc = document.getElementById('modal-desc').value.trim();
+      const photoInput = document.getElementById('modal-photo');
+      const submitBtn = document.getElementById('submit-btn');
+
+      if (!desc) {
+        alert('Пожалуйста, введите описание задания!');
+        return;
+      }
+      if (desc.length > 1500) {
+        alert('Описание слишком длинное (максимум 1500 символов)!');
+        return;
+      }
+      if (!validateFileSecurity(photoInput)) {
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Публикация...';
+
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            user_id: userId,
+            subject: subject,
+            description: desc,
+            due_date: dueDate,
+            telegram_nick: userNick,
+            full_name: (userName && userName !== 'Ученик') ? userName : null
+          })
+        });
+
+        const resData = await res.json();
+
+        const fileToUpload = selectedPhotoFile || (photoInput.files && photoInput.files.length > 0 ? photoInput.files[0] : null);
+        if (fileToUpload && resData.task_id) {
+          const formData = new FormData();
+          formData.append('task_id', resData.task_id);
+          formData.append('user_id', userId);
+          formData.append('photo', fileToUpload);
+
+          await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+          removeSelectedPhoto();
+        }
+
+        document.getElementById('modal-desc').value = '';
+        document.getElementById('desc-char-count').innerText = '0 / 1500';
+        closeAddModal();
+            // Фоновая синхронизация профиля ученика в Supabase / базе данных
+    try {
+      fetch('/api/user/sync', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          user_id: userId,
+          telegram_nick: userNick,
+          full_name: (userName && userName !== 'Ученик') ? userName : null
+        })
+      }).catch(() => {});
+    } catch(e) {}
+
+    loadTasks();
+      } catch (err) {
+        console.error(err);
+        alert('Ошибка при публикации задания.');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Опубликовать в класс';
+      }
+    }
+
+    // ========================================================
+    // ПРОСМОТРЩИК ФОТО
+    // ========================================================
+    let currentRotation = 0;
+    let currentZoom = 1;
+
+    function openPhotoViewer(url, uploaderId) {
+      currentRotation = 0;
+      currentZoom = 1;
+      updatePhotoTransform();
+
+      const img = document.getElementById('modal-image-preview');
+      img.src = url;
+
+      const avatarSlot = document.getElementById('photo-author-avatar');
+      avatarSlot.innerHTML = renderAvatarElement(uploaderId, 'w-7 h-7 text-xs');
+
+      const nickElem = document.getElementById('photo-author-nick');
+      if (uploaderId && uploaderId == userId) {
+        nickElem.innerText = `${userNick} (вы)`;
+      } else if (uploaderId && authorCache[uploaderId]?.nick) {
+        nickElem.innerText = authorCache[uploaderId].nick;
+      } else if (uploaderId && uploaderId !== 'undefined') {
+        nickElem.innerText = `@ученик_${uploaderId}`;
+      } else {
+        nickElem.innerText = '@одноклассник';
+      }
+
+      const dlBtn = document.getElementById('photo-download-btn');
+      if (dlBtn) {
+        dlBtn.href = url;
+        const filename = url.split('/').pop().replace(/[^a-zA-Z0-9._-]/g, '_') || 'textbook_page.jpg';
+        dlBtn.setAttribute('download', filename);
+      }
+
+      const modal = document.getElementById('photo-modal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closePhotoViewer() {
+      const modal = document.getElementById('photo-modal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.getElementById('modal-image-preview').src = '';
+      currentRotation = 0;
+      currentZoom = 1;
+    }
+
+    function rotatePhoto(deg) {
+      currentRotation = (currentRotation + deg) % 360;
+      updatePhotoTransform();
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    function zoomPhoto(delta) {
+      currentZoom = Math.max(0.5, Math.min(4.0, parseFloat((currentZoom + delta).toFixed(2))));
+      updatePhotoTransform();
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    function resetPhotoTransform() {
+      currentRotation = 0;
+      currentZoom = 1;
+      updatePhotoTransform();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    }
+
+    function updatePhotoTransform() {
+      const img = document.getElementById('modal-image-preview');
+      if (img) {
+        img.style.transform = `scale(${currentZoom}) rotate(${currentRotation}deg)`;
+      }
+      const label = document.getElementById('photo-zoom-label');
+      if (label) {
+        label.innerText = Math.round(currentZoom * 100) + '%';
+      }
+    }
+
+    const viewport = document.getElementById('photo-viewport');
+    if (viewport) {
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+          zoomPhoto(0.2);
+        } else {
+          zoomPhoto(-0.2);
+        }
+      }, { passive: false });
+    }
+
+            // ========================================================
+    // РЮКЗАК И ТЕТРАДЬ STAR: АНИМАЦИЯ ОТКРЫТИЯ (КАК НА ФОТО)
+    // ========================================================
+    const backpackScreen = document.getElementById('backpack-screen');
+    let isUnzipping = false;
+    let isFinished = false;
+
+    function startAutoUnzip() {
+      if (isUnzipping || isFinished || !backpackScreen) return;
+      isUnzipping = true;
+
+      // Используем requestAnimationFrame для гарантированного отсутствия первого лага
+      requestAnimationFrame(() => {
+        // Фаза 1: бегунки плавно расстегивают верхний купол (на отдельном GPU потоке)
+        setTimeout(() => {
+          if (isFinished) return;
+          requestAnimationFrame(() => {
+            backpackScreen.classList.add('unzipped');
+          });
+        }, 180);
+
+        // Фаза 2: клапан откидывается и 3 учебника плавно выходят веером
+        setTimeout(() => {
+          if (isFinished) return;
+          requestAnimationFrame(() => {
+            backpackScreen.classList.add('emerged');
+            if (tg?.HapticFeedback) {
+              tg.HapticFeedback.notificationOccurred('success');
+            }
+          });
+        }, 620);
+
+        // Фаза 3: бесшовный переход в приложение
+        setTimeout(() => {
+          dismissScreen();
+        }, 2050);
+      });
+    }
+
+    function dismissScreen() {
+      if (isFinished || !backpackScreen) return;
+      isFinished = true;
+      requestAnimationFrame(() => {
+        backpackScreen.classList.add('screen-dismissed');
+        setTimeout(() => {
+          backpackScreen.style.display = 'none';
+          backpackScreen.remove();
+        }, 400);
+      });
+    }
+
+    // Мгновенный пропуск при тапе
+    backpackScreen?.addEventListener('click', dismissScreen, { once: true });
+    backpackScreen?.addEventListener('touchstart', dismissScreen, { once: true });
+
+    // Загрузка заданий
+    async function loadTasks() {
+      try {
+        const res = await fetch(`/api/tasks?user_id=${userId}`);
+        allTasks = await res.json();
+        updateProgressBar();
+        renderTasks();
+      } catch (err) {
+        console.error("Error in loadTasks:", err);
+        document.getElementById('tasks-container').innerHTML = `
+          <div class="text-center py-12 px-4 rounded-[24px] glossy-card text-slate-500 dark:text-slate-400 text-sm max-w-sm mx-auto shadow-sm">
+            <div class="w-10 h-10 mx-auto mb-2 text-amber-500">${ICONS.note}</div>
+            <p class="font-bold text-slate-800 dark:text-slate-200">Не удалось загрузить задания</p>
+            <p class="text-xs text-slate-500 mt-1">Проверьте подключение к серверу</p>
+          </div>`;
+      }
+    }
+
+    // Запуск плавной анимации сразу в свободном фрейме браузера
+    requestAnimationFrame(() => {
+      startAutoUnzip();
+    });
+
+    // Загрузка данных асинхронно без блокировки потока анимации
+    loadTasks();
+  </script>
+</body>
+</html>

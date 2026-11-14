@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Backpack Opening Animation Test</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background: #080d15;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      perspective: 1200px;
+    }
+
+    #backpack-screen {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at 50% 30%, #162438 0%, #060a10 85%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      z-index: 999;
+      transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+    }
+
+    #backpack-screen.screen-dismissed {
+      opacity: 0;
+      transform: scale(1.08);
+      pointer-events: none;
+    }
+
+    /* Главный контейнер рюкзака */
+    .backpack-container {
+      position: relative;
+      width: min(340px, 90vw);
+      height: min(540px, 78vh);
+      perspective: 1400px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Верхняя ручка рюкзака */
+    .backpack-handle {
+      position: absolute;
+      top: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 78px;
+      height: 32px;
+      border: 7px solid #334155;
+      border-bottom: none;
+      border-radius: 18px 18px 0 0;
+      z-index: 2;
+      box-shadow: 0 -2px 8px rgba(0,0,0,0.6);
+    }
+
+    /* Боковые сетчатые карманы как на реальном рюкзаке пользователя */
+    .side-mesh-l, .side-mesh-r {
+      position: absolute;
+      bottom: 30px;
+      width: 22px;
+      height: 190px;
+      background: linear-gradient(to right, #1e293b, #0f172a);
+      border: 1px solid rgba(255,255,255,0.06);
+      z-index: 3;
+    }
+    .side-mesh-l {
+      left: -12px;
+      border-radius: 16px 0 0 20px;
+      transform: rotate(-3deg);
+    }
+    .side-mesh-r {
+      right: -12px;
+      border-radius: 0 16px 20px 0;
+      transform: rotate(3deg);
+    }
+
+    /* Задний корпус рюкзака (серый меланжевый материал как на фото) */
+    .backpack-rear {
+      position: absolute;
+      inset: 0;
+      background: 
+        radial-gradient(circle at 50% 20%, rgba(255,255,255,0.1) 0%, transparent 70%),
+        linear-gradient(175deg, #718096 0%, #4a5568 50%, #2d3748 100%);
+      border-radius: 95px 95px 42px 42px;
+      box-shadow: 
+        0 35px 75px -10px rgba(0, 0, 0, 0.95),
+        inset 0 2px 4px rgba(255, 255, 255, 0.3),
+        inset 0 -4px 10px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      overflow: visible;
+      z-index: 5;
+    }
+
+    /* Внутренняя глубокая полость рюкзака (черная подкладка как на фото) */
+    .backpack-cavity {
+      position: absolute;
+      top: 35px;
+      left: 18px;
+      right: 18px;
+      bottom: 22px;
+      background: radial-gradient(circle at 50% 25%, #182230 0%, #06090e 90%);
+      border-radius: 75px 75px 30px 30px;
+      box-shadow: inset 0 20px 35px rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 10;
+      overflow: visible;
+    }
+
+    /* Нижний карман-фиксатор внутри рюкзака */
+    .inner-pocket-sleeve {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 120px;
+      background: linear-gradient(to top, #090e15 80%, rgba(9,14,21,0.5) 100%);
+      border-top: 1.5px solid rgba(255,255,255,0.06);
+      border-radius: 0 0 30px 30px;
+      z-index: 25;
+      pointer-events: none;
+    }
+
+    /* Учебник/тетрадь (выходит из самого низа полости рюкзака) */
+    .textbook-wrapper {
+      position: absolute;
+      bottom: 0;
+      width: 90%;
+      height: 410px;
+      transform-origin: center bottom;
+      transform: translateY(430px) scale(0.8);
+      opacity: 0;
+      transition: transform 1.25s cubic-bezier(0.14, 1, 0.24, 1), opacity 0.4s ease-out;
+      z-index: 20;
+    }
+
+    #backpack-screen.emerged .textbook-wrapper {
+      transform: translateY(-48px) scale(1.02);
+      opacity: 1;
+    }
+
+    /* Обложка тетради (в точности как на реальном фото пользователя) */
+    .star-notebook {
+      width: 100%;
+      height: 100%;
+      background: #0d1218;
+      border-radius: 12px 18px 18px 12px;
+      box-shadow: 
+        -5px 0 14px rgba(0, 0, 0, 0.85),
+        4px 4px 0 #cbd5e1,
+        8px 8px 0 #94a3b8,
+        0 30px 60px rgba(0, 0, 0, 0.95);
+      border-left: 14px solid #1a2230;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 18px;
+    }
+
+    /* Верхний светлый срез листов как на фото пользователя */
+    .star-notebook::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 14px;
+      right: 0;
+      height: 10px;
+      background: linear-gradient(to bottom, #fef08a 0%, #e2e8f0 50%, #94a3b8 100%);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    /* Фирменный красный бейдж STAR как на фото */
+    .star-badge {
+      position: absolute;
+      top: 18px;
+      right: 18px;
+      background: #dc2626;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 1.2px;
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.7);
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      z-index: 10;
+    }
+
+    /* Бабочки на обложке в точности по расположению и цветам из фото 1 */
+    .butterfly-art {
+      position: absolute;
+      inset: 20px 10px 40px 10px;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .butterfly {
+      position: absolute;
+      filter: drop-shadow(0 2px 5px rgba(0,0,0,0.6));
+    }
+    /* 1. Бирюзовая слева */
+    .bf-cyan-left {
+      top: 45px;
+      left: 8px;
+      width: 70px;
+      height: 70px;
+      fill: #38bdf8;
+    }
+    /* 2. Коричнево-фиолетовая по центру */
+    .bf-brown-center {
+      top: 55px;
+      left: 68px;
+      width: 90px;
+      height: 90px;
+      fill: #581c87;
+      opacity: 0.85;
+    }
+    /* 3. Голубая справа */
+    .bf-cyan-right {
+      top: 48px;
+      right: 4px;
+      width: 80px;
+      height: 80px;
+      fill: #06b6d4;
+    }
+    /* 4. Оранжевые акценты */
+    .bf-orange-left {
+      top: 85px;
+      left: 45px;
+      width: 22px;
+      height: 22px;
+      fill: #ea580c;
+    }
+    .bf-orange-mid {
+      top: 155px;
+      left: 85px;
+      width: 32px;
+      height: 32px;
+      fill: #f97316;
+    }
+    .bf-orange-right {
+      top: 105px;
+      right: 48px;
+      width: 26px;
+      height: 26px;
+      fill: #ea580c;
+    }
+    /* 5. Белая снизу слева */
+    .bf-white-bot {
+      top: 145px;
+      left: 15px;
+      width: 46px;
+      height: 46px;
+      fill: #f8fafc;
+      opacity: 0.95;
+    }
+    /* 6. Лаймовая сверху */
+    .bf-lime-top {
+      top: 15px;
+      right: 70px;
+      width: 38px;
+      height: 38px;
+      fill: #a3e635;
+    }
+
+    /* Информационная плашка урока по центру */
+    .notebook-title-box {
+      margin-top: 185px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 16px;
+      padding: 14px;
+      text-align: center;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.7);
+      z-index: 10;
+    }
+    .notebook-subject {
+      font-size: 22px;
+      font-weight: 900;
+      color: #ffffff;
+      letter-spacing: 2px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    }
+    .notebook-grade {
+      font-size: 10px;
+      font-weight: 800;
+      color: #fbbf24;
+      letter-spacing: 2px;
+      margin-top: 3px;
+      text-transform: uppercase;
+    }
+
+    /* Отметка 96 PAGES как на фото 1 */
+    .notebook-pages-tag {
+      font-size: 10px;
+      font-weight: 900;
+      color: #64748b;
+      letter-spacing: 1.5px;
+      z-index: 10;
+    }
+
+    /* ПЕРЕДНИЙ КЛАПАН РЮКЗАКА (ОТКИДЫВАЕТСЯ ВПЕРЕД И ВНИЗ КАК НА ФОТО 3 И 1) */
+    .backpack-front-flap {
+      position: absolute;
+      top: 65px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(175deg, #718096 0%, #4a5568 50%, #2d3748 100%);
+      border-radius: 75px 75px 42px 42px;
+      box-shadow: 
+        0 18px 40px rgba(0, 0, 0, 0.85),
+        inset 0 2px 4px rgba(255, 255, 255, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      transform-origin: center bottom;
+      transform-style: preserve-3d;
+      transition: transform 1.1s cubic-bezier(0.2, 0.9, 0.25, 1);
+      z-index: 30;
+      overflow: visible;
+    }
+
+    /* Когда замок расстегнут: клапан открывается и ложится вперед и вниз */
+    #backpack-screen.unzipped .backpack-front-flap {
+      transform: rotateX(-80deg) translateY(55px);
+    }
+
+    /* Лицевая сторона клапана с банджи-шнуром и спортивными полосами */
+    .flap-exterior {
+      position: absolute;
+      inset: 0;
+      border-radius: 75px 75px 42px 42px;
+      backface-visibility: hidden;
+      overflow: hidden;
+      background: linear-gradient(175deg, #718096 0%, #4a5568 50%, #2d3748 100%);
+    }
+
+    /* Внутренняя черная подкладка клапана с карманом на молнии (видна при откидывании как на фото 1) */
+    .flap-interior-lining {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 20%, #1e293b 0%, #090e15 80%);
+      border-radius: 75px 75px 42px 42px;
+      transform: rotateY(180deg);
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding-top: 35px;
+      box-shadow: inset 0 6px 15px rgba(0,0,0,0.8);
+    }
+    .flap-inner-pocket-line {
+      width: 75%;
+      height: 2px;
+      background: #334155;
+      border-radius: 2px;
+      position: relative;
+    }
+    .flap-inner-zip-slider {
+      position: absolute;
+      top: -6px;
+      left: 35%;
+      width: 14px;
+      height: 14px;
+      background: #475569;
+      border-radius: 3px;
+      box-shadow: 0 1px 3px #000;
+    }
+
+    /* Спортивные полосы на клапане как на реальном рюкзаке */
+    .sports-stripes {
+      position: absolute;
+      top: 45px;
+      right: 15px;
+      width: 150px;
+      height: 190px;
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .sports-stripes path {
+      stroke: #1a202c;
+      stroke-width: 7;
+      stroke-linecap: round;
+    }
+
+    /* Банджи-шнур (крест-накрест) с центральным замком */
+    .bungee-system {
+      position: absolute;
+      top: 60px;
+      left: 20px;
+      right: 20px;
+      height: 250px;
+      pointer-events: none;
+    }
+
+    /* Желтые петли под шнур как на фото */
+    .yellow-loop {
+      width: 9px;
+      height: 16px;
+      background: #f59e0b;
+      border-radius: 3px;
+      position: absolute;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.6);
+      z-index: 5;
+    }
+    .loop-tl { top: 60px; left: 16px; }
+    .loop-tr { top: 60px; right: 16px; }
+    .loop-ml { top: 175px; left: 16px; }
+    .loop-mr { top: 175px; right: 16px; }
+    .loop-bl { top: 290px; left: 24px; }
+    .loop-br { top: 290px; right: 24px; }
+
+    /* Верхний изогнутый замок-молния (Arched Top Zipper) */
+    .zipper-arch-svg {
+      position: absolute;
+      top: 28px;
+      left: 0;
+      right: 0;
+      width: 100%;
+      height: 90px;
+      z-index: 35;
+      pointer-events: none;
+    }
+
+    /* Бегунки молнии (двойной замок) */
+    .slider-puller {
+      position: absolute;
+      width: 24px;
+      height: 42px;
+      transition: all 0.75s cubic-bezier(0.25, 1, 0.3, 1);
+      z-index: 40;
+      pointer-events: none;
+    }
+    .slider-left {
+      top: 35px;
+      left: 45%;
+      transform: translateX(-14px);
+    }
+    .slider-right {
+      top: 35px;
+      left: 55%;
+      transform: translateX(14px);
+    }
+    #backpack-screen.unzipped .slider-left {
+      top: 80px;
+      left: 20px;
+      transform: rotate(-65deg);
+    }
+    #backpack-screen.unzipped .slider-right {
+      top: 80px;
+      left: calc(100% - 44px);
+      transform: rotate(65deg);
+    }
+
+    /* Подсказка снизу */
+    .skip-prompt {
+      margin-top: 25px;
+      font-size: 11px;
+      color: #94a3b8;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      font-weight: 700;
+      opacity: 0.8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div id="backpack-screen">
+    <div class="backpack-container">
+      <!-- Ручка рюкзака -->
+      <div class="backpack-handle"></div>
+
+      <!-- Боковые сетчатые карманы -->
+      <div class="side-mesh-l"></div>
+      <div class="side-mesh-r"></div>
+
+      <!-- Задний корпус рюкзака -->
+      <div class="backpack-rear">
+        <!-- Внутренняя глубокая полость -->
+        <div class="backpack-cavity">
+          <!-- Нижний карман-фиксатор -->
+          <div class="inner-pocket-sleeve"></div>
+
+          <!-- Учебник/тетрадь (выходит вверх из глубины) -->
+          <div class="textbook-wrapper">
+            <div class="star-notebook">
+              <div class="star-badge">★ STAR</div>
+              
+              <!-- Бабочки как на фото 1 пользователя -->
+              <div class="butterfly-art">
+                <!-- Лаймовая бабочка сверху -->
+                <svg class="butterfly bf-lime-top" viewBox="0 0 24 24">
+                  <path d="M12 12c-2-3-6-4-8-2s-1 6 2 7c-2 2-3 5-1 7s6 0 7-3c1 3 5 5 7 3s1-5-1-7c3-1 4-5 2-7s-6-1-8 2z"/>
+                </svg>
+                <!-- Бирюзовая слева -->
+                <svg class="butterfly bf-cyan-left" viewBox="0 0 24 24">
+                  <path d="M12 12c-2-3-6-4-8-2s-1 6 2 7c-2 2-3 5-1 7s6 0 7-3c1 3 5 5 7 3s1-5-1-7c3-1 4-5 2-7s-6-1-8 2z"/>
+                </svg>
+                <!-- Маленькая оранжевая слева -->
+                <svg class="butterfly bf-orange-left" viewBox="0 0 24 24">
+                  <path d="M12 12c-2-3-6-4-8-2s-1 6 2 7c-2 2-3 5-1 7s6 0 7-3c1 3 5 5 7 3s1-5-1-7c3-1 4-5 2-7s-6-1-8 2z"/>
+                </svg>
+                <!-- Темно-коричнево-пурпурная по центру -->
+                <svg class="butterfly bf-brown-center" viewBox="0 0 24 24">
+                  <path d="M12 12c-2-3-6-4-8-2s-1 6 2 7c-2 2-3 5-1 7s6 0 7-3c1 3 5 5 7 3s1-5-1-7c3-1 4-5 2-7s-6-1-8 2z"/>
+                </svg>
+                <!-- Голубая справа -->
+                <svg class="butterfly bf-cyan-right" viewBox="0 0 24 24">
+                  <path d="M12 12c-2-3-6-4-8-2s-1 6 2 7c-2 2-3 5-1 7s6 0 7-3c1 3 5 5 7 3s1-5-1-7c3-1 4-5 2-7s-6-1-8 2z"/>
+                </svg>
+                <!-- Оранжевая справа -->
+                <svg class="butterfly bf-orange-right" viewBox="0 0 24 24">
+                  <path d="M12 12c-2-3-6-4-8-2s-1 6 2 7c-2 2-3 5-1 7s6 0 7-3c1 3 5 5 7 3s1-5-1-7c3-1 4-5 2-7s-6-1-8 2z"/>
+                </svg>
+                <!-- Оранжевая по центру внизу -->
+                <svg class="butterfly bf-orange-mid" viewBox="0 0 24 24">
+                  <path d="M12 12c-2-3-6-4-8-2s-1 6 2 7c-2 2-3 5-1 7s6 0 7-3c1 3 5 5 7 3s1-5-1-7c3-1 4-5 2-7s-6-1-8 2z"/>
+                </svg>
+                <!-- Белая снизу -->
+                <svg class="butterfly bf-white-bot" viewBox="0 0 24 24">
+                  <path d="M12 12c-2-3-6-4-8-2s-1 6 2 7c-2 2-3 5-1 7s6 0 7-3c1 3 5 5 7 3s1-5-1-7c3-1 4-5 2-7s-6-1-8 2z"/>
+                </svg>
+              </div>
+
+              <!-- Блок названия урока -->
+              <div class="notebook-title-box">
+                <div class="notebook-subject">АЛГЕБРА</div>
+                <div class="notebook-grade">10-А КЛАСС • ДЗ ПОРТАЛ</div>
+              </div>
+
+              <!-- Отметка 96 PAGES -->
+              <div class="notebook-pages-tag">96 PAGES</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Изогнутый замок-молния по верхнему куполу -->
+      <svg class="zipper-arch-svg" viewBox="0 0 340 90">
+        <path d="M 20 80 Q 170 12 320 80" fill="none" stroke="#1e293b" stroke-width="8" stroke-linecap="round"/>
+        <path d="M 20 80 Q 170 12 320 80" fill="none" stroke="#cbd5e1" stroke-width="2.5" stroke-dasharray="3,3" stroke-linecap="round"/>
+      </svg>
+
+      <!-- Бегунки молнии со шнурками-пуллерами -->
+      <div class="slider-puller slider-left">
+        <svg viewBox="0 0 24 42" fill="none">
+          <rect x="5" y="2" width="14" height="12" rx="3" fill="#1e293b" stroke="#64748b" stroke-width="1.2"/>
+          <path d="M12 14 v22" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="12" cy="36" r="3.5" fill="#f59e0b"/>
+        </svg>
+      </div>
+      <div class="slider-puller slider-right">
+        <svg viewBox="0 0 24 42" fill="none">
+          <rect x="5" y="2" width="14" height="12" rx="3" fill="#1e293b" stroke="#64748b" stroke-width="1.2"/>
+          <path d="M12 14 v22" stroke="#0f172a" stroke-width="3" stroke-linecap="round"/>
+          <circle cx="12" cy="36" r="3.5" fill="#f59e0b"/>
+        </svg>
+      </div>
+
+      <!-- Желтые петли под банджи-шнур как на фото -->
+      <div class="yellow-loop loop-tl"></div>
+      <div class="yellow-loop loop-tr"></div>
+      <div class="yellow-loop loop-ml"></div>
+      <div class="yellow-loop loop-mr"></div>
+      <div class="yellow-loop loop-bl"></div>
+      <div class="yellow-loop loop-br"></div>
+
+      <!-- Передний откидной клапан рюкзака -->
+      <div class="backpack-front-flap">
+        <!-- Внешняя сторона клапана -->
+        <div class="flap-exterior">
+          <!-- Спортивные косые полосы -->
+          <svg class="sports-stripes" viewBox="0 0 150 190">
+            <path d="M25 20 Q 85 55 140 115 M15 65 Q 65 95 120 155 M8 105 Q 45 125 100 175"/>
+          </svg>
+
+          <!-- Банджи-шнур (крест-накрест) -->
+          <svg class="bungee-system" viewBox="0 0 300 250">
+            <path d="M 8 10 L 292 95 L 8 180 L 150 220 L 292 180 L 8 95 L 292 10" fill="none" stroke="#0f172a" stroke-width="3.5" stroke-linecap="round"/>
+            <circle cx="150" cy="75" r="9" fill="#0f172a" stroke="#64748b" stroke-width="2"/>
+            <path d="M150 84 v32" stroke="#0f172a" stroke-width="3.5"/>
+            <circle cx="150" cy="118" r="4.5" fill="#f59e0b"/>
+          </svg>
+        </div>
+
+        <!-- Внутренняя сторона клапана (черная подкладка с карманом как на фото 1) -->
+        <div class="flap-interior-lining">
+          <div class="flap-inner-pocket-line">
+            <div class="flap-inner-zip-slider"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Подсказка -->
+    <div class="skip-prompt">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      <span>Нажмите, чтобы пропустить</span>
+    </div>
+  </div>
+
+  <script>
+    const screen = document.getElementById('backpack-screen');
+
+    function startAnimation() {
+      // Фаза 1: бегунки расстегивают верхний купол
+      setTimeout(() => {
+        screen.classList.add('unzipped');
+      }, 350);
+
+      // Фаза 2: клапан откидывается и учебник поднимается вверх из глубины
+      setTimeout(() => {
+        screen.classList.add('emerged');
+      }, 750);
+    }
+
+    startAnimation();
+
+    // Тап по экрану — мгновенный пропуск
+    screen.addEventListener('click', () => {
+      screen.classList.add('screen-dismissed');
+      setTimeout(() => {
+        screen.remove();
+      }, 400);
+    });
+  </script>
+</body>
+</html>

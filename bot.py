@@ -4,8 +4,8 @@ import logging
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart, Command, CommandObject
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
-from db import init_db, get_pending_tasks, add_task, mark_task_done, delete_task, get_today_tasks, get_overdue_tasks, delete_all_tasks
+from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from db import init_db, upsert_user, get_pending_tasks, add_task, mark_task_done, delete_task, get_today_tasks, get_overdue_tasks, delete_all_tasks, get_materials_for_task
 from datetime import date, timedelta
 from parser import parse_homework
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -15,6 +15,7 @@ logging.basicConfig(level=logging.INFO)
 # Loads the secret token from env
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
+WEB_APP_URL = os.getenv('WEB_APP_URL', 'https://asbestos-grocery-restore-minute.trycloudflare.com')
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -40,7 +41,17 @@ async def handle_done_callback(callback: CallbackQuery):
 
 @dp.message(CommandStart())
 async def handle_start(message: Message):
+    user = message.from_user
+    nick = f"@{user.username}" if user.username else (user.first_name or "Ученик")
+    full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+    upsert_user(user.id, telegram_nick=nick, full_name=full_name)
     await message.answer('Hi!')
+    button = InlineKeyboardButton(
+    text="🚀 Open 10th Grade Portal", 
+    web_app=WebAppInfo(url=WEB_APP_URL)
+)
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[button]])
+    await message.answer("🎒 Welcome to the 10th Grade Homework Portal!", reply_markup=keyboard)
 
 @dp.message(Command("add"))
 async def handle_add(message :Message, command: CommandObject):
@@ -59,7 +70,10 @@ async def handle_add(message :Message, command: CommandObject):
     due_date = args[1]
     description = args[2]
 
-    task_id = add_task(message.from_user.id, subject, description, due_date)
+    user = message.from_user
+    nick = f"@{user.username}" if user.username else (user.first_name or "Ученик")
+    full_name = f"{user.first_name or ''} {user.last_name or ''}".strip()
+    task_id = add_task(user.id, subject, description, due_date, telegram_nick=nick, full_name=full_name)
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
     [InlineKeyboardButton(text="✅ Mark Done", callback_data=f"done:{task_id}")]])
@@ -77,7 +91,7 @@ async def handle_done(message: Message, command: CommandObject):
         return
 
     task_id = int(command.args)
-    mark_task_done(task_id, user_id)
+    mark_task_done(user_id, task_id)
     await message.answer(f"🎉 Great job! Marked task #{task_id} as done.")
 
 @dp.message(Command("delete"))
@@ -156,6 +170,19 @@ async def handle_priority(message:Message):
         for task in priority_3:
             response_3 += (f"- #{task['id']} [{task['subject']}]: {task['description']} (Due: {task['due_date']})\n")
         await message.answer(f"{response_1}\n{response_2}\n{response_3}")
+
+# @dp.message('photo')
+# async def photo_check(photo:Photo, message:Message):
+
+@dp.message(Command("materials"))
+async def get_materials_for_task(message:Message, command:CommandObject):
+    task_id = command
+    task = get_materials_for_task(task_id)
+
+    if not command.args or not command.args.isdigit:
+        await message.answer("Whether there's no command argument or it's not a digit")
+    else:
+        await message.answer(f"- #{task['id']} [{task['file_id']}]: {task['caption']} (Autor: {task['uploader_id']})")
 
 @dp.message()
 async def handle_text(message:Message):

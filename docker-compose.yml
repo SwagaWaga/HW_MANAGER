@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  hw-portal:
+    build: .
+    container_name: hw_manager_portal
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - HOST=0.0.0.0
+      - BOT_TOKEN=${BOT_TOKEN}
+      - WEB_APP_URL=${WEB_APP_URL}
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+    volumes:
+      - ./uploads:/app/uploads
+      - ./homework.db:/app/homework.db
