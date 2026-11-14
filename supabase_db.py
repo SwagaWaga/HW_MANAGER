@@ -93,8 +93,11 @@ def get_pending_tasks(user_id: int, class_name: str = "10-А") -> List[Dict[str,
         comp_res = client.table("user_completions").select("task_id").eq("user_id", user_id).execute()
         completed_ids = [row["task_id"] for row in (comp_res.data or [])]
 
-        # 2. Query tasks with author info (select users)
-        query = client.table("tasks").select("id, user_id, subject, description, due_date, class_name, created_at, users(telegram_nick, full_name, role)")
+        # 2. Query tasks with author info (явно указываем внешний ключ tasks_user_id_fkey для устранения конфликта PostgREST PGRST201)
+        try:
+            query = client.table("tasks").select("id, user_id, subject, description, due_date, class_name, created_at, users!tasks_user_id_fkey(telegram_nick, full_name, role)")
+        except Exception:
+            query = client.table("tasks").select("id, user_id, subject, description, due_date, class_name, created_at, users(telegram_nick, full_name, role)")
         if completed_ids:
             # Filter out completed tasks
             # PostgREST not.in syntax:
