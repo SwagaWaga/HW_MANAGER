@@ -185,15 +185,21 @@ def get_overdue_tasks(user_id: int, today_str: str):
     return tasks
 
 def add_material(task_id: int, file_id: str, caption: str, uploader_id: int):
+    return add_materials_batch(task_id, [{"file_id": file_id, "caption": caption}], uploader_id)
+
+def add_materials_batch(task_id: int, items: List[Dict[str, str]], uploader_id: int):
+    if not items:
+        return True
     if is_using_supabase():
-        return supabase_db.add_material(task_id, file_id, caption, uploader_id)
+        return supabase_db.add_materials_batch(task_id, items, uploader_id)
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    sql = "INSERT OR IGNORE INTO task_materials (task_id, file_id, caption, uploader_id) VALUES (?, ?, ?, ?)"
-    cursor.execute(sql, (task_id, file_id, caption, uploader_id))
+    params = [(task_id, item["file_id"], item.get("caption", ""), uploader_id) for item in items]
+    cursor.executemany("INSERT OR IGNORE INTO task_materials (task_id, file_id, caption, uploader_id) VALUES (?, ?, ?, ?)", params)
     conn.commit()
     conn.close()
+    return True
 
 def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
     if is_using_supabase():

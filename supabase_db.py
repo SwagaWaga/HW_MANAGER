@@ -157,21 +157,30 @@ def delete_task(task_id: int, user_id: int) -> bool:
         return False
 
 def add_material(task_id: int, file_id: str, caption: str, uploader_id: int) -> bool:
+    return add_materials_batch(task_id, [{"file_id": file_id, "caption": caption}], uploader_id)
+
+def add_materials_batch(task_id: int, items: List[Dict[str, str]], uploader_id: int) -> bool:
+    if not items:
+        return True
     client = get_supabase_client()
     if not client:
         return False
 
     try:
         upsert_user(uploader_id)
-        client.table("task_materials").insert({
-            "task_id": task_id,
-            "file_id": file_id,
-            "caption": caption,
-            "uploader_id": uploader_id
-        }).execute()
+        rows = [
+            {
+                "task_id": task_id,
+                "file_id": item["file_id"],
+                "caption": item.get("caption", ""),
+                "uploader_id": uploader_id
+            }
+            for item in items
+        ]
+        client.table("task_materials").insert(rows).execute()
         return True
     except Exception as e:
-        logger.error(f"Error in Supabase add_material: {e}")
+        logger.error(f"Error in Supabase add_materials_batch: {e}")
         return False
 
 def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:

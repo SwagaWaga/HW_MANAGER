@@ -541,6 +541,7 @@
       height: 90px;
       z-index: 35;
       pointer-events: none;
+      transition: opacity 0.4s ease;
     }
 
     /* Бегунки молнии (двойной замок) */
@@ -551,9 +552,9 @@
       top: 35px;
       z-index: 40;
       pointer-events: none;
-      will-change: transform;
+      will-change: transform, opacity;
       backface-visibility: hidden;
-      transition: transform 0.75s cubic-bezier(0.25, 1, 0.3, 1);
+      transition: transform 0.75s cubic-bezier(0.25, 1, 0.3, 1), opacity 0.35s ease;
     }
     .slider-left {
       left: 50%;
@@ -568,6 +569,20 @@
     }
     #backpack-screen.unzipped .slider-right {
       transform: translate3d(114px, 45px, 0) rotate(65deg);
+    }
+
+    /* При выходе книг замок и бегунки плавно исчезают */
+    #backpack-screen.emerged .zipper-arch-svg,
+    #backpack-screen.emerged .slider-puller {
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.35s ease, transform 0.45s ease, visibility 0.35s ease;
+    }
+    #backpack-screen.emerged .slider-left {
+      transform: translate3d(-150px, 60px, 0) rotate(-80deg) scale(0.6);
+    }
+    #backpack-screen.emerged .slider-right {
+      transform: translate3d(126px, 60px, 0) rotate(80deg) scale(0.6);
     }
 
     /* Подсказка снизу */

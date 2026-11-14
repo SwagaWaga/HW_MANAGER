@@ -3,7 +3,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from db import mark_task_done, get_pending_tasks, add_task, add_material, get_materials_for_task, upsert_user, is_using_supabase
+from db import mark_task_done, get_pending_tasks, add_task, add_material, add_materials_batch, get_materials_for_task, upsert_user, is_using_supabase
 import uuid
 import os
 
@@ -96,6 +96,7 @@ async def upload_photos(
             all_incoming.append(photo)
 
         uploaded_results = []
+        batch_items = []
         for p in all_incoming:
             raw_name = p.filename or "photo.jpg"
             ext = os.path.splitext(raw_name)[1].lower()
@@ -109,8 +110,11 @@ async def upload_photos(
             with open(file_path, "wb") as f:
                 f.write(contents)
             
-            add_material(task_id, file_path, raw_name, user_id)
+            batch_items.append({"file_id": file_path, "caption": raw_name})
             uploaded_results.append({"url": file_path, "name": raw_name})
+
+        if batch_items:
+            add_materials_batch(task_id, batch_items, user_id)
 
         # Возвращаем url первого файла для обратной совместимости + список всех
         first_url = uploaded_results[0]["url"] if uploaded_results else ""
