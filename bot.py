@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # Loads secret environment variables
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-WEB_APP_URL = os.getenv('WEB_APP_URL', 'https://asbestos-grocery-restore-minute.trycloudflare.com')
+WEB_APP_URL = os.getenv('WEB_APP_URL', 'https://enhancements-eng-machinery-partially.trycloudflare.com')
 
 bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 dp = Dispatcher()
