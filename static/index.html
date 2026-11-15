@@ -1123,7 +1123,7 @@
       <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[68vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 cursor-grab active:cursor-grabbing origin-center select-none" draggable="false" style="touch-action: none;" />
     </div>
 
-    <!-- Нижняя панель: поворот, сброс масштаба и скачивание (без лишних кнопок лупы) -->
+    <!-- Нижняя панель: поворот влево, поворот вправо и сброс масштаба 1x -->
     <div class="w-full max-w-xl mx-auto flex items-center justify-center gap-2 pb-3 z-10" onclick="event.stopPropagation()">
       <div class="flex items-center gap-1.5 bg-slate-900/95 border border-slate-700/80 p-1.5 rounded-2xl shadow-2xl backdrop-blur-md">
         <button onclick="rotatePhoto(-90)" class="w-10 h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 active:scale-90 text-slate-200 flex items-center justify-center transition" title="Повернуть влево (на 90°)">
@@ -1140,15 +1140,6 @@
         </button>
         <button onclick="resetPhotoTransform()" id="photo-reset-btn" class="hidden px-2.5 h-10 rounded-xl bg-slate-800/60 hover:bg-slate-800 active:scale-90 text-amber-300 font-mono text-xs font-bold flex items-center justify-center transition" title="Сбросить масштаб и положение">
           1x
-        </button>
-        <div class="w-px h-5 bg-slate-700 mx-1"></div>
-        <button onclick="downloadCurrentPhoto()" id="photo-download-btn" class="px-4 h-10 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 active:scale-95 text-slate-950 font-black text-xs flex items-center gap-1.5 transition shadow-md" title="Скачать снимок">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <span>Скачать</span>
         </button>
       </div>
     </div>
@@ -2576,89 +2567,6 @@
       }
     }
 
-    // ========================================================
-    // НАДЕЖНОЕ СКАЧИВАНИЕ ФОТО В TELEGRAM WEBAPP
-    // Использует tg.downloadFile (API 8.0+) + Blob + openLink fallback
-    // ========================================================
-    async function downloadCurrentPhoto() {
-      if (!currentGallery || currentGallery.length === 0 || !currentGallery[currentGalleryIndex]) {
-        showToast('Нет фото для скачивания', 'warning');
-        return;
-      }
-      const item = currentGallery[currentGalleryIndex];
-      const filename = (item.caption && item.caption.trim())
-        ? (item.caption.endsWith('.jpg') || item.caption.endsWith('.png') || item.caption.endsWith('.jpeg') ? item.caption : `${item.caption}.jpg`)
-        : `homework_page_${currentGalleryIndex + 1}.jpg`;
-
-      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
-
-      // Формируем прямой HTTPS URL для скачивания через эндпоинт нашего сервера
-      let httpsDownloadUrl = '';
-      if (item.id) {
-        httpsDownloadUrl = `${window.location.origin}/api/materials/${item.id}/download`;
-      } else if (item.url && (item.url.startsWith('http://') || item.url.startsWith('https://'))) {
-        httpsDownloadUrl = item.url;
-      }
-
-      // 1. Приоритет Telegram WebApp 8.0+: нативный downloadFile
-      if (httpsDownloadUrl && window.Telegram?.WebApp?.downloadFile) {
-        try {
-          showToast('✓ Загрузка начата...', 'info');
-          window.Telegram.WebApp.downloadFile({
-            url: httpsDownloadUrl,
-            file_name: filename
-          }, (accepted) => {
-            if (accepted) {
-              showToast('✓ Фото сохранено в галерею!', 'success');
-            }
-          });
-          return;
-        } catch (e) {
-          console.warn('Telegram.WebApp.downloadFile failed:', e);
-        }
-      }
-
-      // 2. Для Telegram WebApp (если версия Telegram не поддерживает downloadFile):
-      // Открываем HTTPS-ссылку через openLink. Системный браузер смартфона сразу
-      // сохраняет снимок благодаря заголовку Content-Disposition: attachment
-      if (httpsDownloadUrl && window.Telegram?.WebApp?.openLink) {
-        try {
-          window.Telegram.WebApp.openLink(httpsDownloadUrl);
-          showToast('✓ Открыто для сохранения', 'info');
-          return;
-        } catch (e) {
-          console.warn('Telegram.WebApp.openLink failed:', e);
-        }
-      }
-
-      // 3. Для обычных браузеров (ПК, Chrome, Safari вне Telegram):
-      try {
-        const targetUrl = httpsDownloadUrl || item.url;
-        const res = await fetch(targetUrl);
-        if (res.ok) {
-          const blob = await res.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = blobUrl;
-          a.download = filename;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
-          showToast('✓ Фото сохранено!', 'success');
-          return;
-        }
-      } catch (err) {
-        console.warn('Blob download fallback failed:', err);
-      }
-
-      // 4. Запасной переход
-      if (httpsDownloadUrl) {
-        window.open(httpsDownloadUrl, '_blank');
-      } else {
-        showToast('Не удалось скачать снимок', 'error');
-      }
-    }
 
     // ========================================================
     // PINCH-TO-ZOOM И ПЕРЕМЕЩЕНИЕ ФОТО ДВУМЯ ПАЛЬЦАМИ
