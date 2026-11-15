@@ -2418,12 +2418,12 @@
       openPhotoGallery(task.materials, 0);
     }
 
-    function openPhotoViewer(url, uploaderId) {
+    function openPhotoViewer(url, uploaderId, materialId = null) {
       let target = url || '';
       if (!target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('data:')) {
         target = '/' + target.replace(/^\//, '');
       }
-      openPhotoGallery([{ file_id: target, uploader_id: uploaderId }], 0);
+      openPhotoGallery([{ id: materialId, file_id: target, uploader_id: uploaderId }], 0);
     }
 
     function openPhotoGallery(materials, startIndex = 0) {
@@ -2436,6 +2436,7 @@
           u = '/' + u.replace(/^\//, '');
         }
         return {
+          id: m.id,
           url: u,
           uploaderId: m.uploader_id,
           caption: m.caption || ''
@@ -2585,35 +2586,55 @@
         return;
       }
       const item = currentGallery[currentGalleryIndex];
-      const rawUrl = item.url || '';
-      const isDataUrl = rawUrl.startsWith('data:');
-      const filename = `homework_page_${currentGalleryIndex + 1}.jpg`;
-      const fullUrl = (isDataUrl || rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))
-        ? rawUrl
-        : (window.location.origin + (rawUrl.startsWith('/') ? rawUrl : ('/' + rawUrl)));
+      const filename = (item.caption && item.caption.trim())
+        ? (item.caption.endsWith('.jpg') || item.caption.endsWith('.png') || item.caption.endsWith('.jpeg') ? item.caption : `${item.caption}.jpg`)
+        : `homework_page_${currentGalleryIndex + 1}.jpg`;
 
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
-      // 1. Приоритет для обычных ссылок: Telegram WebApp native downloadFile
-      if (!isDataUrl && window.Telegram?.WebApp?.downloadFile) {
+      // Формируем прямой HTTPS URL для скачивания через эндпоинт нашего сервера
+      let httpsDownloadUrl = '';
+      if (item.id) {
+        httpsDownloadUrl = `${window.location.origin}/api/materials/${item.id}/download`;
+      } else if (item.url && (item.url.startsWith('http://') || item.url.startsWith('https://'))) {
+        httpsDownloadUrl = item.url;
+      }
+
+      // 1. Приоритет Telegram WebApp 8.0+: нативный downloadFile
+      if (httpsDownloadUrl && window.Telegram?.WebApp?.downloadFile) {
         try {
+          showToast('✓ Загрузка начата...', 'info');
           window.Telegram.WebApp.downloadFile({
-            url: fullUrl,
+            url: httpsDownloadUrl,
             file_name: filename
           }, (accepted) => {
             if (accepted) {
-              showToast('✓ Файл сохраняется...', 'success');
+              showToast('✓ Фото сохранено в галерею!', 'success');
             }
           });
           return;
         } catch (e) {
-          console.warn('tg.downloadFile failed:', e);
+          console.warn('Telegram.WebApp.downloadFile failed:', e);
         }
       }
 
-      // 2. Универсальный способ (поддерживает и Data URL, и HTTP): Fetch Blob -> <a> click
+      // 2. Для Telegram WebApp (если версия Telegram не поддерживает downloadFile):
+      // Открываем HTTPS-ссылку через openLink. Системный браузер смартфона сразу
+      // сохраняет снимок благодаря заголовку Content-Disposition: attachment
+      if (httpsDownloadUrl && window.Telegram?.WebApp?.openLink) {
+        try {
+          window.Telegram.WebApp.openLink(httpsDownloadUrl);
+          showToast('✓ Открыто для сохранения', 'info');
+          return;
+        } catch (e) {
+          console.warn('Telegram.WebApp.openLink failed:', e);
+        }
+      }
+
+      // 3. Для обычных браузеров (ПК, Chrome, Safari вне Telegram):
       try {
-        const res = await fetch(fullUrl);
+        const targetUrl = httpsDownloadUrl || item.url;
+        const res = await fetch(targetUrl);
         if (res.ok) {
           const blob = await res.blob();
           const blobUrl = URL.createObjectURL(blob);
@@ -2631,12 +2652,11 @@
         console.warn('Blob download fallback failed:', err);
       }
 
-      // 3. Fallback для мобильных WebViews
-      if (!isDataUrl && window.Telegram?.WebApp?.openLink) {
-        window.Telegram.WebApp.openLink(fullUrl);
-        showToast('Открыто в браузере для сохранения', 'info');
-      } else if (!isDataUrl) {
-        window.open(fullUrl, '_blank');
+      // 4. Запасной переход
+      if (httpsDownloadUrl) {
+        window.open(httpsDownloadUrl, '_blank');
+      } else {
+        showToast('Не удалось скачать снимок', 'error');
       }
     }
 

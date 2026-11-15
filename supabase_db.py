@@ -216,3 +216,16 @@ def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error in Supabase get_materials_for_task: {e}")
         return []
+
+def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
+    client = get_supabase_client()
+    if not client:
+        return None
+    try:
+        res = client.table("task_materials").select("id, task_id, file_id, caption, uploader_id").eq("id", material_id).limit(1).execute()
+        if res.data and len(res.data) > 0:
+            return res.data[0]
+        return None
+    except Exception as e:
+        logger.error(f"Error in Supabase get_material_by_id: {e}")
+        return None

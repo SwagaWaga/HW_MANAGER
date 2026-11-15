@@ -1,9 +1,19 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List
-from db import mark_task_done, get_pending_tasks, add_task, add_material, add_materials_batch, get_materials_for_task, upsert_user, is_using_supabase
+from db import (
+    mark_task_done,
+    get_pending_tasks,
+    add_task,
+    add_material,
+    add_materials_batch,
+    get_materials_for_task,
+    get_material_by_id,
+    upsert_user,
+    is_using_supabase
+)
 import uuid
 import os
 import base64
@@ -43,6 +53,43 @@ def get_tasks(user_id: int):
         results.append(task_dict)
 
     return results
+
+@app.get("/api/materials/{material_id}/download")
+@app.get("/api/materials/{material_id}")
+def download_material(material_id: int):
+    mat = get_material_by_id(material_id)
+    if not mat:
+        raise HTTPException(status_code=404, detail="Material not found")
+
+    file_id = mat.get("file_id", "")
+    caption = mat.get("caption") or f"homework_{material_id}.jpg"
+    filename = caption if (caption.endswith(".jpg") or caption.endswith(".png") or caption.endswith(".jpeg")) else f"{caption}.jpg"
+
+    if file_id.startswith("data:"):
+        try:
+            header, b64_data = file_id.split(",", 1)
+            media_type = header.split(";")[0].replace("data:", "") or "image/jpeg"
+            content = base64.b64decode(b64_data)
+            return Response(
+                content=content,
+                media_type=media_type,
+                headers={
+                    "Content-Disposition": f'attachment; filename="{filename}"',
+                    "Cache-Control": "public, max-age=31536000"
+                }
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to decode image data: {e}")
+
+    clean_path = file_id.lstrip("/")
+    if os.path.exists(clean_path):
+        return FileResponse(
+            path=clean_path,
+            filename=filename,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+        )
+
+    raise HTTPException(status_code=404, detail="File not found")
 
 class TaskDone(BaseModel):
     user_id: int

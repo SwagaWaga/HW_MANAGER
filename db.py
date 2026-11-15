@@ -215,4 +215,16 @@ def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
     conn.close()
     return materials
 
+def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
+    if is_using_supabase():
+        return supabase_db.get_material_by_id(material_id)
+
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, task_id, file_id, caption, uploader_id FROM task_materials WHERE id = ?", (material_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
 init_db()
