@@ -23,6 +23,8 @@ def test_backpack():
     return FileResponse("scratch/test_backpack_real.html")
 
 @app.get("/api/status")
+@app.get("/health")
+@app.get("/ping")
 def get_db_status():
     return {
         "status": "ok",
