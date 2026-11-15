@@ -28,10 +28,35 @@ logger = logging.getLogger(__name__)
 # Loads secret environment variables
 load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
-WEB_APP_URL = os.getenv('WEB_APP_URL', 'https://enhancements-eng-machinery-partially.trycloudflare.com')
+WEB_APP_URL = (
+    os.getenv('WEB_APP_URL')
+    or os.getenv('RENDER_EXTERNAL_URL')
+    or (f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}" if os.getenv('RENDER_EXTERNAL_HOSTNAME') else None)
+    or 'https://hw-manager-portal.onrender.com'
+).rstrip('/')
 
 bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 dp = Dispatcher()
+
+async def sync_menu_button(chat_id: int = None):
+    """
+    Synchronizes Telegram Chat Menu Button (the button next to the message field)
+    to the permanent active WebApp URL.
+    """
+    if not bot:
+        return
+    try:
+        from aiogram.types import MenuButtonWebApp, WebAppInfo
+        await bot.set_chat_menu_button(
+            chat_id=chat_id,
+            menu_button=MenuButtonWebApp(
+                text="🎒 ДЗ Портал",
+                web_app=WebAppInfo(url=WEB_APP_URL)
+            )
+        )
+        logger.info(f"✅ Telegram Chat Menu Button synced to: {WEB_APP_URL} (chat_id={chat_id})")
+    except Exception as e:
+        logger.warning(f"Note syncing menu button: {e}")
 
 # Russian localization helpers
 RU_WEEKDAYS = {
@@ -187,6 +212,10 @@ async def handle_done_callback(callback: CallbackQuery):
 @dp.message(CommandStart())
 async def handle_start(message: Message):
     record_user_activity(message.from_user)
+    try:
+        await sync_menu_button(message.chat.id)
+    except Exception:
+        pass
     user_name = message.from_user.first_name or "ученик"
     text = (
         f"👋 Привет, <b>{html.escape(user_name)}</b>!\n\n"

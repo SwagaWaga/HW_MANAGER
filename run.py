@@ -5,7 +5,7 @@ import logging
 import uvicorn
 from contextlib import asynccontextmanager
 from server import app
-from bot import dp, bot, send_evening_reminder
+from bot import dp, bot, send_evening_reminder, sync_menu_button
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from db import init_db
 
@@ -68,6 +68,7 @@ async def lifespan(fastapi_app):
         async def run_bot_polling():
             try:
                 await bot.delete_webhook(drop_pending_updates=False)
+                await sync_menu_button()
                 await dp.start_polling(bot, handle_signals=False)
             except Exception as bot_err:
                 logger.warning(f"⚠️ Telegram Bot polling note: {bot_err}")
