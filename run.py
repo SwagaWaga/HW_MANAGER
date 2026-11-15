@@ -1,5 +1,6 @@
 import asyncio
 import os
+import sys
 import logging
 import uvicorn
 from contextlib import asynccontextmanager
@@ -7,6 +8,13 @@ from server import app
 from bot import dp, bot, send_evening_reminder
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from db import init_db
+
+# Flush stdout/stderr immediately for real-time Render and container logs
+try:
+    sys.stdout.reconfigure(line_buffering=True)
+    sys.stderr.reconfigure(line_buffering=True)
+except Exception:
+    pass
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hw_runner")
@@ -47,9 +55,13 @@ async def lifespan(fastapi_app):
     except Exception as e:
         logger.warning(f"Scheduler note: {e}")
 
-    # 2. Start Telegram Bot polling in the background
-    bot_task = asyncio.create_task(dp.start_polling(bot))
-    logger.info("🤖 Telegram Bot polling started in background")
+    # 2. Start Telegram Bot polling in the background (if BOT_TOKEN is set)
+    bot_task = None
+    if bot:
+        bot_task = asyncio.create_task(dp.start_polling(bot))
+        logger.info("🤖 Telegram Bot polling started in background")
+    else:
+        logger.warning("⚠️ BOT_TOKEN is not configured! Telegram Bot polling is disabled. (Set BOT_TOKEN in Render Environment Variables)")
 
     # 3. Start Keep-Alive task
     pinger_task = asyncio.create_task(render_keep_alive_task())
@@ -59,12 +71,14 @@ async def lifespan(fastapi_app):
     finally:
         logger.info("🛑 Shutting down services...")
         pinger_task.cancel()
-        bot_task.cancel()
-        try:
-            await bot_task
-        except asyncio.CancelledError:
-            pass
-        await bot.session.close()
+        if bot_task:
+            bot_task.cancel()
+            try:
+                await bot_task
+            except asyncio.CancelledError:
+                pass
+        if bot and hasattr(bot, 'session') and bot.session:
+            await bot.session.close()
         scheduler.shutdown(wait=False)
         logger.info("👋 All services stopped cleanly")
 

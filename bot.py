@@ -30,7 +30,7 @@ load_dotenv()
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 WEB_APP_URL = os.getenv('WEB_APP_URL', 'https://asbestos-grocery-restore-minute.trycloudflare.com')
 
-bot = Bot(token=BOT_TOKEN)
+bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 dp = Dispatcher()
 
 # Russian localization helpers
@@ -145,6 +145,10 @@ async def send_evening_reminder():
     Scheduled job sending tomorrow's pending homework notifications
     to all registered students.
     """
+    if not bot:
+        logger.warning("⏰ send_evening_reminder skipped: Telegram Bot instance is not initialized")
+        return
+
     logger.info("⏰ Running scheduled evening reminder for tomorrow's homework...")
     users = get_all_users()
     if not users:
@@ -450,6 +454,9 @@ async def handle_text_fallback(message: Message):
     await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал"))
 
 async def main():
+    if not bot:
+        logger.error("❌ BOT_TOKEN is missing! Please configure BOT_TOKEN in .env or Render Environment Variables.")
+        return
     init_db()
     # 1. Start background reminder scheduler (every day at 18:00)
     scheduler = AsyncIOScheduler()
