@@ -55,6 +55,17 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
         logger.error(f"Error in Supabase upsert_user: {e}")
         return False
 
+def get_all_users(class_name: str = "10-А") -> List[Dict[str, Any]]:
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        res = client.table("users").select("id, telegram_nick, full_name, role, class_name").execute()
+        return res.data or []
+    except Exception as e:
+        logger.error(f"Error in Supabase get_all_users: {e}")
+        return []
+
 def add_task(user_id: int, subject: str, description: str, due_date: str, class_name: str = "10-А", telegram_nick: Optional[str] = None, full_name: Optional[str] = None) -> Optional[int]:
     client = get_supabase_client()
     if not client:

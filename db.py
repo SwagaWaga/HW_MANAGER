@@ -80,6 +80,19 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
     conn.commit()
     conn.close()
 
+def get_all_users(class_name: str = '10-А') -> List[Dict[str, Any]]:
+    if is_using_supabase():
+        return supabase_db.get_all_users(class_name)
+
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, telegram_nick, full_name, role, class_name FROM users WHERE class_name = ? OR class_name IS NULL", (class_name,))
+    rows = cursor.fetchall()
+    users = [dict(r) for r in rows]
+    conn.close()
+    return users
+
 def add_task(user_id: int, subject: str, description: str, due_date: str, class_name: str = '10-А', telegram_nick: Optional[str] = None, full_name: Optional[str] = None) -> int:
     if is_using_supabase():
         res = supabase_db.add_task(user_id, subject, description, due_date, class_name, telegram_nick, full_name)
@@ -155,34 +168,13 @@ def delete_all_tasks(user_id: int):
     conn.commit()
     conn.close()
 
-def get_today_tasks(user_id: int, date_str: str):
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row  
-    cursor = conn.cursor()
-    sql = """
-        SELECT id, subject, description, due_date
-        FROM tasks
-        WHERE due_date = ? AND id NOT IN (SELECT task_id FROM user_completions WHERE user_id = ?)
-    """
-    cursor.execute(sql, (date_str, user_id))
-    tasks = cursor.fetchall()
-    conn.close()
-    return tasks
+def get_today_tasks(user_id: int, date_str: str) -> List[Dict[str, Any]]:
+    tasks = get_pending_tasks(user_id)
+    return [t for t in tasks if str(t.get('due_date')) == str(date_str)]
 
-def get_overdue_tasks(user_id: int, today_str: str):
-    conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
-    sql = """
-        SELECT id, subject, description, due_date
-        FROM tasks
-        WHERE due_date < ? AND id NOT IN (SELECT task_id FROM user_completions WHERE user_id = ?)
-        ORDER BY due_date ASC
-    """
-    cursor.execute(sql, (today_str, user_id))
-    tasks = cursor.fetchall()
-    conn.close()
-    return tasks
+def get_overdue_tasks(user_id: int, today_str: str) -> List[Dict[str, Any]]:
+    tasks = get_pending_tasks(user_id)
+    return [t for t in tasks if str(t.get('due_date')) < str(today_str)]
 
 def add_material(task_id: int, file_id: str, caption: str, uploader_id: int):
     return add_materials_batch(task_id, [{"file_id": file_id, "caption": caption}], uploader_id)
