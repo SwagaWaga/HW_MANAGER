@@ -73,14 +73,24 @@
     }
 
     html.dark .glossy-card {
-      background: linear-gradient(160deg, #111f31 0%, #0c1724 100%);
+      background: linear-gradient(175deg, rgba(23, 32, 48, 0.85) 0%, rgba(13, 19, 31, 0.95) 100%);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-top: 1px solid rgba(255, 255, 255, 0.18);
       box-shadow: 
-        0 10px 24px -4px rgba(0, 0, 0, 0.5),
-        inset 0 1px 1px 0 rgba(255, 255, 255, 0.12);
+        0 12px 32px -4px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
       max-width: 100%;
       box-sizing: border-box;
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    html.dark .glossy-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+      box-shadow: 
+        0 16px 36px -6px rgba(0, 0, 0, 0.55),
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
     }
 
     html.light .glossy-card {
@@ -783,7 +793,7 @@
         <button onclick="toggleTheme()" id="theme-btn" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white flex items-center justify-center transition active:scale-95 shadow-sm" title="Сменить тему">
           <span id="theme-icon-slot"></span>
         </button>
-        <div id="header-avatar-slot" class="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center shadow-md ring-2 ring-amber-400"></div>
+        <div id="header-avatar-slot" class="w-11 h-11 rounded-full overflow-hidden flex items-center justify-center shadow-md ring-2 ring-white/20 dark:ring-white/15"></div>
       </div>
     </div>
 
@@ -2051,7 +2061,7 @@
           text: `Долг • ${dateFormatted}`,
           badgeColor: 'text-rose-700 dark:text-rose-300',
           badgeBg: 'bg-rose-500/10 dark:bg-rose-500/15 border border-rose-500/25',
-          dot: 'bg-rose-500 shadow-xs'
+          dot: 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.7)]'
         };
       }
       if (dueDateStr === todayStr) {
@@ -2059,7 +2069,7 @@
           text: `Сегодня`,
           badgeColor: 'text-amber-700 dark:text-amber-300',
           badgeBg: 'bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25',
-          dot: 'bg-amber-400 animate-pulse'
+          dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)] animate-pulse'
         };
       }
       if (dueDateStr === tomorrowStr) {
@@ -2067,7 +2077,7 @@
           text: `На завтра`,
           badgeColor: 'text-emerald-700 dark:text-emerald-300',
           badgeBg: 'bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/25',
-          dot: 'bg-emerald-400 animate-pulse'
+          dot: 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)] animate-pulse'
         };
       }
       return {
@@ -2123,58 +2133,95 @@
 
         const style = subjectStyles[t.subject] || { 
           icon: ICONS.note, 
-          badge: 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-white/10' 
+          badge: 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10' 
         };
 
         const matCount = (t.materials && t.materials.length > 0) ? t.materials.length : 0;
-        const photoBtn = matCount > 0
-          ? `<button onclick="openTaskMaterials(${t.id})" class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 text-amber-700 dark:text-amber-300 text-xs font-medium border border-amber-500/20 transition shadow-2xs">
-               <span class="w-3.5 h-3.5 inline-block shrink-0">${ICONS.bookPage}</span>
-               <span>${matCount === 1 ? '1 страница' : `${matCount} страницы`}</span>
-             </button>`
-          : '';
-
         const authorAvatarHTML = renderAvatarElement(t.user_id, 'w-6 h-6 text-[10px]');
         const authorNickText = (t.author_name && t.author_name.trim()) ? t.author_name : (t.author_nick || getAuthorNick(t.user_id));
+        const isMeAuthor = (t.user_id && t.user_id == userId);
+
+        const isDescDuplicate = safeDesc.trim().toLowerCase() === safeSubject.trim().toLowerCase();
+
+        // Элегантная галерея миниатюр страниц прямо в карточке
+        const photoGalleryHTML = matCount > 0 ? `
+          <div class="my-2.5 pt-0.5">
+            <div class="flex items-center gap-2.5 overflow-x-auto no-scrollbar py-1">
+              ${t.materials.map((m, idx) => {
+                const src = (m.file_id && (m.file_id.startsWith('http://') || m.file_id.startsWith('https://') || m.file_id.startsWith('data:'))) 
+                  ? m.file_id 
+                  : '/' + (m.file_id || '').replace(/^\//, '');
+                return `
+                  <button type="button" onclick="openTaskPhoto(${t.id}, ${idx})" class="group/thumb relative w-[74px] h-[100px] sm:w-[86px] sm:h-[114px] rounded-2xl overflow-hidden border border-white/12 hover:border-amber-400/60 shadow-md active:scale-95 transition-all shrink-0 bg-slate-900/80 focus:outline-none" title="Открыть страницу #${idx + 1}">
+                    <img src="${src}" alt="Страница ${idx + 1}" class="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300" loading="lazy" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent flex items-end justify-between p-1.5 pointer-events-none">
+                      <span class="text-[9.5px] font-bold text-white bg-black/60 px-1.5 py-0.5 rounded-md backdrop-blur-xs">#${idx + 1}</span>
+                      <span class="w-3.5 h-3.5 text-white/90 drop-shadow-sm">${ICONS.eye}</span>
+                    </div>
+                  </button>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
 
         return `
-          <div id="card-${t.id}" class="glossy-card p-4 sm:p-5 rounded-[22px] transition hover:shadow-lg dark:hover:border-white/15 w-full max-w-full box-border relative flex flex-col justify-between">
-            <!-- Верхняя строка карточки: Предмет, Срок сдачи и Автор -->
-            <div class="flex items-center justify-between gap-2 mb-2.5">
-              <div class="flex items-center gap-1.5 flex-wrap min-w-0">
+          <div id="card-${t.id}" class="glossy-card p-4 sm:p-5 rounded-[26px] w-full max-w-full box-border relative flex flex-col justify-between">
+            <!-- Верхняя строка карточки: Предмет, Срок сдачи и Число фото -->
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="flex items-center gap-2 flex-wrap min-w-0">
                 <!-- Бейдж предмета -->
-                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${style.badge} shadow-2xs">
+                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${style.badge} shadow-2xs">
                   <span class="w-3.5 h-3.5 inline-block shrink-0">${style.icon}</span>
-                  <span class="truncate max-w-[120px]">${safeSubject}</span>
+                  <span class="truncate max-w-[130px]">${safeSubject}</span>
                 </span>
 
                 <!-- Бейдж срока сдачи -->
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium ${dueDateInfo.badgeBg} ${dueDateInfo.badgeColor} shadow-2xs">
-                  ${dueDateInfo.dot ? `<span class="w-1.5 h-1.5 rounded-full ${dueDateInfo.dot} shrink-0"></span>` : ''}
+                  ${dueDateInfo.dot ? `<span class="w-2 h-2 rounded-full ${dueDateInfo.dot} shrink-0"></span>` : ''}
                   <span>${dueDateInfo.text}</span>
                 </span>
               </div>
 
-              <!-- Аватар автора задания в аккуратном чипе -->
-              <div class="inline-flex items-center gap-1.5 pl-0.5 pr-2 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shrink-0" title="Опубликовал ${escapeHtml(authorNickText)}">
-                ${authorAvatarHTML}
-                <span class="text-[11px] font-medium text-slate-600 dark:text-slate-300 truncate max-w-[95px]">${escapeHtml(authorNickText)}</span>
-              </div>
+              <!-- Индикатор фото страниц (если есть) -->
+              ${matCount > 0 ? `
+                <button type="button" onclick="openTaskMaterials(${t.id})" class="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-500 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 px-2.5 py-0.5 rounded-full border border-amber-500/20 transition shrink-0" title="Открыть все страницы">
+                  <span class="w-3.5 h-3.5">${ICONS.bookPage}</span>
+                  <span>${matCount === 1 ? '1 фото' : `${matCount} фото`}</span>
+                </button>
+              ` : ''}
             </div>
 
             <!-- Текст задания -->
-            <div class="w-full min-w-0 max-w-full overflow-hidden my-2">
-              <p class="text-[15px] text-slate-800 dark:text-slate-100 font-normal leading-relaxed break-all [overflow-wrap:anywhere] [word-break:break-word] break-words">${safeDesc}</p>
+            <div class="w-full min-w-0 max-w-full overflow-hidden my-1.5">
+              ${(isDescDuplicate && matCount > 0) ? `
+                <div class="flex items-center gap-1.5 text-slate-400 dark:text-slate-400 text-[13.5px] font-normal py-0.5">
+                  <span class="w-4 h-4 text-amber-400/80 shrink-0">${ICONS.bookPage}</span>
+                  <span class="italic">Задание на прикреплённых страницах</span>
+                </div>
+              ` : `
+                <p class="text-[15px] sm:text-[15.5px] text-slate-800 dark:text-slate-100 font-normal leading-relaxed break-all [overflow-wrap:anywhere] [word-break:break-word] break-words">
+                  ${safeDesc}
+                </p>
+              `}
             </div>
 
-            <!-- Нижняя панель карточки -->
-            <div class="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-100 dark:border-white/[0.04] flex-wrap">
-              <div>
-                ${photoBtn}
+            <!-- Превью прикрепленных страниц -->
+            ${photoGalleryHTML}
+
+            <!-- Нижняя панель карточки: Автор (слева) и Кнопка "Сдать" (справа) -->
+            <div class="flex items-center justify-between gap-2 mt-2 pt-2.5 border-t border-slate-100 dark:border-white/[0.05] flex-wrap">
+              <!-- Аватар и имя автора задания -->
+              <div class="inline-flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shrink-0" title="Опубликовал ${escapeHtml(authorNickText)}">
+                ${authorAvatarHTML}
+                <span class="text-[11.5px] font-medium text-slate-600 dark:text-slate-300 truncate max-w-[130px]">
+                  ${escapeHtml(authorNickText)}${isMeAuthor ? ' <span class="text-[10px] text-amber-500/80 dark:text-amber-400/80 font-bold">(вы)</span>' : ''}
+                </span>
               </div>
 
-              <button onclick="markDone(${t.id}, this)" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-slate-200/90 dark:border-white/10 bg-slate-100/80 dark:bg-white/[0.05] hover:bg-emerald-500 hover:border-emerald-500 hover:text-white dark:hover:bg-emerald-500 dark:hover:border-emerald-500 text-slate-600 dark:text-slate-300 transition-all active:scale-95 text-xs font-semibold shadow-2xs ml-auto group/btn" title="Сдать задание">
-                <span class="w-3.5 h-3.5 text-slate-400 dark:text-slate-400 group-hover/btn:text-white transition">${ICONS.check}</span>
+              <!-- Кнопка "Сдать" -->
+              <button onclick="markDone(${t.id}, this)" class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500 active:bg-emerald-600 text-emerald-600 dark:text-emerald-300 hover:text-white dark:hover:text-white transition-all active:scale-95 text-xs font-semibold shadow-2xs ml-auto group/btn" title="Отметить выполненным">
+                <span class="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400 group-hover/btn:text-white transition">${ICONS.check}</span>
                 <span>Сдать</span>
               </button>
             </div>
@@ -2413,6 +2460,12 @@
       const task = allTasks.find(t => t.id === taskId);
       if (!task || !task.materials || task.materials.length === 0) return;
       openPhotoGallery(task.materials, 0);
+    }
+
+    function openTaskPhoto(taskId, index = 0) {
+      const task = allTasks.find(t => t.id === taskId);
+      if (!task || !task.materials || task.materials.length === 0) return;
+      openPhotoGallery(task.materials, index);
     }
 
     function openPhotoViewer(url, uploaderId, materialId = null) {
