@@ -2419,16 +2419,28 @@
     }
 
     function openPhotoViewer(url, uploaderId) {
-      openPhotoGallery([{ file_id: url.replace(/^\//, ''), uploader_id: uploaderId }], 0);
+      let target = url || '';
+      if (!target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('data:')) {
+        target = '/' + target.replace(/^\//, '');
+      }
+      openPhotoGallery([{ file_id: target, uploader_id: uploaderId }], 0);
     }
 
     function openPhotoGallery(materials, startIndex = 0) {
       if (!materials || materials.length === 0) return;
-      currentGallery = materials.map(m => ({
-        url: m.file_id.startsWith('http') ? m.file_id : ('/' + m.file_id.replace(/^\//, '')),
-        uploaderId: m.uploader_id,
-        caption: m.caption || ''
-      }));
+      currentGallery = materials.map(m => {
+        let u = m.file_id || '';
+        if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('data:')) {
+          // Абсолютные URL или Data URI берем напрямую
+        } else {
+          u = '/' + u.replace(/^\//, '');
+        }
+        return {
+          url: u,
+          uploaderId: m.uploader_id,
+          caption: m.caption || ''
+        };
+      });
       currentGalleryIndex = Math.max(0, Math.min(startIndex, currentGallery.length - 1));
       showGalleryPhoto();
 
@@ -2573,15 +2585,17 @@
         return;
       }
       const item = currentGallery[currentGalleryIndex];
-      const relativeUrl = item.url || '';
-      const fullUrl = relativeUrl.startsWith('http') ? relativeUrl : (window.location.origin + relativeUrl);
-      const rawName = relativeUrl.split('/').pop().replace(/[^a-zA-Z0-9._-]/g, '_') || `homework_page_${currentGalleryIndex + 1}.jpg`;
-      const filename = rawName.endsWith('.jpg') || rawName.endsWith('.jpeg') || rawName.endsWith('.png') ? rawName : `${rawName}.jpg`;
+      const rawUrl = item.url || '';
+      const isDataUrl = rawUrl.startsWith('data:');
+      const filename = `homework_page_${currentGalleryIndex + 1}.jpg`;
+      const fullUrl = (isDataUrl || rawUrl.startsWith('http://') || rawUrl.startsWith('https://'))
+        ? rawUrl
+        : (window.location.origin + (rawUrl.startsWith('/') ? rawUrl : ('/' + rawUrl)));
 
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
-      // 1. Приоритет: Telegram WebApp native downloadFile
-      if (window.Telegram?.WebApp?.downloadFile) {
+      // 1. Приоритет для обычных ссылок: Telegram WebApp native downloadFile
+      if (!isDataUrl && window.Telegram?.WebApp?.downloadFile) {
         try {
           window.Telegram.WebApp.downloadFile({
             url: fullUrl,
@@ -2597,7 +2611,7 @@
         }
       }
 
-      // 2. Fallback: Fetch Blob и программный клик по ссылке
+      // 2. Универсальный способ (поддерживает и Data URL, и HTTP): Fetch Blob -> <a> click
       try {
         const res = await fetch(fullUrl);
         if (res.ok) {
@@ -2617,11 +2631,11 @@
         console.warn('Blob download fallback failed:', err);
       }
 
-      // 3. Fallback для мобильных WebViews: открыть во внешнем браузере
-      if (window.Telegram?.WebApp?.openLink) {
+      // 3. Fallback для мобильных WebViews
+      if (!isDataUrl && window.Telegram?.WebApp?.openLink) {
         window.Telegram.WebApp.openLink(fullUrl);
         showToast('Открыто в браузере для сохранения', 'info');
-      } else {
+      } else if (!isDataUrl) {
         window.open(fullUrl, '_blank');
       }
     }

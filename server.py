@@ -6,6 +6,7 @@ from typing import Optional, List
 from db import mark_task_done, get_pending_tasks, add_task, add_material, add_materials_batch, get_materials_for_task, upsert_user, is_using_supabase
 import uuid
 import os
+import base64
 
 app = FastAPI()
 
@@ -109,10 +110,23 @@ async def upload_photos(
             file_path = f"uploads/{unique_name}"
             
             contents = await p.read()
-            with open(file_path, "wb") as f:
-                f.write(contents)
-            
-            batch_items.append({"file_id": file_path, "caption": raw_name})
+            # 1. Сохраняем на локальный диск
+            try:
+                with open(file_path, "wb") as f:
+                    f.write(contents)
+            except Exception as disk_err:
+                print(f"Disk write warning: {disk_err}")
+
+            # 2. Формируем универсальный Base64 Data URL для Supabase,
+            # чтобы фото гарантированно отображались на ЛЮБОМ устройстве,
+            # даже если Render спит, перезагружается или файлы стерты с временного диска.
+            mime = "image/png" if ext == ".png" else "image/jpeg"
+            b64_str = base64.b64encode(contents).decode("utf-8")
+            data_url = f"data:{mime};base64,{b64_str}"
+
+            storage_ref = data_url if is_using_supabase() else file_path
+
+            batch_items.append({"file_id": storage_ref, "caption": raw_name})
             uploaded_results.append({"url": file_path, "name": raw_name})
 
         if batch_items:

@@ -58,7 +58,14 @@ async def lifespan(fastapi_app):
     # 2. Start Telegram Bot polling in the background (if BOT_TOKEN is set)
     bot_task = None
     if bot:
-        bot_task = asyncio.create_task(dp.start_polling(bot))
+        async def run_bot_polling():
+            try:
+                await bot.delete_webhook(drop_pending_updates=False)
+                await dp.start_polling(bot, handle_signals=False)
+            except Exception as bot_err:
+                logger.warning(f"⚠️ Telegram Bot polling note: {bot_err}")
+
+        bot_task = asyncio.create_task(run_bot_polling())
         logger.info("🤖 Telegram Bot polling started in background")
     else:
         logger.warning("⚠️ BOT_TOKEN is not configured! Telegram Bot polling is disabled. (Set BOT_TOKEN in Render Environment Variables)")
@@ -86,6 +93,6 @@ app.router.lifespan_context = lifespan
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
-    host = os.getenv("HOST", "0.0.0.0")
+    host = "0.0.0.0"
     logger.info(f"🌐 Serving on {host}:{port}")
-    uvicorn.run("run:app", host=host, port=port, reload=False)
+    uvicorn.run(app, host=host, port=port, log_level="info")
