@@ -24,23 +24,30 @@ scheduler = AsyncIOScheduler()
 async def render_keep_alive_task():
     """
     Self-pinger to prevent free hosting (such as Render.com) from spinning down
-    after 15 minutes of inactivity. Pings every 10 minutes.
+    after 15 minutes of inactivity. Pings every 5 minutes.
     """
-    render_url = os.getenv("RENDER_EXTERNAL_URL") or os.getenv("WEB_APP_URL")
+    await asyncio.sleep(20)
+    render_hostname = os.getenv("RENDER_EXTERNAL_HOSTNAME")
+    render_url = (
+        os.getenv("RENDER_EXTERNAL_URL")
+        or (f"https://{render_hostname}" if render_hostname else None)
+        or os.getenv("WEB_APP_URL")
+    )
     if not render_url or "localhost" in render_url or "127.0.0.1" in render_url:
+        logger.info(f"ℹ️ Keep-Alive self-pinger idle (local dev mode or no public URL: {render_url})")
         return
+
     ping_url = render_url.rstrip("/") + "/ping"
-    logger.info(f"🔄 Keep-Alive self-pinger active for: {ping_url}")
-    await asyncio.sleep(45)
+    logger.info(f"🔄 Keep-Alive self-pinger ACTIVE for: {ping_url} (interval: 300s / 5min)")
     while True:
         try:
             import urllib.request
-            req = urllib.request.Request(ping_url, headers={"User-Agent": "HW-KeepAlive/1.0"})
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                pass
+            req = urllib.request.Request(ping_url, headers={"User-Agent": "HW-KeepAlive-Worker/2.0"})
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                logger.info(f"⚡ Keep-alive ping sent to {ping_url} -> HTTP {resp.status} (Instance stays awake)")
         except Exception as e:
-            logger.debug(f"Keep-alive ping note: {e}")
-        await asyncio.sleep(600)
+            logger.warning(f"⚠️ Keep-alive ping note: {e}")
+        await asyncio.sleep(300)
 
 @asynccontextmanager
 async def lifespan(fastapi_app):

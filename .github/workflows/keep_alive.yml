@@ -1,0 +1,28 @@
+name: Keep Alive Render WebApp
+
+on:
+  schedule:
+    # Runs every 10 minutes (cron runs in UTC)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Keep-Alive Ping to Render
+        run: |
+          TARGET_URL="${{ vars.RENDER_EXTERNAL_URL || vars.WEB_APP_URL || 'https://hw-manager-portal.onrender.com' }}"
+          PING_ENDPOINT="${TARGET_URL%/}/ping"
+          echo "Sending keep-alive request to: $PING_ENDPOINT"
+          HTTP_STATUS=$(curl -s -o /tmp/resp.txt -w "%{http_code}" -m 45 "$PING_ENDPOINT" || echo "failed")
+          echo "Response code: $HTTP_STATUS"
+          if [ -f /tmp/resp.txt ]; then
+            cat /tmp/resp.txt
+            echo ""
+          fi
+          if [ "$HTTP_STATUS" = "200" ]; then
+            echo "✅ Render service responded OK (200) - instance is awake!"
+          else
+            echo "ℹ️ Ping finished with status: $HTTP_STATUS"
+          fi
