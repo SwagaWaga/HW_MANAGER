@@ -7,8 +7,11 @@ from db import (
     mark_task_done,
     get_pending_tasks,
     add_task,
+    update_task,
+    delete_task,
     add_material,
     add_materials_batch,
+    delete_material,
     get_materials_for_task,
     get_material_by_id,
     upsert_user,
@@ -119,6 +122,36 @@ def create_task(data: TaskCreate):
         full_name=data.full_name
     )
     return {"status": "ok", "task_id": task_id}
+
+class TaskUpdate(BaseModel):
+    user_id: int
+    subject: str = Field(..., max_length=50)
+    description: str = Field(..., max_length=1500)
+    due_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+
+@app.put('/api/tasks/{task_id}')
+@app.post('/api/tasks/{task_id}/edit')
+def edit_task(task_id: int, data: TaskUpdate):
+    success = update_task(task_id, data.subject, data.description, data.due_date, data.user_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to update task")
+    return {"status": "ok", "task_id": task_id}
+
+class TaskDelete(BaseModel):
+    user_id: int
+
+@app.delete('/api/tasks/{task_id}')
+@app.post('/api/tasks/{task_id}/delete')
+def remove_task(task_id: int, user_id: Optional[int] = None, data: Optional[TaskDelete] = None):
+    effective_user_id = user_id or (data.user_id if data else None)
+    delete_task(task_id, effective_user_id)
+    return {"status": "ok"}
+
+@app.delete('/api/materials/{material_id}')
+@app.post('/api/materials/{material_id}/delete')
+def remove_material(material_id: int):
+    delete_material(material_id)
+    return {"status": "ok"}
 
 class UserSync(BaseModel):
     user_id: int

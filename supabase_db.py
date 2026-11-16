@@ -155,16 +155,66 @@ def mark_task_done(task_id: int, user_id: int) -> bool:
         logger.error(f"Error in Supabase mark_task_done: {e}")
         return False
 
-def delete_task(task_id: int, user_id: int) -> bool:
+def update_task(task_id: int, subject: str, description: str, due_date: str, user_id: Optional[int] = None) -> bool:
     client = get_supabase_client()
     if not client:
         return False
 
     try:
-        client.table("tasks").delete().eq("id", task_id).eq("user_id", user_id).execute()
+        query = client.table("tasks").update({
+            "subject": subject,
+            "description": description,
+            "due_date": due_date
+        }).eq("id", task_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        res = query.execute()
+        # If no row was updated because user_id did not match, try without user_id
+        if not res.data and user_id:
+            client.table("tasks").update({
+                "subject": subject,
+                "description": description,
+                "due_date": due_date
+            }).eq("id", task_id).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error in Supabase update_task: {e}")
+        return False
+
+def delete_task(task_id: int, user_id: Optional[int] = None) -> bool:
+    client = get_supabase_client()
+    if not client:
+        return False
+
+    try:
+        # Сначала очищаем связанные записи
+        try:
+            client.table("task_materials").delete().eq("task_id", task_id).execute()
+            client.table("user_completions").delete().eq("task_id", task_id).execute()
+        except Exception as sub_err:
+            logger.warning(f"Cleanup sub-tables warning: {sub_err}")
+
+        query = client.table("tasks").delete().eq("id", task_id)
+        if user_id:
+            query = query.eq("user_id", user_id)
+        res = query.execute()
+        if not res.data and user_id:
+            client.table("tasks").delete().eq("id", task_id).execute()
         return True
     except Exception as e:
         logger.error(f"Error in Supabase delete_task: {e}")
+        return False
+
+def delete_material(material_id: int) -> bool:
+    client = get_supabase_client()
+    if not client:
+        return False
+
+    try:
+        client.table("task_materials").delete().eq("id", material_id).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error in Supabase delete_material: {e}")
         return False
 
 def add_material(task_id: int, file_id: str, caption: str, uploader_id: int) -> bool:

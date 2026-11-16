@@ -1045,6 +1045,128 @@
     </div>
   </div>
 
+  <!-- Модальное окно редактирования задания -->
+  <div id="edit-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+    <div class="bg-white dark:bg-[#131d27] text-slate-900 dark:text-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-2 border-slate-200 dark:border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-200 dark:border-white/10">
+        <div class="flex items-center gap-2">
+          <div class="w-6 h-6 text-amber-400 flex items-center justify-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+          </div>
+          <h2 class="text-base font-bold">Редактировать Д/З</h2>
+        </div>
+        <button onclick="closeEditModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">
+          <span id="edit-modal-close-icon" class="w-4 h-4">✕</span>
+        </button>
+      </div>
+
+      <input type="hidden" id="edit-task-id" />
+      <input type="hidden" id="edit-modal-subject" />
+      <input type="hidden" id="edit-modal-date" />
+
+      <div class="space-y-4">
+        <!-- Выбор предмета -->
+        <div>
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Предмет</label>
+          <div class="grid grid-cols-3 gap-2" id="edit-subject-selector-grid"></div>
+        </div>
+
+        <!-- Выбор даты сдачи -->
+        <div>
+          <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Когда сдать?</label>
+          <div class="grid grid-cols-4 gap-1.5 mb-2">
+            <button type="button" onclick="selectEditDate('tomorrow', this)" class="edit-date-btn py-2 text-xs font-bold rounded-xl border border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 flex items-center justify-center gap-1">
+              <span>Завтра</span>
+            </button>
+            <button type="button" onclick="selectEditDate('today', this)" class="edit-date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1">
+              <span>Сегодня</span>
+            </button>
+            <button type="button" onclick="selectEditDate('in2days', this)" class="edit-date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1">
+              <span>+2 Дня</span>
+            </button>
+            <button type="button" onclick="selectEditDate('monday', this)" class="edit-date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1">
+              <span>Пн</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 mt-1">
+            <span class="text-xs text-slate-500 dark:text-slate-400">Точная дата:</span>
+            <input type="date" id="edit-modal-date-picker" onchange="onEditCustomDateChange(this)" class="flex-1 bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:border-amber-400" />
+          </div>
+        </div>
+
+        <!-- Описание задания -->
+        <div>
+          <div class="flex justify-between items-center mb-1.5">
+            <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Задание / Номера</label>
+            <span id="edit-desc-char-count" class="text-[10px] text-slate-400 font-mono">0 / 1500</span>
+          </div>
+          <textarea id="edit-modal-desc" rows="3" maxlength="1500" oninput="updateEditCharCount(this)" placeholder="Задание..." class="w-full bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-amber-400 resize-none break-all"></textarea>
+        </div>
+
+        <!-- Прикрепленные страницы -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span id="edit-input-photo-icon" class="w-4 h-4 text-amber-500"></span>
+              <span>Страницы учебника / конспекта</span>
+            </label>
+            <span id="edit-photos-count-badge" class="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+              0 страниц
+            </span>
+          </div>
+
+          <!-- Сетка уже прикрепленных страниц задания (с кнопкой удаления красным крестиком) -->
+          <div id="edit-existing-photos-container" class="hidden mb-3">
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Прикреплено ранее:</span>
+            <div id="edit-existing-photos-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-44 overflow-y-auto p-1.5 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200 dark:border-white/10"></div>
+          </div>
+
+          <!-- Новые добавляемые страницы -->
+          <input type="file" id="edit-photo-camera" accept="image/*" capture="environment" onchange="handleEditPhotoSelected(this)" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none;width:1px;height:1px;" />
+          <input type="file" id="edit-photo-gallery" accept="image/*" multiple onchange="handleEditPhotoSelected(this)" style="position:fixed;top:-1000px;left:-1000px;opacity:0;pointer-events:none;width:1px;height:1px;" />
+
+          <div id="edit-new-photos-container" class="hidden mb-3">
+            <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block mb-1">+ Новые страницы:</span>
+            <div id="edit-new-photos-grid" class="grid grid-cols-3 sm:grid-cols-4 gap-2 max-h-40 overflow-y-auto p-1.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/20"></div>
+          </div>
+
+          <!-- Кнопки добавления фото -->
+          <div class="grid grid-cols-2 gap-2.5">
+            <button type="button" onclick="startEditCameraCapture()" class="cursor-pointer py-2.5 px-3 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 active:scale-95 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs select-none">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              <span>Снять еще</span>
+            </button>
+
+            <label for="edit-photo-gallery" class="cursor-pointer py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-white/5 dark:hover:bg-white/10 active:scale-95 border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 font-bold text-xs flex items-center justify-center gap-2 transition shadow-xs select-none">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+              </svg>
+              <span>Из галереи</span>
+            </label>
+          </div>
+          <div id="edit-file-error-msg" class="text-[11px] text-rose-500 font-medium mt-1.5 hidden"></div>
+        </div>
+
+        <!-- Кнопка "Сохранить изменения" -->
+        <button onclick="submitEditTask()" id="edit-submit-btn" class="w-full py-3.5 bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-black rounded-xl shadow-lg transition active:scale-95 text-sm flex items-center justify-center gap-2">
+          <span>Сохранить изменения</span>
+        </button>
+
+        <!-- Кнопка "Удалить задание" -->
+        <button onclick="confirmDeleteCurrentTask()" id="edit-delete-btn" class="w-full py-2.5 text-rose-500 hover:text-white hover:bg-rose-500 border border-rose-500/30 font-bold rounded-xl transition active:scale-95 text-xs flex items-center justify-center gap-1.5">
+          <span class="w-3.5 h-3.5 flex items-center justify-center" id="edit-delete-icon"></span>
+          <span>Удалить задание</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Плавающие уведомления (Toast) -->
   <div id="toast-container" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center gap-2 max-w-[90vw]"></div>
 
@@ -1161,6 +1283,12 @@
           </svg>
           <span>Повернуть влево</span>
         </button>
+        <button id="photo-edit-task-btn" onclick="openEditFromPhotoModal()" class="hidden px-3.5 py-1.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 active:scale-90 text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition backdrop-blur-md border border-amber-400/30" title="Редактировать задание">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+          </svg>
+          <span>Изм. задание</span>
+        </button>
         <button onclick="resetPhotoTransform()" id="photo-reset-btn" class="hidden px-3.5 py-1.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 active:scale-90 text-amber-300 font-mono text-xs font-bold transition backdrop-blur-md border border-amber-400/30" title="Сбросить масштаб и положение">
           1x
         </button>
@@ -1210,6 +1338,7 @@
       zoomOut: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="8" y1="11" x2="14" y2="11"/></svg>`,
       download: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`,
       check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="20 6 9 17 4 12"/></svg>`,
+      trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
 
       // Предметы
       algebra: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 21h18"/><path d="M5 21l14-14"/><path d="M19 21V7"/><path d="M8 21v-3"/><path d="M11 21v-2"/><path d="M14 21v-3"/><path d="M17 21v-2"/></svg>`,
@@ -1250,6 +1379,9 @@
     safeSetIcon('photo-close-icon', ICONS.close);
     safeSetIcon('photo-camera-icon', ICONS.camera);
     safeSetIcon('input-photo-icon', ICONS.camera);
+    safeSetIcon('edit-modal-close-icon', ICONS.close);
+    safeSetIcon('edit-input-photo-icon', ICONS.camera);
+    safeSetIcon('edit-delete-icon', ICONS.trash);
     safeSetIcon('date-icon-tomorrow', ICONS.calendar);
     safeSetIcon('date-icon-today', ICONS.today);
     safeSetIcon('date-icon-in2days', ICONS.calendar);
@@ -1363,8 +1495,14 @@
     // ========================================================
     let cameraStream = null;
     let cameraFacing = 'environment';
+    let activeCameraContext = 'add'; // 'add' или 'edit'
+    let editTaskId = null;
+    let editTaskExistingMaterials = [];
+    let editDeletedMaterialIds = [];
+    let editSelectedPhotos = [];
 
     async function startCameraCapture() {
+      activeCameraContext = 'add';
       const errorDiv = document.getElementById('file-error-msg');
       if (errorDiv) {
         errorDiv.classList.add('hidden');
@@ -1392,8 +1530,39 @@
       }
     }
 
+    async function startEditCameraCapture() {
+      activeCameraContext = 'edit';
+      const errorDiv = document.getElementById('edit-file-error-msg');
+      if (errorDiv) {
+        errorDiv.classList.add('hidden');
+        errorDiv.innerText = '';
+      }
+
+      const totalCount = editTaskExistingMaterials.length + editSelectedPhotos.length;
+      if (totalCount >= 10) {
+        showToast('⚠️ Максимум можно прикрепить 10 страниц!', 'warning');
+        return;
+      }
+
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          openCameraModal();
+          await initCameraStream(cameraFacing);
+          return;
+        } catch (err) {
+          console.warn('In-app camera stream failed, falling back:', err);
+          closeInAppCamera();
+          fallbackToCameraInput();
+          return;
+        }
+      } else {
+        fallbackToCameraInput();
+      }
+    }
+
     function fallbackToCameraInput() {
-      const camInput = document.getElementById('modal-photo-camera');
+      const inputId = (activeCameraContext === 'edit') ? 'edit-photo-camera' : 'modal-photo-camera';
+      const camInput = document.getElementById(inputId);
       if (camInput) camInput.click();
     }
 
@@ -1422,7 +1591,11 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
       }
-      renderPhotoPreviews();
+      if (activeCameraContext === 'edit') {
+        renderEditNewPhotos();
+      } else {
+        renderPhotoPreviews();
+      }
     }
 
     async function initCameraStream(facing) {
@@ -1475,14 +1648,17 @@
     }
 
     function updateCameraUI() {
+      const isEdit = (activeCameraContext === 'edit');
+      const curCount = isEdit ? (editTaskExistingMaterials.length + editSelectedPhotos.length) : selectedPhotos.length;
       const counter = document.getElementById('camera-page-counter');
       if (counter) {
-        counter.innerText = `Стр. ${selectedPhotos.length + 1} / 10`;
+        counter.innerText = `Стр. ${curCount + 1} / 10`;
       }
       const thumb = document.getElementById('camera-last-thumb');
       const placeholder = document.getElementById('camera-thumb-placeholder');
-      if (selectedPhotos.length > 0) {
-        const last = selectedPhotos[selectedPhotos.length - 1];
+      const activeList = isEdit ? editSelectedPhotos : selectedPhotos;
+      if (activeList.length > 0) {
+        const last = activeList[activeList.length - 1];
         if (thumb && last.previewUrl) {
           thumb.src = last.previewUrl;
           thumb.classList.remove('hidden');
@@ -1501,7 +1677,9 @@
       const video = document.getElementById('camera-video-preview');
       if (!video || video.videoWidth === 0) return;
 
-      if (selectedPhotos.length >= 10) {
+      const isEdit = (activeCameraContext === 'edit');
+      const curTotal = isEdit ? (editTaskExistingMaterials.length + editSelectedPhotos.length) : selectedPhotos.length;
+      if (curTotal >= 10) {
         showToast('⚠️ Максимум 10 страниц!', 'warning');
         closeInAppCamera();
         return;
@@ -1545,9 +1723,10 @@
         canvas.width = 0;
         canvas.height = 0;
         if (blob) {
-          addCapturedPhotoBlob(blob, `camera_page_${selectedPhotos.length + 1}.jpg`);
+          addCapturedPhotoBlob(blob, `camera_page_${curTotal + 1}.jpg`);
           updateCameraUI();
-          if (selectedPhotos.length >= 10) {
+          const newTotal = isEdit ? (editTaskExistingMaterials.length + editSelectedPhotos.length) : selectedPhotos.length;
+          if (newTotal >= 10) {
             setTimeout(() => {
               showToast('10 страниц отснято!', 'success');
               closeInAppCamera();
@@ -1560,23 +1739,32 @@
     function addCapturedPhotoBlob(blob, filename) {
       if (!blob) return;
       const maxLimit = 10;
-      if (selectedPhotos.length >= maxLimit) {
+      const isEdit = (activeCameraContext === 'edit');
+      const curTotal = isEdit ? (editTaskExistingMaterials.length + editSelectedPhotos.length) : selectedPhotos.length;
+      if (curTotal >= maxLimit) {
         showToast(`⚠️ Достигнут лимит ${maxLimit} страниц!`, 'warning');
         return;
       }
-      const safeFileName = filename || `camera_page_${selectedPhotos.length + 1}.jpg`;
+      const safeFileName = filename || `camera_page_${curTotal + 1}.jpg`;
       const processedFile = new File([blob], safeFileName, { type: 'image/jpeg' });
       const previewData = URL.createObjectURL(blob);
       const sizeStr = `${Math.round(blob.size / 1024)} КБ`;
 
-      selectedPhotos.push({
+      const item = {
         file: processedFile,
         previewUrl: previewData,
         sizeText: sizeStr
-      });
+      };
 
-      renderPhotoPreviews();
-      showToast(`✓ Страница ${selectedPhotos.length} добавлена!`, 'success');
+      if (isEdit) {
+        editSelectedPhotos.push(item);
+        renderEditNewPhotos();
+        showToast(`✓ Страница ${curTotal + 1} добавлена!`, 'success');
+      } else {
+        selectedPhotos.push(item);
+        renderPhotoPreviews();
+        showToast(`✓ Страница ${selectedPhotos.length} добавлена!`, 'success');
+      }
     }
 
     function triggerGalleryInput() {
@@ -2222,14 +2410,22 @@
             <!-- Превью прикрепленных страниц -->
             ${photoGalleryHTML}
 
-            <!-- Нижняя панель карточки: Автор (слева) и Кнопка "Сдать" (справа) -->
+            <!-- Нижняя панель карточки: Автор + Изм. (слева) и Кнопка "Сдать" (справа) -->
             <div class="flex items-center justify-between gap-2 mt-2 pt-2.5 border-t border-slate-100 dark:border-white/[0.05] flex-wrap">
-              <!-- Аватар и имя автора задания -->
-              <div class="inline-flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shrink-0" title="Опубликовал ${escapeHtml(authorNickText)}">
-                ${authorAvatarHTML}
-                <span class="text-[11.5px] font-medium text-slate-600 dark:text-slate-300 truncate max-w-[130px]">
-                  ${escapeHtml(authorNickText)}${isMeAuthor ? ' <span class="text-[10px] text-amber-500/80 dark:text-amber-400/80 font-bold">(вы)</span>' : ''}
-                </span>
+              <!-- Левая группа: Аватар автора + Кнопка редактирования -->
+              <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <div class="inline-flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shrink-0" title="Опубликовал ${escapeHtml(authorNickText)}">
+                  ${authorAvatarHTML}
+                  <span class="text-[11.5px] font-medium text-slate-600 dark:text-slate-300 truncate max-w-[120px]">
+                    ${escapeHtml(authorNickText)}${isMeAuthor ? ' <span class="text-[10px] text-amber-500/80 dark:text-amber-400/80 font-bold">(вы)</span>' : ''}
+                  </span>
+                </div>
+
+                <!-- Кнопка "Изм." (Редактирование задания) -->
+                <button onclick="openEditModal(${t.id})" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] hover:bg-amber-500/15 text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 border border-slate-200/80 dark:border-white/[0.08] hover:border-amber-500/30 transition-all active:scale-95 text-[11px] font-medium" title="Редактировать задание">
+                  <span class="w-3 h-3 text-amber-500 dark:text-amber-400">${ICONS.pencil}</span>
+                  <span>Изм.</span>
+                </button>
               </div>
 
               <!-- Кнопка "Сдать" -->
@@ -2453,6 +2649,7 @@
         } catch(e) {}
 
         if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        showToast('✓ Задание опубликовано в класс! Можно изменить кнопкой «Изм.»', 'success');
         loadTasks();
       } catch (err) {
         console.error(err);
@@ -2464,21 +2661,476 @@
     }
 
     // ========================================================
+    // РЕДАКТИРОВАНИЕ И УДАЛЕНИЕ ЗАДАНИЯ
+    // ========================================================
+    function updateEditPhotoCountBadge() {
+      const badge = document.getElementById('edit-photo-count-badge');
+      if (badge) {
+        const total = editTaskExistingMaterials.length + editSelectedPhotos.length;
+        badge.innerText = `${total} / 10`;
+      }
+    }
+
+    function renderEditSubjectGrid(selectedSubj) {
+      const grid = document.getElementById('edit-subject-selector-grid');
+      if (!grid) return;
+      grid.innerHTML = subjectList.map((s) => {
+        const isActive = (s.name === selectedSubj);
+        const activeClass = isActive
+          ? 'border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 font-bold'
+          : 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 font-medium';
+        return `
+          <button type="button" onclick="selectEditSubject('${s.name}', this)" class="edit-subject-btn py-2 px-1 text-xs rounded-xl border ${activeClass} flex items-center justify-center gap-1.5 transition">
+            <span class="w-3.5 h-3.5 inline-block shrink-0">${s.icon}</span>
+            <span class="truncate">${s.label}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function selectEditSubject(subj, el) {
+      document.getElementById('edit-modal-subject').value = subj;
+      document.querySelectorAll('.edit-subject-btn').forEach(b => {
+        b.className = 'edit-subject-btn py-2 px-1 text-xs rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 font-medium flex items-center justify-center gap-1.5 transition';
+      });
+      el.className = 'edit-subject-btn py-2 px-1 text-xs rounded-xl border border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 font-bold flex items-center justify-center gap-1.5 transition';
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+    }
+
+    function updateEditDateButtons(dateVal) {
+      document.getElementById('edit-modal-date').value = dateVal;
+      const picker = document.getElementById('edit-modal-date-picker');
+      if (picker) picker.value = dateVal;
+
+      const tomorrow = getISODate(1);
+      const today = getISODate(0);
+      const in2days = getISODate(2);
+      const monday = getNextMonday();
+
+      let matchedIndex = -1;
+      if (dateVal === tomorrow) matchedIndex = 0;
+      else if (dateVal === today) matchedIndex = 1;
+      else if (dateVal === in2days) matchedIndex = 2;
+      else if (dateVal === monday) matchedIndex = 3;
+
+      document.querySelectorAll('.edit-date-btn').forEach((b, idx) => {
+        if (idx === matchedIndex) {
+          b.className = 'edit-date-btn py-2 text-xs font-bold rounded-xl border border-amber-400 bg-amber-400/20 text-amber-600 dark:text-amber-300 flex items-center justify-center gap-1';
+        } else {
+          b.className = 'edit-date-btn py-2 text-xs font-medium rounded-xl border border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-700 dark:text-slate-300 flex items-center justify-center gap-1';
+        }
+      });
+    }
+
+    function selectEditDate(when, el) {
+      let dateVal = getISODate(1);
+      if (when === 'today') dateVal = getISODate(0);
+      if (when === 'in2days') dateVal = getISODate(2);
+      if (when === 'monday') dateVal = getNextMonday();
+
+      updateEditDateButtons(dateVal);
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+    }
+
+    function onEditCustomDateChange(el) {
+      if (el.value) {
+        updateEditDateButtons(el.value);
+        if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      }
+    }
+
+    function updateEditCharCount(el) {
+      const cnt = document.getElementById('edit-desc-char-count');
+      if (cnt) cnt.innerText = `${el.value.length} / 1500`;
+    }
+
+    function renderEditExistingPhotos() {
+      const container = document.getElementById('edit-existing-photos-container');
+      const grid = document.getElementById('edit-existing-photos-grid');
+      if (!container || !grid) return;
+
+      if (editTaskExistingMaterials.length === 0) {
+        container.classList.add('hidden');
+        grid.innerHTML = '';
+      } else {
+        container.classList.remove('hidden');
+        grid.innerHTML = editTaskExistingMaterials.map((m, idx) => {
+          const imgUrl = m.material_url || m.url || '';
+          return `
+            <div class="relative group rounded-xl overflow-hidden border border-slate-300 dark:border-white/10 bg-slate-900 aspect-[3/4] flex flex-col justify-between p-1.5 shadow-sm">
+              <img src="${imgUrl}" alt="Стр. ${idx + 1}" class="absolute inset-0 w-full h-full object-cover rounded-lg" onerror="this.onerror=null;this.src='/static/icons/book.png';" />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/40 pointer-events-none rounded-lg"></div>
+              
+              <div class="relative z-10 flex items-center justify-between">
+                <span class="px-1.5 py-0.5 rounded-md bg-amber-500 text-slate-950 font-black text-[10px] shadow-sm tracking-tight">
+                  Стр. ${idx + 1}
+                </span>
+                <button type="button" onclick="removeEditExistingPhoto(${m.id})" class="w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center text-xs font-bold transition shadow-md" title="Удалить страницу">
+                  ✕
+                </button>
+              </div>
+
+              <div class="relative z-10 text-[9px] text-amber-200/90 font-mono text-center truncate px-0.5">
+                Ранее сохранено
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+      updateEditPhotoCountBadge();
+    }
+
+    function removeEditExistingPhoto(materialId) {
+      if (!editDeletedMaterialIds.includes(materialId)) {
+        editDeletedMaterialIds.push(materialId);
+      }
+      editTaskExistingMaterials = editTaskExistingMaterials.filter(m => m.id !== materialId);
+      renderEditExistingPhotos();
+      showToast('Страница будет удалена при сохранении', 'info');
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+    }
+
+    function renderEditNewPhotos() {
+      const container = document.getElementById('edit-new-photos-container');
+      const grid = document.getElementById('edit-new-photos-grid');
+      if (!container || !grid) return;
+
+      if (editSelectedPhotos.length === 0) {
+        container.classList.add('hidden');
+        grid.innerHTML = '';
+      } else {
+        container.classList.remove('hidden');
+        grid.innerHTML = editSelectedPhotos.map((p, idx) => {
+          const pageNum = editTaskExistingMaterials.length + idx + 1;
+          return `
+            <div class="relative group rounded-xl overflow-hidden border border-emerald-400/40 bg-slate-900 aspect-[3/4] flex flex-col justify-between p-1.5 shadow-sm">
+              <img src="${p.previewUrl}" alt="Стр. ${pageNum}" class="absolute inset-0 w-full h-full object-cover rounded-lg" />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/40 pointer-events-none rounded-lg"></div>
+              
+              <div class="relative z-10 flex items-center justify-between">
+                <span class="px-1.5 py-0.5 rounded-md bg-emerald-500 text-slate-950 font-black text-[10px] shadow-sm tracking-tight">
+                  Стр. ${pageNum}
+                </span>
+                <button type="button" onclick="removeEditNewPhoto(${idx})" class="w-6 h-6 rounded-full bg-rose-500 hover:bg-rose-600 active:scale-90 text-white flex items-center justify-center text-xs font-bold transition shadow-md" title="Удалить новую страницу">
+                  ✕
+                </button>
+              </div>
+
+              <div class="relative z-10 text-[9px] text-emerald-200 font-mono text-center truncate px-0.5">
+                ${p.sizeText}
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+      updateEditPhotoCountBadge();
+    }
+
+    function removeEditNewPhoto(index) {
+      if (index >= 0 && index < editSelectedPhotos.length) {
+        const item = editSelectedPhotos[index];
+        if (item?.previewUrl && item.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+        editSelectedPhotos.splice(index, 1);
+        renderEditNewPhotos();
+        if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      }
+    }
+
+    async function handleEditPhotoSelected(input) {
+      const errorDiv = document.getElementById('edit-file-error-msg');
+      if (errorDiv) {
+        errorDiv.classList.add('hidden');
+        errorDiv.innerText = '';
+      }
+
+      if (!input.files || input.files.length === 0) return;
+      const incomingFiles = Array.from(input.files);
+
+      const maxLimit = 10;
+      const currentTotal = editTaskExistingMaterials.length + editSelectedPhotos.length;
+      if (currentTotal + incomingFiles.length > maxLimit) {
+        if (errorDiv) {
+          errorDiv.innerText = `⚠️ Максимум можно прикрепить до ${maxLimit} страниц к одному заданию!`;
+          errorDiv.classList.remove('hidden');
+        }
+      }
+
+      const availableSlots = Math.max(0, maxLimit - currentTotal);
+      const filesToProcess = incomingFiles.slice(0, availableSlots);
+
+      for (const file of filesToProcess) {
+        const isImg = (file.type && file.type.startsWith('image/')) || 
+                      /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name || '') ||
+                      file.type === '';
+        if (!isImg) continue;
+
+        await new Promise((resolve) => {
+          compressImage(file, 1440, 0.82, function(compressedBlob, previewData) {
+            let processedFile;
+            let sizeStr = '';
+
+            const pageNum = editTaskExistingMaterials.length + editSelectedPhotos.length + 1;
+            if (compressedBlob) {
+              const safeFileName = (file.name || `edit_page_${pageNum}.jpg`).replace(/\.[^/.]+$/, "") + ".jpg";
+              processedFile = new File([compressedBlob], safeFileName, { type: "image/jpeg" });
+              sizeStr = `${Math.round(compressedBlob.size / 1024)} КБ`;
+            } else {
+              processedFile = file;
+              previewData = URL.createObjectURL(file);
+              sizeStr = `${(file.size / (1024 * 1024)).toFixed(1)} МБ`;
+            }
+
+            editSelectedPhotos.push({
+              file: processedFile,
+              previewUrl: previewData,
+              sizeText: sizeStr
+            });
+            resolve();
+          });
+        });
+      }
+
+      renderEditNewPhotos();
+      input.value = '';
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    }
+
+    function openEditModal(taskId) {
+      const task = allTasks.find(t => t.id === taskId);
+      if (!task) {
+        showToast('Задание не найдено', 'warning');
+        return;
+      }
+
+      editTaskId = taskId;
+      editDeletedMaterialIds = [];
+      editSelectedPhotos = [];
+      editTaskExistingMaterials = (task.materials || []).map(m => ({ ...m }));
+
+      document.getElementById('edit-task-id').value = task.id;
+      document.getElementById('edit-modal-subject').value = task.subject || '';
+      document.getElementById('edit-modal-desc').value = task.description || '';
+      
+      const charCount = document.getElementById('edit-desc-char-count');
+      if (charCount) {
+        charCount.innerText = `${(task.description || '').length} / 1500`;
+      }
+
+      renderEditSubjectGrid(task.subject || 'Алгебра');
+      updateEditDateButtons(task.due_date || getISODate(1));
+      renderEditExistingPhotos();
+      renderEditNewPhotos();
+
+      const modal = document.getElementById('edit-modal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    }
+
+    function closeEditModal() {
+      const modal = document.getElementById('edit-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+
+      editSelectedPhotos.forEach(p => {
+        if (p?.previewUrl && p.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(p.previewUrl);
+        }
+      });
+      editSelectedPhotos = [];
+      editDeletedMaterialIds = [];
+      editTaskExistingMaterials = [];
+      editTaskId = null;
+
+      const camInput = document.getElementById('edit-photo-camera');
+      if (camInput) camInput.value = '';
+      const galInput = document.getElementById('edit-photo-gallery');
+      if (galInput) galInput.value = '';
+    }
+
+    async function submitEditTask() {
+      if (!editTaskId) return;
+
+      const subject = document.getElementById('edit-modal-subject').value;
+      const dueDate = document.getElementById('edit-modal-date').value;
+      const desc = document.getElementById('edit-modal-desc').value.trim();
+      const submitBtn = document.getElementById('edit-submit-btn');
+
+      if (!desc) {
+        alert('Пожалуйста, укажите описание задания!');
+        return;
+      }
+      if (desc.length > 1500) {
+        alert('Описание слишком длинное (максимум 1500 символов)!');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.innerText = 'Сохранение...';
+
+      try {
+        // 1. Обновляем основные поля задания (PUT /api/tasks/{id} с fallback POST /edit)
+        let updateRes = await fetch(`/api/tasks/${editTaskId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            subject: subject,
+            description: desc,
+            due_date: dueDate
+          })
+        });
+
+        if (!updateRes.ok) {
+          // Fallback на POST /api/tasks/{id}/edit для совместимости с любыми прокси
+          updateRes = await fetch(`/api/tasks/${editTaskId}/edit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: userId,
+              subject: subject,
+              description: desc,
+              due_date: dueDate
+            })
+          });
+        }
+
+        if (!updateRes.ok) {
+          throw new Error('Не удалось сохранить изменения задания');
+        }
+
+        // 2. Удаляем помеченные пользователем старые фото
+        if (editDeletedMaterialIds.length > 0) {
+          submitBtn.innerText = `Удаление фото (${editDeletedMaterialIds.length})...`;
+          for (const matId of editDeletedMaterialIds) {
+            try {
+              let delRes = await fetch(`/api/materials/${matId}`, { method: 'DELETE' });
+              if (!delRes.ok) {
+                await fetch(`/api/materials/${matId}/delete`, { method: 'POST' });
+              }
+            } catch (err) {
+              console.warn('Ошибка удаления страницы:', err);
+            }
+          }
+        }
+
+        // 3. Загружаем новые добавленные страницы
+        if (editSelectedPhotos.length > 0) {
+          submitBtn.innerText = `Загрузка новых фото (${editSelectedPhotos.length})...`;
+          const formData = new FormData();
+          formData.append('task_id', editTaskId);
+          formData.append('user_id', userId);
+          for (let i = 0; i < editSelectedPhotos.length; i++) {
+            formData.append('photos', editSelectedPhotos[i].file);
+          }
+
+          try {
+            const uploadRes = await fetch('/api/upload', {
+              method: 'POST',
+              body: formData
+            });
+            if (!uploadRes.ok) {
+              console.error('Ошибка загрузки новых фото:', await uploadRes.text());
+            }
+          } catch (upErr) {
+            console.error('Сетевая ошибка при загрузке новых фото:', upErr);
+          }
+        }
+
+        closeEditModal();
+        showToast('✓ Изменения сохранены!', 'success');
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        loadTasks();
+      } catch (err) {
+        console.error(err);
+        alert('Ошибка при сохранении задания: ' + (err.message || 'попробуйте ещё раз'));
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerText = 'Сохранить изменения';
+      }
+    }
+
+    async function confirmDeleteCurrentTask() {
+      if (!editTaskId) return;
+
+      const confirmText = 'Вы точно хотите полностью удалить это задание и все прикрепленные материалы?';
+      if (!confirm(confirmText)) return;
+
+      const deleteBtn = document.getElementById('edit-delete-btn');
+      if (deleteBtn) {
+        deleteBtn.disabled = true;
+        deleteBtn.innerText = 'Удаление...';
+      }
+
+      try {
+        let delRes = await fetch(`/api/tasks/${editTaskId}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId })
+        });
+
+        if (!delRes.ok) {
+          // Fallback на POST /api/tasks/{id}/delete
+          delRes = await fetch(`/api/tasks/${editTaskId}/delete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId })
+          });
+        }
+
+        if (!delRes.ok) {
+          throw new Error('Не удалось удалить задание на сервере');
+        }
+
+        closeEditModal();
+        showToast('✓ Задание успешно удалено', 'success');
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+        loadTasks();
+      } catch (err) {
+        console.error(err);
+        alert('Ошибка при удалении задания: ' + (err.message || 'попробуйте позже'));
+      } finally {
+        if (deleteBtn) {
+          deleteBtn.disabled = false;
+          deleteBtn.innerText = 'Удалить задание';
+        }
+      }
+    }
+
+    // ========================================================
     // ПРОСМОТРЩИК ФОТО
     // ========================================================
     let currentGallery = [];
     let currentGalleryIndex = 0;
+    let currentGalleryTaskId = null;
+
+    function openEditFromPhotoModal() {
+      const tId = currentGalleryTaskId;
+      closePhotoViewer();
+      if (tId) {
+        setTimeout(() => {
+          openEditModal(tId);
+        }, 150);
+      }
+    }
 
     function openTaskMaterials(taskId) {
       const task = allTasks.find(t => t.id === taskId);
       if (!task || !task.materials || task.materials.length === 0) return;
-      openPhotoGallery(task.materials, 0);
+      openPhotoGallery(task.materials, 0, taskId);
     }
 
     function openTaskPhoto(taskId, index = 0) {
       const task = allTasks.find(t => t.id === taskId);
       if (!task || !task.materials || task.materials.length === 0) return;
-      openPhotoGallery(task.materials, index);
+      openPhotoGallery(task.materials, index, taskId);
     }
 
     function openPhotoViewer(url, uploaderId, materialId = null) {
@@ -2486,11 +3138,18 @@
       if (!target.startsWith('http://') && !target.startsWith('https://') && !target.startsWith('data:')) {
         target = '/' + target.replace(/^\//, '');
       }
-      openPhotoGallery([{ id: materialId, file_id: target, uploader_id: uploaderId }], 0);
+      openPhotoGallery([{ id: materialId, file_id: target, uploader_id: uploaderId }], 0, null);
     }
 
-    function openPhotoGallery(materials, startIndex = 0) {
+    function openPhotoGallery(materials, startIndex = 0, taskId = null) {
       if (!materials || materials.length === 0) return;
+      currentGalleryTaskId = taskId;
+      const editBtn = document.getElementById('photo-edit-task-btn');
+      if (editBtn) {
+        if (taskId) editBtn.classList.remove('hidden');
+        else editBtn.classList.add('hidden');
+      }
+
       currentGallery = materials.map(m => {
         let u = m.file_id || '';
         if (u.startsWith('http://') || u.startsWith('https://') || u.startsWith('data:')) {

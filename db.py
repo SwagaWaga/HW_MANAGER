@@ -149,16 +149,42 @@ def mark_task_done(task_id: int, user_id: int):
     conn.commit()
     conn.close()
 
-def delete_task(task_id: int, user_id: int):
+def update_task(task_id: int, subject: str, description: str, due_date: str, user_id: Optional[int] = None) -> bool:
+    if is_using_supabase():
+        return supabase_db.update_task(task_id, subject, description, due_date, user_id)
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE tasks SET subject = ?, description = ?, due_date = ? WHERE id = ?", (subject, description, due_date, task_id))
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_task(task_id: int, user_id: Optional[int] = None):
     if is_using_supabase():
         return supabase_db.delete_task(task_id, user_id)
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    sql = "DELETE FROM tasks WHERE id = ? AND user_id = ?"
-    cursor.execute(sql, (task_id, user_id))
+    cursor.execute("DELETE FROM task_materials WHERE task_id = ?", (task_id,))
+    cursor.execute("DELETE FROM user_completions WHERE task_id = ?", (task_id,))
+    if user_id:
+        cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
+    else:
+        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
     conn.commit()
     conn.close()
+
+def delete_material(material_id: int) -> bool:
+    if is_using_supabase():
+        return supabase_db.delete_material(material_id)
+
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM task_materials WHERE id = ?", (material_id,))
+    conn.commit()
+    conn.close()
+    return True
 
 def delete_all_tasks(user_id: int):
     conn = sqlite3.connect(DB_NAME)
