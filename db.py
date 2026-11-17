@@ -207,39 +207,67 @@ def add_material(task_id: int, file_id: str, caption: str, uploader_id: int):
 
 def add_materials_batch(task_id: int, items: List[Dict[str, str]], uploader_id: int):
     if not items:
-        return True
+        return []
     if is_using_supabase():
         return supabase_db.add_materials_batch(task_id, items, uploader_id)
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    params = [(task_id, item["file_id"], item.get("caption", ""), uploader_id) for item in items]
-    cursor.executemany("INSERT OR IGNORE INTO task_materials (task_id, file_id, caption, uploader_id) VALUES (?, ?, ?, ?)", params)
+    created_ids = []
+    for item in items:
+        cursor.execute("INSERT OR IGNORE INTO task_materials (task_id, file_id, caption, uploader_id) VALUES (?, ?, ?, ?)",
+                       (task_id, item["file_id"], item.get("caption", ""), uploader_id))
+        created_ids.append(cursor.lastrowid)
     conn.commit()
     conn.close()
-    return True
+    return created_ids
 
 def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
+    batch = get_materials_for_tasks_batch([task_id])
+    return batch.get(task_id, [])
+
+def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[str, Any]]]:
+    if not task_ids:
+        return {}
     if is_using_supabase():
-        return supabase_db.get_materials_for_task(task_id)
+        return supabase_db.get_materials_for_tasks_batch(task_ids)
 
     conn = sqlite3.connect(DB_NAME)
-    conn.row_factory = sqlite3.Row  
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    sql = """
-        SELECT m.id, m.file_id, m.caption, m.uploader_id,
+    placeholders = ",".join("?" for _ in task_ids)
+    sql = f"""
+        SELECT m.id, m.task_id, m.caption, m.uploader_id,
                COALESCE(u.telegram_nick, '@ученик_' || m.uploader_id) as uploader_nick,
                COALESCE(u.full_name, '') as uploader_name
         FROM task_materials m
         LEFT JOIN users u ON m.uploader_id = u.id
-        WHERE m.task_id = ?
+        WHERE m.task_id IN ({placeholders})
         ORDER BY m.id ASC
     """
-    cursor.execute(sql, (task_id,))
+    cursor.execute(sql, task_ids)
     rows = cursor.fetchall()
-    materials = [dict(r) for r in rows]
     conn.close()
-    return materials
+
+    result: Dict[int, List[Dict[str, Any]]] = {tid: [] for tid in task_ids}
+    for r in rows:
+        t_id = r["task_id"]
+        mat_id = r["id"]
+        item = {
+            "id": mat_id,
+            "task_id": t_id,
+            "file_id": f"/api/materials/{mat_id}",
+            "url": f"/api/materials/{mat_id}",
+            "caption": r["caption"] or "",
+            "uploader_id": r["uploader_id"],
+            "uploader_nick": r["uploader_nick"],
+            "uploader_name": r["uploader_name"]
+        }
+        if t_id in result:
+            result[t_id].append(item)
+        else:
+            result[t_id] = [item]
+    return result
 
 def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
     if is_using_supabase():
