@@ -5,7 +5,7 @@ import logging
 import uvicorn
 from contextlib import asynccontextmanager
 from server import app
-from bot import dp, bot, send_evening_reminder, sync_menu_button
+from bot import dp, bot, send_scheduled_reminder, send_evening_reminder, sync_menu_button, TARGET_TZ
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from db import init_db
 
@@ -19,7 +19,7 @@ except Exception:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("hw_runner")
 
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(timezone=TARGET_TZ)
 
 async def render_keep_alive_task():
     """
@@ -54,11 +54,11 @@ async def lifespan(fastapi_app):
     logger.info("🚀 Starting 10th Grade Homework Portal & Bot...")
     init_db()
 
-    # 1. Start evening reminder scheduler
+    # 1. Start reminder scheduler (every day at 08:00, 16:00, 18:00 local time)
     try:
-        scheduler.add_job(send_evening_reminder, 'cron', hour=18, minute=0)
+        scheduler.add_job(send_scheduled_reminder, 'cron', hour='8,16,18', minute=0)
         scheduler.start()
-        logger.info("⏰ Scheduler started (Evening reminder at 18:00)")
+        logger.info(f"⏰ Scheduler started (Reminders at 08:00, 16:00, 18:00 in {TARGET_TZ})")
     except Exception as e:
         logger.warning(f"Scheduler note: {e}")
 

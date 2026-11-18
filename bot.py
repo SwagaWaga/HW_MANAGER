@@ -2,7 +2,9 @@ import os
 import asyncio
 import logging
 import html
-from datetime import date, timedelta
+from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
+from typing import Optional
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart, Command, CommandObject
@@ -34,6 +36,12 @@ WEB_APP_URL = (
     or (f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}" if os.getenv('RENDER_EXTERNAL_HOSTNAME') else None)
     or 'https://hw-manager-portal.onrender.com'
 ).rstrip('/')
+
+TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
+try:
+    TARGET_TZ = ZoneInfo(TARGET_TZ_NAME)
+except Exception:
+    TARGET_TZ = ZoneInfo("Asia/Tashkent")
 
 bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 dp = Dispatcher()
@@ -128,65 +136,177 @@ def record_user_activity(from_user):
     full_name = f"{from_user.first_name or ''} {from_user.last_name or ''}".strip()
     upsert_user(from_user.id, telegram_nick=nick, full_name=full_name)
 
-def build_tomorrow_notification(user_id: int) -> tuple[str, bool]:
+def get_local_today() -> date:
+    """Returns today's date in target timezone (Asia/Tashkent)."""
+    return datetime.now(TARGET_TZ).date()
+
+def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tuple[str, bool]:
     """
-    Builds tomorrow's homework notification text and returns (formatted_text, has_tasks).
+    Builds contextual homework notification text for the user depending on the hour (08:00, 16:00, 18:00).
+    Returns (formatted_html_text, has_tasks).
     """
-    tomorrow = date.today() + timedelta(days=1)
+    now_local = datetime.now(TARGET_TZ)
+    target_hour = hour if hour is not None else now_local.hour
+
+    today = now_local.date()
+    tomorrow = today + timedelta(days=1)
+    today_str = today.isoformat()
     tomorrow_str = tomorrow.isoformat()
+
     pending = get_pending_tasks(user_id)
+    today_tasks = [t for t in pending if str(t.get('due_date')) == today_str]
     tomorrow_tasks = [t for t in pending if str(t.get('due_date')) == tomorrow_str]
+    overdue_tasks = [t for t in pending if str(t.get('due_date')) < today_str]
 
-    weekday_prep = RU_WEEKDAYS.get(tomorrow.weekday(), "завтра")
-    weekday_nom = RU_WEEKDAYS_NOMINATIVE.get(tomorrow.weekday(), "Завтра")
-    date_label = f"{tomorrow.day} {RU_MONTHS[tomorrow.month]}"
+    today_nom = RU_WEEKDAYS_NOMINATIVE.get(today.weekday(), "Сегодня")
+    today_label = f"{today.day} {RU_MONTHS[today.month]}"
+    tomorrow_nom = RU_WEEKDAYS_NOMINATIVE.get(tomorrow.weekday(), "Завтра")
+    tomorrow_label = f"{tomorrow.day} {RU_MONTHS[tomorrow.month]}"
+    tomorrow_prep = RU_WEEKDAYS.get(tomorrow.weekday(), "завтра")
 
-    if tomorrow_tasks:
-        lines = [
-            f"🔔 <b>Напоминание о домашнем задании {weekday_prep}!</b>",
-            f"📅 <b>{weekday_nom}, {date_label}</b>",
-            "",
-            f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>"
-        ]
-        for idx, t in enumerate(tomorrow_tasks, 1):
+    def format_task_list(tasks):
+        lines = []
+        for idx, t in enumerate(tasks, 1):
             icon = get_subject_icon(t.get('subject', ''))
             subj = html.escape(str(t.get('subject', 'Предмет')).strip())
             desc = html.escape(str(t.get('description', '')).strip())
             lines.append(f"  {idx}. {icon} <b>{subj}</b>: {desc}")
+        return lines
 
-        lines.append("")
-        lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал, просмотреть прикреплённые фото или отметить сделанным 👇")
-        return "\n".join(lines), True
+    if target_hour <= 10:
+        # --- 08:00 Morning Reminder ---
+        has_tasks = bool(today_tasks or tomorrow_tasks or overdue_tasks)
+        if not has_tasks:
+            text = (
+                f"☀️ <b>Доброе утро!</b>\n\n"
+                f"📅 <i>{today_nom}, {today_label}</i>\n\n"
+                f"🎉 На сегодня и завтра нет невыполненных заданий!\n"
+                f"Отличного и продуктивного учебного дня! 🚀"
+            )
+            return text, False
+
+        lines = [
+            f"☀️ <b>Доброе утро! Напоминание о домашнем задании:</b>",
+            f"📅 <b>{today_nom}, {today_label}</b>",
+            ""
+        ]
+        if today_tasks:
+            lines.append(f"🔴 <b>Сдать сегодня ({len(today_tasks)}):</b>")
+            lines.extend(format_task_list(today_tasks))
+            lines.append("")
+
+        if tomorrow_tasks:
+            lines.append(f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>")
+            lines.extend(format_task_list(tomorrow_tasks))
+            lines.append("")
+
+        if overdue_tasks:
+            lines.append(f"⚠️ <b>Просроченные задания ({len(overdue_tasks)}):</b>")
+            lines.extend(format_task_list(overdue_tasks))
+            lines.append("")
+
+        lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал, посмотреть страницы учебников или отметить сделанным 👇")
+        return "\n".join(lines).strip(), True
+
+    elif target_hour <= 16:
+        # --- 16:00 Afternoon / After-school Reminder ---
+        has_tasks = bool(tomorrow_tasks or today_tasks or overdue_tasks)
+        if not has_tasks:
+            text = (
+                f"🎒 <b>Дневное напоминание о ДЗ</b>\n\n"
+                f"📅 <i>{tomorrow_nom}, {tomorrow_label} (завтра)</i>\n\n"
+                f"🎉 На завтра нет невыполненных заданий!\n"
+                f"Все уроки готовы, можно отдыхать или заняться своими делами ☕"
+            )
+            return text, False
+
+        lines = [
+            f"🎒 <b>Дневное напоминание о домашнем задании!</b>",
+            f"📅 <b>{tomorrow_nom}, {tomorrow_label} (завтра)</b>",
+            ""
+        ]
+        if tomorrow_tasks:
+            lines.append(f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>")
+            lines.extend(format_task_list(tomorrow_tasks))
+            lines.append("")
+
+        if today_tasks:
+            lines.append(f"⏳ <b>Осталось сдать на сегодня ({len(today_tasks)}):</b>")
+            lines.extend(format_task_list(today_tasks))
+            lines.append("")
+
+        if overdue_tasks:
+            lines.append(f"⚠️ <b>Просроченные долги ({len(overdue_tasks)}):</b>")
+            lines.extend(format_task_list(overdue_tasks))
+            lines.append("")
+
+        lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал, сверить фото заданий и отметить сделанным 👇")
+        return "\n".join(lines).strip(), True
+
     else:
-        text = (
-            f"🎉 <b>Отличные новости!</b>\n\n"
-            f"На завтра (<i>{weekday_nom}, {date_label}</i>) нет невыполненных заданий.\n\n"
-            f"Отдыхайте или загляните в ДЗ Портал, чтобы подготовиться к другим дням 👇"
-        )
-        return text, False
+        # --- 18:00 Evening Reminder ---
+        remaining = today_tasks + overdue_tasks
+        has_tasks = bool(tomorrow_tasks or remaining)
+        if not has_tasks:
+            text = (
+                f"🌆 <b>Вечерний чек-лист ДЗ</b>\n\n"
+                f"📅 <i>{tomorrow_nom}, {tomorrow_label} (завтра)</i>\n\n"
+                f"🎉 На завтра нет невыполненных заданий!\n"
+                f"Все уроки сделаны, приятного вечера и хорошего отдыха ✨"
+            )
+            return text, False
 
-async def send_evening_reminder():
+        lines = [
+            f"🌆 <b>Вечерняя проверка домашнего задания {tomorrow_prep}!</b>",
+            f"📅 <b>{tomorrow_nom}, {tomorrow_label}</b>",
+            ""
+        ]
+        if tomorrow_tasks:
+            lines.append(f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>")
+            lines.extend(format_task_list(tomorrow_tasks))
+            lines.append("")
+
+        if remaining:
+            lines.append(f"⚠️ <b>Не сданные сегодня или ранее ({len(remaining)}):</b>")
+            lines.extend(format_task_list(remaining))
+            lines.append("")
+
+        lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал, просмотреть прикреплённые фото или отметить сделанным 👇")
+        return "\n".join(lines).strip(), True
+
+def build_tomorrow_notification(user_id: int) -> tuple[str, bool]:
     """
-    Scheduled job sending tomorrow's pending homework notifications
-    to all registered students.
+    Builds tomorrow's homework notification text and returns (formatted_text, has_tasks).
+    Backward-compatible alias for build_reminder_notification(user_id, hour=18).
+    """
+    return build_reminder_notification(user_id, hour=18)
+
+async def send_scheduled_reminder(target_hour: Optional[int] = None):
+    """
+    Scheduled job sending targeted homework notifications to all registered students
+    at 08:00, 16:00, and 18:00 local time (Asia/Tashkent).
     """
     if not bot:
-        logger.warning("⏰ send_evening_reminder skipped: Telegram Bot instance is not initialized")
+        logger.warning("⏰ send_scheduled_reminder skipped: Telegram Bot instance is not initialized")
         return
 
-    logger.info("⏰ Running scheduled evening reminder for tomorrow's homework...")
+    now_local = datetime.now(TARGET_TZ)
+    current_hour = target_hour if target_hour is not None else now_local.hour
+    logger.info(f"⏰ Running scheduled reminder for hour={current_hour} (local time: {now_local.strftime('%Y-%m-%d %H:%M:%S %Z')})...")
+
     users = get_all_users()
     if not users:
         # Fallback to configured user ID
         users = [{"id": 5783100321}]
 
     sent_count = 0
+    skipped_count = 0
     for u in users:
         uid = u.get("id")
         if not uid:
             continue
         try:
-            text, has_tasks = build_tomorrow_notification(uid)
+            text, has_tasks = build_reminder_notification(uid, hour=current_hour)
             if has_tasks:
                 await bot.send_message(
                     chat_id=uid,
@@ -196,10 +316,16 @@ async def send_evening_reminder():
                 )
                 sent_count += 1
                 await asyncio.sleep(0.05)
+            else:
+                skipped_count += 1
         except Exception as e:
-            logger.warning(f"Could not send evening reminder to user {uid}: {e}")
+            logger.warning(f"Could not send reminder (hour={current_hour}) to user {uid}: {e}")
 
-    logger.info(f"⏰ Evening reminder finished: sent {sent_count} notifications.")
+    logger.info(f"⏰ Scheduled reminder for hour={current_hour} finished: sent {sent_count} notifications, {skipped_count} skipped (no tasks).")
+
+async def send_evening_reminder():
+    """Backward-compatible wrapper calling send_scheduled_reminder for 18:00."""
+    await send_scheduled_reminder(target_hour=18)
 
 @dp.callback_query()
 async def handle_done_callback(callback: CallbackQuery):
@@ -226,21 +352,49 @@ async def handle_start(message: Message):
     await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал"))
 
 @dp.message(Command("remind", "notify", "tomorrow", "zavtra"))
-async def handle_remind(message: Message):
+async def handle_remind(message: Message, command: CommandObject = None):
     """
-    On-demand command for testing and checking tomorrow's homework notification.
+    On-demand command for testing and checking homework notifications.
+    Supports optional hour argument: /remind, /remind 8, /remind 16, /remind 18
     """
     record_user_activity(message.from_user)
-    text, has_tasks = build_tomorrow_notification(message.from_user.id)
+    target_hour = None
+    if command and command.args:
+        arg = command.args.strip().lower()
+        if arg in ("8", "08", "morning", "утро"):
+            target_hour = 8
+        elif arg in ("16", "day", "afternoon", "день"):
+            target_hour = 16
+        elif arg in ("18", "evening", "вечер"):
+            target_hour = 18
+        elif arg.isdigit():
+            target_hour = int(arg)
+
+    text, has_tasks = build_reminder_notification(message.from_user.id, hour=target_hour)
     btn_text = "🚀 Открыть ДЗ Портал" if has_tasks else "🎒 Открыть ДЗ Портал"
     await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard(btn_text))
 
 @dp.message(Command("notify_all", "broadcast_reminders"))
-async def handle_notify_all(message: Message):
+async def handle_notify_all(message: Message, command: CommandObject = None):
     """
-    Admin command to immediately broadcast tomorrow's notifications to all students.
+    Admin command to immediately broadcast notifications to all students.
+    Supports optional hour argument: /notify_all 8, /notify_all 16, /notify_all 18
     """
     record_user_activity(message.from_user)
+    target_hour = None
+    if command and command.args:
+        arg = command.args.strip().lower()
+        if arg in ("8", "08", "morning", "утро"):
+            target_hour = 8
+        elif arg in ("16", "day", "afternoon", "день"):
+            target_hour = 16
+        elif arg in ("18", "evening", "вечер"):
+            target_hour = 18
+        elif arg.isdigit():
+            target_hour = int(arg)
+
+    mode_label = f"{target_hour}:00" if target_hour is not None else "текущее время"
+    await message.answer(f"📢 Запускаю рассылку напоминаний ({mode_label}) всем ученикам...")
     users = get_all_users()
     if not users:
         users = [{"id": message.from_user.id}]
@@ -249,13 +403,12 @@ async def handle_notify_all(message: Message):
     skipped_count = 0
     failed_count = 0
 
-    await message.answer("📢 Запускаю рассылку напоминаний на завтра всем ученикам...")
     for u in users:
         uid = u.get("id")
         if not uid:
             continue
         try:
-            text, has_tasks = build_tomorrow_notification(uid)
+            text, has_tasks = build_reminder_notification(uid, hour=target_hour)
             if has_tasks:
                 await bot.send_message(
                     chat_id=uid,
@@ -272,9 +425,9 @@ async def handle_notify_all(message: Message):
             logger.warning(f"Broadcast failed for user {uid}: {e}")
 
     await message.answer(
-        f"✅ <b>Рассылка завершена!</b>\n\n"
+        f"✅ <b>Рассылка ({mode_label}) завершена!</b>\n\n"
         f"• Отправлено: <b>{sent_count}</b>\n"
-        f"• Без заданий на завтра (пропущено): <b>{skipped_count}</b>\n"
+        f"• Без заданий (пропущено): <b>{skipped_count}</b>\n"
         f"• Ошибок отправки: <b>{failed_count}</b>",
         parse_mode="HTML",
         reply_markup=get_portal_keyboard()
@@ -283,7 +436,7 @@ async def handle_notify_all(message: Message):
 @dp.message(Command("today"))
 async def handle_today_tasks(message: Message):
     record_user_activity(message.from_user)
-    today = date.today()
+    today = get_local_today()
     today_str = today.isoformat()
     tasks = get_today_tasks(message.from_user.id, today_str)
 
@@ -315,7 +468,7 @@ async def handle_today_tasks(message: Message):
 @dp.message(Command("overdue"))
 async def handle_overdue(message: Message):
     record_user_activity(message.from_user)
-    today_str = date.today().isoformat()
+    today_str = get_local_today().isoformat()
     overdue = get_overdue_tasks(message.from_user.id, today_str)
 
     if not overdue:
@@ -456,7 +609,8 @@ async def handle_help(message: Message):
     help_text = (
         "🤖 <b>Команды ДЗ Бота 10-го класса:</b>\n\n"
         "• <b>/start</b> — Главное меню и запуск приложения\n"
-        "• <b>/remind</b> — Проверить задания на завтра с кнопкой запуска\n"
+        "• <b>/remind [8|16|18]</b> — Проверить уведомления (утро, день, вечер)\n"
+        "• <b>/notify_all [8|16|18]</b> — Разослать напоминания всем ученикам\n"
         "• <b>/today</b> — Задания на сегодня\n"
         "• <b>/priority</b> — Все невыполненные задания по дням\n"
         "• <b>/overdue</b> — Просроченные задания\n"
@@ -487,11 +641,11 @@ async def main():
         logger.error("❌ BOT_TOKEN is missing! Please configure BOT_TOKEN in .env or Render Environment Variables.")
         return
     init_db()
-    # 1. Start background reminder scheduler (every day at 18:00)
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(send_evening_reminder, 'cron', hour=18, minute=0)
+    # 1. Start background reminder scheduler (every day at 08:00, 16:00, 18:00 in Asia/Tashkent)
+    scheduler = AsyncIOScheduler(timezone=TARGET_TZ)
+    scheduler.add_job(send_scheduled_reminder, 'cron', hour='8,16,18', minute=0)
     scheduler.start()
-    logger.info("⏰ Background scheduler started (evening reminder at 18:00)")
+    logger.info(f"⏰ Background scheduler started (reminders at 08:00, 16:00, 18:00 in {TARGET_TZ})")
 
     await dp.start_polling(bot)
 
