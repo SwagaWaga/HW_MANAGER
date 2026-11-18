@@ -1230,14 +1230,14 @@
   <div id="photo-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden flex-col justify-between p-2.5 sm:p-4 z-50 select-none overflow-hidden" onclick="closePhotoViewer()">
     
     <!-- ВЕРХНЯЯ ЧАСТЬ: Сегментированные полоски страниц и шапка в стиле Telegram -->
-    <div class="w-full max-w-xl mx-auto flex flex-col z-20 shrink-0" onclick="event.stopPropagation()">
+    <div class="w-full max-w-4xl mx-auto flex flex-col z-20 shrink-0" onclick="event.stopPropagation()">
       <!-- Telegram-style сегментированные полоски страниц (как в Stories / медиа-альбомах Telegram) -->
       <div id="photo-story-indicators" class="w-full flex items-center gap-1.5 pt-1 pb-2 px-1"></div>
 
       <!-- Верхняя панель: Закрыть (слева), Заголовок "4 из 5" (по центру), Поворот (справа) -->
       <div class="flex items-center justify-between px-1 py-1">
         <!-- Кнопка Закрыть -->
-        <button onclick="closePhotoViewer()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition backdrop-blur-md border border-white/10 shadow-lg shrink-0" title="Закрыть">
+        <button onclick="closePhotoViewer()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition backdrop-blur-md border border-white/10 shadow-lg shrink-0" title="Закрыть (Esc)">
           <span id="photo-close-icon" class="w-4 h-4"></span>
         </button>
 
@@ -1260,36 +1260,46 @@
       </div>
     </div>
 
-    <!-- ЦЕНТР: Видовое окно фотографии с поддержкой Pinch-to-zoom и свайпов -->
-    <div id="photo-viewport" class="flex-1 w-full max-w-xl mx-auto flex items-center justify-center overflow-hidden my-2 relative select-none" style="touch-action: none;" onclick="event.stopPropagation()">
+    <!-- ЦЕНТР: Видовое окно фотографии с поддержкой Pinch-to-zoom, перетаскивания мышью и свайпов -->
+    <div id="photo-viewport" class="flex-1 w-full max-w-5xl lg:max-w-6xl mx-auto flex items-center justify-center overflow-hidden my-1 relative select-none cursor-grab" style="touch-action: none;" onclick="event.stopPropagation()">
       <!-- Кнопки перелистывания страниц (для десктопа и планшета) -->
-      <button id="photo-nav-prev" onclick="prevPhoto()" class="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/15 active:scale-90 transition z-30 shadow-2xl select-none" title="Предыдущая страница">‹</button>
-      <button id="photo-nav-next" onclick="nextPhoto()" class="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/15 active:scale-90 transition z-30 shadow-2xl select-none" title="Следующая страница">›</button>
+      <button id="photo-nav-prev" onclick="prevPhoto()" class="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/15 active:scale-90 transition z-30 shadow-2xl select-none" title="Предыдущая страница (←)">‹</button>
+      <button id="photo-nav-next" onclick="nextPhoto()" class="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/15 active:scale-90 transition z-30 shadow-2xl select-none" title="Следующая страница (→)">›</button>
 
-      <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[66vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 cursor-grab active:cursor-grabbing origin-center select-none" draggable="false" style="touch-action: none;" />
+      <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[70vh] sm:max-h-[76vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 select-none pointer-events-auto" draggable="false" style="touch-action: none;" />
     </div>
 
-    <!-- НИЖНЯЯ ПАНЕЛЬ: Telegram-style миниатюры альбома + управление -->
-    <div class="w-full max-w-xl mx-auto flex flex-col items-center justify-center gap-2 pb-2 z-10 shrink-0" onclick="event.stopPropagation()">
+    <!-- НИЖНЯЯ ПАНЕЛЬ: Telegram-style миниатюры альбома + управление масштабом и поворотом -->
+    <div class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center gap-2 pb-2 z-10 shrink-0" onclick="event.stopPropagation()">
       <!-- Telegram-style лента миниатюр страниц (для быстрого перехода между фото) -->
       <div id="photo-bottom-thumbnails" class="w-full flex items-center justify-center gap-2 py-1 overflow-x-auto no-scrollbar px-2"></div>
 
-      <!-- Кнопки управления (поворот влево и сброс масштаба 1x) -->
-      <div class="flex items-center gap-2">
-        <button onclick="rotatePhoto(-90)" class="px-3.5 py-1.5 rounded-full bg-white/10 hover:bg-white/15 active:scale-90 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition backdrop-blur-md border border-white/10" title="Повернуть влево (на 90°)">
+      <!-- Кнопки управления (поворот, зум для ноутбуков, редактирование задания) -->
+      <div class="flex items-center gap-2 flex-wrap justify-center">
+        <!-- Поворот влево -->
+        <button onclick="rotatePhoto(-90)" class="px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/15 active:scale-90 text-slate-300 text-xs font-medium flex items-center gap-1.5 transition backdrop-blur-md border border-white/10" title="Повернуть влево (на 90°)">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="1 4 1 10 7 10"></polyline>
             <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path>
           </svg>
-          <span>Повернуть влево</span>
+          <span class="hidden sm:inline">Влево</span>
         </button>
+
+        <!-- Кнопки зума для ноутбуков и мыши -->
+        <div class="hidden sm:inline-flex items-center gap-1 bg-white/10 rounded-full px-2 py-1 backdrop-blur-md border border-white/10 shadow-sm">
+          <button type="button" onclick="zoomStep(-0.35)" class="w-6 h-6 rounded-full hover:bg-white/20 active:scale-90 text-white flex items-center justify-center font-bold text-sm transition" title="Отдалить (-)">−</button>
+          <span id="photo-zoom-level-text" class="text-[11px] font-mono text-amber-300 font-bold px-1 min-w-[32px] text-center">1.0x</span>
+          <button type="button" onclick="zoomStep(0.35)" class="w-6 h-6 rounded-full hover:bg-white/20 active:scale-90 text-white flex items-center justify-center font-bold text-sm transition" title="Приблизить (+)">+</button>
+        </div>
+
         <button id="photo-edit-task-btn" onclick="openEditFromPhotoModal()" class="hidden px-3.5 py-1.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 active:scale-90 text-amber-300 text-xs font-semibold flex items-center gap-1.5 transition backdrop-blur-md border border-amber-400/30" title="Редактировать задание">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
           </svg>
           <span>Изм. задание</span>
         </button>
-        <button onclick="resetPhotoTransform()" id="photo-reset-btn" class="hidden px-3.5 py-1.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 active:scale-90 text-amber-300 font-mono text-xs font-bold transition backdrop-blur-md border border-amber-400/30" title="Сбросить масштаб и положение">
+
+        <button onclick="resetPhotoTransform()" id="photo-reset-btn" class="hidden px-3.5 py-1.5 rounded-full bg-amber-400/20 hover:bg-amber-400/30 active:scale-90 text-amber-300 font-mono text-xs font-bold transition backdrop-blur-md border border-amber-400/30" title="Сбросить масштаб и положение (0)">
           1x
         </button>
       </div>
@@ -3193,6 +3203,7 @@
         img.src = current.url;
       }
       applyPhotoTransform();
+      updateCursor();
 
       // Фоновая умная предзагрузка соседних фото (следующего и предыдущего)
       // Обеспечивает мгновенное перелистывание без ожидания сети
@@ -3324,6 +3335,7 @@
       currentZoom = 1;
       panX = 0;
       panY = 0;
+      updateCursor();
       currentGallery = [];
       currentGalleryIndex = 0;
     }
@@ -3334,7 +3346,9 @@
       if (img) {
         img.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1)';
       }
+      clampPan();
       applyPhotoTransform();
+      updateCursor();
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     }
 
@@ -3348,7 +3362,85 @@
         img.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1)';
       }
       applyPhotoTransform();
+      updateCursor();
       if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+    }
+
+    function updateCursor() {
+      const vp = document.getElementById('photo-viewport');
+      const img = document.getElementById('modal-image-preview');
+      const cur = currentZoom > 1.05 ? 'grab' : 'zoom-in';
+      if (vp) vp.style.cursor = cur;
+      if (img) img.style.cursor = cur;
+    }
+
+    function clampPan() {
+      const img = document.getElementById('modal-image-preview');
+      const vp = document.getElementById('photo-viewport');
+      if (!img || !vp) return;
+
+      if (currentZoom <= 1.05) {
+        panX = 0;
+        panY = 0;
+        return;
+      }
+
+      const imgW = img.clientWidth || img.naturalWidth || 600;
+      const imgH = img.clientHeight || img.naturalHeight || 800;
+
+      // Учитываем поворот страницы на 90 / 270 градусов
+      const isRotated = (Math.abs(currentRotation) % 180 !== 0);
+      const effectiveW = (isRotated ? imgH : imgW) * currentZoom;
+      const effectiveH = (isRotated ? imgW : imgH) * currentZoom;
+
+      const vpW = vp.clientWidth || window.innerWidth;
+      const vpH = vp.clientHeight || window.innerHeight;
+
+      // Щедрый запас перемещения: позволяет вытянуть верхний, нижний край, поля и углы
+      // прямо в центр экрана для комфортного чтения условий на ноутбуке
+      const maxPanX = Math.max(0, (effectiveW - vpW) / 2) + vpW * 0.48 + 150;
+      const maxPanY = Math.max(0, (effectiveH - vpH) / 2) + vpH * 0.48 + 150;
+
+      panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
+      panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
+    }
+
+    function zoomAtPoint(clientX, clientY, factor) {
+      const img = document.getElementById('modal-image-preview');
+      const vp = document.getElementById('photo-viewport');
+      if (!img || !vp) return;
+
+      const oldZoom = currentZoom;
+      const newZoom = Math.min(6.0, Math.max(1.0, oldZoom * factor));
+
+      if (newZoom <= 1.05) {
+        currentZoom = 1;
+        panX = 0;
+        panY = 0;
+      } else {
+        const vpRect = vp.getBoundingClientRect();
+        const relX = clientX - (vpRect.left + vpRect.width / 2);
+        const relY = clientY - (vpRect.top + vpRect.height / 2);
+
+        const scaleChange = newZoom / oldZoom;
+        panX = relX - (relX - panX) * scaleChange;
+        panY = relY - (relY - panY) * scaleChange;
+        currentZoom = newZoom;
+        clampPan();
+      }
+
+      img.style.transition = 'transform 0.12s ease-out';
+      applyPhotoTransform();
+      updateCursor();
+    }
+
+    function zoomStep(delta) {
+      const vp = document.getElementById('photo-viewport');
+      const vpRect = vp ? vp.getBoundingClientRect() : { left: window.innerWidth / 2, top: window.innerHeight / 2, width: 0, height: 0 };
+      const centerX = vpRect.left + vpRect.width / 2;
+      const centerY = vpRect.top + vpRect.height / 2;
+      const targetZoom = Math.min(6.0, Math.max(1.0, currentZoom + delta));
+      zoomAtPoint(centerX, centerY, targetZoom / currentZoom);
     }
 
     function applyPhotoTransform() {
@@ -3365,14 +3457,19 @@
           resetBtn.classList.add('hidden');
         }
       }
+
+      const zoomText = document.getElementById('photo-zoom-level-text');
+      if (zoomText) {
+        zoomText.innerText = `${currentZoom.toFixed(1)}x`;
+      }
     }
 
-
     // ========================================================
-    // PINCH-TO-ZOOM И ПЕРЕМЕЩЕНИЕ ФОТО ДВУМЯ ПАЛЬЦАМИ
+    // ЖЕСТЫ И УПРАВЛЕНИЕ МЫШЬЮ / ТАЧПАДОМ НА НОУТБУКЕ И ТЕЛЕФОНЕ
     // ========================================================
     const viewport = document.getElementById('photo-viewport');
     if (viewport) {
+      // Состояния тач-жестов (смартфоны)
       let isPinching = false;
       let isPanning = false;
       let startPinchDistance = 0;
@@ -3385,6 +3482,13 @@
       let touchStartY = 0;
       let lastTapTime = 0;
 
+      // Состояния мыши на ноутбуке / ПК
+      let isMouseDragging = false;
+      let mouseStartX = 0;
+      let mouseStartY = 0;
+      let mouseStartPanX = 0;
+      let mouseStartPanY = 0;
+
       function getTouchDistance(t1, t2) {
         return Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
       }
@@ -3396,12 +3500,101 @@
         };
       }
 
+      // ----------------------------------------------------
+      // 1. УПРАВЛЕНИЕ МЫШЬЮ НА НОУТБУКЕ (ПЕРЕТАСКИВАНИЕ / DRAG)
+      // ----------------------------------------------------
+      viewport.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // Только левая кнопка
+        if (e.target.closest('button')) return; // Не блокируем клики по кнопкам
+
+        isMouseDragging = true;
+        mouseStartX = e.clientX;
+        mouseStartY = e.clientY;
+        mouseStartPanX = panX;
+        mouseStartPanY = panY;
+
+        const img = document.getElementById('modal-image-preview');
+        if (img) img.style.transition = 'none';
+        viewport.style.cursor = 'grabbing';
+        if (img) img.style.cursor = 'grabbing';
+        e.preventDefault();
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        if (!isMouseDragging) return;
+        const dx = e.clientX - mouseStartX;
+        const dy = e.clientY - mouseStartY;
+
+        panX = mouseStartPanX + dx;
+        panY = mouseStartPanY + dy;
+        clampPan();
+
+        const img = document.getElementById('modal-image-preview');
+        if (img) img.style.transition = 'none';
+        applyPhotoTransform();
+      updateCursor();
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (!isMouseDragging) return;
+        isMouseDragging = false;
+        updateCursor();
+
+        const img = document.getElementById('modal-image-preview');
+        if (img) {
+          img.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)';
+        }
+        clampPan();
+        applyPhotoTransform();
+      updateCursor();
+      });
+
+      // Двойной клик на десктопе: приблизить к точке или сбросить
+      viewport.addEventListener('dblclick', (e) => {
+        if (e.target.closest('button')) return;
+        e.preventDefault();
+        const img = document.getElementById('modal-image-preview');
+        if (!img) return;
+
+        img.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1)';
+        if (currentZoom > 1.2) {
+          resetPhotoTransform();
+        } else {
+          zoomAtPoint(e.clientX, e.clientY, 2.5);
+        }
+      });
+
+      // ----------------------------------------------------
+      // 2. ТАЧПАД И КОЛЕСИКО МЫШИ НА НОУТБУКЕ
+      // ----------------------------------------------------
+      viewport.addEventListener('wheel', (e) => {
+        e.preventDefault();
+
+        // А) Двухпальцевое перетаскивание на тачпаде ноутбука при увеличении
+        if (!e.ctrlKey && currentZoom > 1.05 && (Math.abs(e.deltaX) > 0 || Math.abs(e.deltaY) > 0)) {
+          panX -= e.deltaX * 1.1;
+          panY -= e.deltaY * 1.1;
+          clampPan();
+          const img = document.getElementById('modal-image-preview');
+          if (img) img.style.transition = 'none';
+          applyPhotoTransform();
+      updateCursor();
+          return;
+        }
+
+        // Б) Зум колесиком мыши или Pinch-жест на тачпаде
+        const factor = (e.deltaY < 0 || (e.ctrlKey && e.deltaY < 0)) ? 1.18 : 0.82;
+        zoomAtPoint(e.clientX, e.clientY, factor);
+      }, { passive: false });
+
+      // ----------------------------------------------------
+      // 3. СЕНСОРНОЕ УПРАВЛЕНИЕ НА СМАРТФОНАХ (TOUCH)
+      // ----------------------------------------------------
       viewport.addEventListener('touchstart', (e) => {
         const img = document.getElementById('modal-image-preview');
         if (!img) return;
 
         if (e.touches.length === 2) {
-          // Начало щипка двумя пальцами (pinch-to-zoom)
           isPinching = true;
           isPanning = false;
           startPinchDistance = getTouchDistance(e.touches[0], e.touches[1]);
@@ -3424,7 +3617,6 @@
             img.style.transition = 'none';
           } else {
             isPanning = false;
-            // Проверка двойного тапа для быстрого зума
             const now = Date.now();
             if (now - lastTapTime < 300) {
               e.preventDefault();
@@ -3446,11 +3638,13 @@
           const currDist = getTouchDistance(e.touches[0], e.touches[1]);
           if (startPinchDistance > 0) {
             const scale = currDist / startPinchDistance;
-            currentZoom = Math.min(5.0, Math.max(1.0, startPinchZoom * scale));
+            currentZoom = Math.min(6.0, Math.max(1.0, startPinchZoom * scale));
             const mid = getTouchMidpoint(e.touches[0], e.touches[1]);
             panX = startPanX + (mid.x - startMidX);
             panY = startPanY + (mid.y - startMidY);
+            clampPan();
             applyPhotoTransform();
+      updateCursor();
           }
         } else if (isPanning && e.touches.length === 1 && currentZoom > 1.05) {
           e.preventDefault();
@@ -3458,7 +3652,9 @@
           const deltaY = e.touches[0].clientY - touchStartY;
           panX = startPanX + deltaX;
           panY = startPanY + deltaY;
+          clampPan();
           applyPhotoTransform();
+      updateCursor();
         }
       }, { passive: false });
 
@@ -3475,19 +3671,16 @@
             panX = 0;
             panY = 0;
           }
+          clampPan();
           applyPhotoTransform();
+      updateCursor();
         }
 
         if (isPanning && e.touches.length === 0) {
           isPanning = false;
-          // Ограничиваем сдвиг границами картинки
-          if (img) {
-            const maxPanX = (img.clientWidth * (currentZoom - 1)) / 2 + 60;
-            const maxPanY = (img.clientHeight * (currentZoom - 1)) / 2 + 60;
-            panX = Math.max(-maxPanX, Math.min(maxPanX, panX));
-            panY = Math.max(-maxPanY, Math.min(maxPanY, panY));
-            applyPhotoTransform();
-          }
+          clampPan();
+          applyPhotoTransform();
+      updateCursor();
         }
 
         // Перелистывание страниц свайпом при масштабе 1x
@@ -3506,44 +3699,47 @@
         if (!img) return;
         img.style.transition = 'transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1)';
         if (currentZoom > 1.2) {
-          currentZoom = 1;
-          panX = 0;
-          panY = 0;
+          resetPhotoTransform();
         } else {
-          currentZoom = 2.5;
-          const rect = img.getBoundingClientRect();
-          const offsetX = touch.clientX - (rect.left + rect.width / 2);
-          const offsetY = touch.clientY - (rect.top + rect.height / 2);
-          panX = -offsetX * 0.7;
-          panY = -offsetY * 0.7;
+          zoomAtPoint(touch.clientX, touch.clientY, 2.5);
         }
-        applyPhotoTransform();
         if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
       }
-
-      // Зум колесиком мыши на десктопе
-      viewport.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const factor = e.deltaY < 0 ? 1.15 : 0.85;
-        currentZoom = Math.min(5.0, Math.max(1.0, currentZoom * factor));
-        if (currentZoom <= 1.05) {
-          currentZoom = 1;
-          panX = 0;
-          panY = 0;
-        }
-        const img = document.getElementById('modal-image-preview');
-        if (img) img.style.transition = 'transform 0.1s ease-out';
-        applyPhotoTransform();
-      }, { passive: false });
     }
 
-    // Навигация стрелками на клавиатуре и закрытие по Esc
+    // ----------------------------------------------------
+    // 4. НАВИГАЦИЯ СТРЕЛКАМИ НА КЛАВИАТУРЕ И ESC
+    // ----------------------------------------------------
     window.addEventListener('keydown', (e) => {
       const modal = document.getElementById('photo-modal');
-      if (modal && !modal.classList.contains('hidden')) {
+      if (!modal || modal.classList.contains('hidden')) return;
+
+      if (e.key === 'Escape') {
+        closePhotoViewer();
+        return;
+      }
+
+      const img = document.getElementById('modal-image-preview');
+      if (currentZoom > 1.05) {
+        // При приближении стрелки на ноутбуке двигают фото во все 4 стороны (шаг 80px)
+        const step = 80;
+        if (e.key === 'ArrowLeft') { panX += step; clampPan(); }
+        else if (e.key === 'ArrowRight') { panX -= step; clampPan(); }
+        else if (e.key === 'ArrowUp') { panY += step; clampPan(); }
+        else if (e.key === 'ArrowDown') { panY -= step; clampPan(); }
+        else if (e.key === '+' || e.key === '=') { zoomStep(0.35); return; }
+        else if (e.key === '-' || e.key === '_') { zoomStep(-0.35); return; }
+        else if (e.key === '0') { resetPhotoTransform(); return; }
+        else return;
+
+        e.preventDefault();
+        if (img) img.style.transition = 'transform 0.15s ease-out';
+        applyPhotoTransform();
+      updateCursor();
+      } else {
         if (e.key === 'ArrowLeft') prevPhoto();
         else if (e.key === 'ArrowRight') nextPhoto();
-        else if (e.key === 'Escape') closePhotoViewer();
+        else if (e.key === '+' || e.key === '=') zoomStep(0.35);
       }
     });
 
