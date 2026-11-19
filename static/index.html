@@ -788,8 +788,11 @@
         </div>
       </div>
 
-      <!-- Кнопка темы + Фирменная школьная аватарка (Симметричные круглые элементы) -->
-      <div class="flex items-center gap-2.5">
+      <!-- Кнопки: Уведомления, Тема + Фирменная школьная аватарка -->
+      <div class="flex items-center gap-2">
+        <button onclick="openNotifModal()" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white flex items-center justify-center transition active:scale-95 shadow-sm" title="Настройки уведомлений">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-amber-500"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+        </button>
         <button onclick="toggleTheme()" id="theme-btn" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white flex items-center justify-center transition active:scale-95 shadow-sm" title="Сменить тему">
           <span id="theme-icon-slot"></span>
         </button>
@@ -861,7 +864,7 @@
   </section>
 
   <!-- ВТОРИЧНЫЕ КАРТОЧКИ: СИММЕТРИЧНАЯ СЕТКА 2 КАРТОЧЕК -->
-  <section class="grid grid-cols-2 gap-3 mb-5">
+  <section class="grid grid-cols-2 gap-3 mb-3">
     <button onclick="setFilter('overdue')" class="glossy-card text-slate-900 dark:text-white rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-95 transition flex items-center gap-3 text-left">
       <div class="w-10 h-10 rounded-2xl bg-rose-500/15 dark:bg-white/5 text-rose-500 dark:text-rose-400 flex items-center justify-center shrink-0">
         <span class="w-5 h-5" id="quick-icon-overdue"></span>
@@ -882,6 +885,25 @@
       </div>
     </button>
   </section>
+
+  <!-- КАРТОЧКА РАСПИСАНИЯ 10А ИНЖ -->
+  <div onclick="openScheduleModal()" class="cursor-pointer mb-5 glossy-card rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-98 transition flex items-center justify-between border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-black text-slate-900 dark:text-white">Расписание уроков</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950">10А инж</span>
+        </div>
+        <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate" id="schedule-quick-summary">Загрузка уроков на сегодня...</span>
+      </div>
+    </div>
+    <div class="text-slate-400 dark:text-slate-500 pr-1 shrink-0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </div>
 
   <!-- ГОРИЗОНТАЛЬНЫЕ ПИЛЛЫ-РАЗДЕЛЫ (ЧЕТКАЯ ВИДИМОСТЬ В СВЕТЛОЙ И ТЕМНОЙ ТЕМЕ) -->
   <nav class="flex space-x-2.5 mb-4 overflow-x-auto pb-1 no-scrollbar select-none">
@@ -916,17 +938,165 @@
       <span class="w-5 h-5" id="dock-icon-monitoring"></span>
     </button>
 
-    <!-- Центральная кнопка: Белая/янтарная пилюля "Ваша лента" (в точности как в Payme) -->
+    <!-- Центральная кнопка: Белая/янтарная пилюля "Ваша лента" -->
     <button onclick="setFilter('pending')" class="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md flex items-center gap-2 active:scale-95 transition">
       <span class="w-4 h-4" id="dock-icon-feed"></span>
       <span>Ваша лента</span>
       <span id="dock-counter" class="ml-1 px-1.5 py-0.5 rounded-full bg-slate-950 text-amber-300 text-[10px] font-bold">0</span>
     </button>
 
+    <!-- Кнопка Расписание -->
+    <button onclick="openScheduleModal()" class="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white flex items-center justify-center active:scale-95 transition" title="Расписание уроков">
+      <span class="w-5 h-5" id="dock-icon-schedule"></span>
+    </button>
+
     <!-- Правая кнопка: Добавить Д/З (плюсик) -->
     <button onclick="openAddModal()" class="w-11 h-11 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black flex items-center justify-center shadow-md active:scale-95 transition" title="Добавить Д/З">
       <span class="w-5 h-5" id="dock-icon-add"></span>
     </button>
+  </div>
+
+  <!-- ===== МОДАЛЬНОЕ ОКНО РАСПИСАНИЯ ===== -->
+  <div id="schedule-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeScheduleModal()">
+    <div class="bg-white dark:bg-[#0d1b2a] text-slate-900 dark:text-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl max-h-[92vh] flex flex-col">
+      <!-- Заголовок -->
+      <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-amber-400/20 flex items-center justify-center text-amber-500 shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div>
+            <h2 class="text-base font-black">Расписание 10А инж</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400" id="schedule-subtitle">1-я смена · 2026/2027 уч. год</p>
+          </div>
+        </div>
+        <button onclick="closeScheduleModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+
+      <!-- Вкладки: Дни недели + Оригинальное фото -->
+      <div class="flex space-x-1.5 overflow-x-auto pb-1 mb-3 no-scrollbar select-none flex-shrink-0" id="schedule-tabs">
+        <button onclick="setScheduleView('today')" id="sch-tab-today" class="py-1.5 px-3 rounded-full text-xs font-black bg-amber-400 text-slate-950 transition active:scale-95 shrink-0 shadow-sm flex items-center gap-1">
+          <span>☀️</span><span>Сегодня</span>
+        </button>
+        <button onclick="setScheduleView(0)" id="sch-tab-0" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0">Пн</button>
+        <button onclick="setScheduleView(1)" id="sch-tab-1" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0">Вт</button>
+        <button onclick="setScheduleView(2)" id="sch-tab-2" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0">Ср</button>
+        <button onclick="setScheduleView(3)" id="sch-tab-3" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0">Чт</button>
+        <button onclick="setScheduleView(4)" id="sch-tab-4" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0">Пт</button>
+        <button onclick="setScheduleView('photo')" id="sch-tab-photo" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0 flex items-center gap-1">
+          <span>📷</span><span>Фото оригинала</span>
+        </button>
+      </div>
+
+      <!-- ВИД 1: КРАСИВЫЙ СПИСОК УРОКОВ НА ВЫБРАННЫЙ ДЕНЬ -->
+      <div id="schedule-day-view" class="overflow-y-auto flex-1 space-y-2.5 pr-1"></div>
+
+      <!-- ВИД 2: ОРИГИНАЛЬНОЕ ФОТО РАСПИСАНИЯ -->
+      <div id="schedule-photo-view" class="overflow-y-auto flex-1 hidden flex-col">
+        <div class="relative rounded-2xl overflow-hidden border border-slate-200 dark:border-white/10 shadow-lg bg-black/5 dark:bg-black/30 group cursor-pointer" onclick="openSchedulePhotoFullscreen()">
+          <img
+            src="/static/schedule_10a.jpg"
+            alt="Оригинальное расписание 10А инж"
+            class="w-full h-auto object-contain rounded-2xl active:scale-[0.99] transition"
+          />
+          <div class="absolute bottom-3 right-3 bg-slate-950/85 text-white backdrop-blur-md px-3 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-lg border border-white/15">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+            <span>Нажмите для зума</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mt-3 px-1 text-slate-500 dark:text-slate-400 text-xs">
+          <span>Оригинал: 10А инж · aSc Расписание</span>
+          <button onclick="openSchedulePhotoFullscreen()" class="px-3 py-1.5 rounded-xl bg-amber-400 text-slate-950 font-black text-xs shadow-sm hover:bg-amber-300 active:scale-95 transition flex items-center gap-1.5">
+            <span>🔍 Открыть на весь экран</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Подпись и переключатель -->
+      <div class="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-[11px] text-slate-400 flex-shrink-0">
+        <span>Составлено 13.11.2026</span>
+        <button onclick="toggleScheduleMode()" id="btn-toggle-all-view" class="text-amber-500 font-bold hover:underline flex items-center gap-1">
+          <span>📷 Смотреть фото оригинала</span>
+        </button>
+      </div>
+    </div>
+  </div>
+    </div>
+  </div>
+
+  <!-- ===== МОДАЛЬНОЕ ОКНО ЛИЧНЫХ НАСТРОЕК УВЕДОМЛЕНИЙ ===== -->
+  <div id="notif-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeNotifModal()">
+    <div class="bg-white dark:bg-[#0d1b2a] text-slate-900 dark:text-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl flex flex-col">
+      <!-- Заголовок -->
+      <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-200 dark:border-white/10">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-amber-400/20 flex items-center justify-center text-amber-500 shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+          </div>
+          <div>
+            <h2 class="text-base font-black">Личные уведомления</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Напоминания о Д/З в Telegram</p>
+          </div>
+        </div>
+        <button onclick="closeNotifModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+
+      <p class="text-xs text-slate-500 dark:text-slate-400 mb-4">
+        Выберите, в какое время бот будет присылать вам список невыполненных заданий:
+      </p>
+
+      <!-- Переключатели -->
+      <div class="space-y-3 mb-4">
+        <!-- 08:00 -->
+        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+          <div class="flex items-center gap-3">
+            <span class="text-xl">☀️</span>
+            <div>
+              <span class="text-xs font-bold block text-slate-900 dark:text-white">08:00 · Утреннее</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400">Задания перед уроками</span>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="notif-toggle-08" onchange="toggleNotifPref('08')" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
+          </label>
+        </div>
+
+        <!-- 16:00 -->
+        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+          <div class="flex items-center gap-3">
+            <span class="text-xl">🎒</span>
+            <div>
+              <span class="text-xs font-bold block text-slate-900 dark:text-white">16:00 · Дневное</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400">После окончания школы</span>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="notif-toggle-16" onchange="toggleNotifPref('16')" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
+          </label>
+        </div>
+
+        <!-- 18:00 -->
+        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+          <div class="flex items-center gap-3">
+            <span class="text-xl">🌆</span>
+            <div>
+              <span class="text-xs font-bold block text-slate-900 dark:text-white">18:00 · Вечернее</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400">Главное вечернее напоминание</span>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="notif-toggle-18" onchange="toggleNotifPref('18')" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
+          </label>
+        </div>
+      </div>
+
+      <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 text-center">
+        💡 Настройки также можно изменить в чате с ботом командой <b class="font-mono">/settings</b>
+      </div>
+    </div>
   </div>
 
   <!-- Модальное окно создания задания -->
@@ -1329,6 +1499,7 @@
       monitoring: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 8 14"/></svg>`,
       feed: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>`,
       plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 5v14M5 12h14"/></svg>`,
+      schedule: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
       backpack: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M5 10v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a5 5 0 0 0-5-5H10a5 5 0 0 0-5 5Z"/><path d="M9 5V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M9 13h6"/><path d="M8 17h8"/></svg>`,
       bolt: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
       moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg>`,
@@ -1380,6 +1551,7 @@
     setSafeHtml('dock-icon-monitoring', ICONS.monitoring);
     setSafeHtml('dock-icon-feed', ICONS.feed);
     setSafeHtml('dock-icon-add', ICONS.plus);
+    setSafeHtml('dock-icon-schedule', ICONS.schedule);
     setSafeHtml('hero-bolt-slot', ICONS.bolt);
     document.getElementById('quick-icon-add').innerHTML = ICONS.pencil;
     document.getElementById('quick-icon-today').innerHTML = ICONS.today;
@@ -3861,6 +4033,445 @@
     // Загрузка данных асинхронно без блокировки потока анимации
     loadTasks();
     restoreDraftState();
+
+    // ========================================================
+    // 📅 РАСПИСАНИЕ УРОКОВ 10А ИНЖ
+    // ========================================================
+    const SCHEDULE_TIMES = [
+      { start: '09:15', end: '09:55' },
+      { start: '10:10', end: '10:50' },
+      { start: '11:05', end: '11:45' },
+      { start: '12:00', end: '12:40' },
+      { start: '13:05', end: '13:45' },
+      { start: '14:10', end: '14:50' },
+      { start: '15:00', end: '15:40' },
+      { start: '15:50', end: '16:30' },
+      { start: '16:40', end: '17:20' },
+      { start: '17:30', end: '18:00' }
+    ];
+
+    const SCHEDULE_DATA = {
+      0: [ // Понедельник
+        { s:'Ист',   t:'МР',  r:'к.101 (кинозал)' },
+        { s:'ИВТ',   t:'АК',  r:'IT A' },
+        { s:'ШУ',    t:'',    r:'Конф.зал' },
+        { s:'Мат',   t:'СР',  r:'к.404' },
+        { s:'Мат',   t:'СР',  r:'к.404' },
+        { s:'Пд',    t:'УС',  r:'' }
+      ],
+      1: [ // Вторник
+        { s:'Физ',   t:'НШ',  r:'к.203', pair:true },
+        null, // вторая половина пары
+        { s:'Ая',    t:'ЖС',  r:'к.108' },
+        { s:'Уя',    t:'НХ',  r:'Конф.зал' },
+        { s:'Мат',   t:'СР',  r:'к.404' },
+        { s:'РиЛ',   t:'ЭА',  r:'к.104' }
+      ],
+      2: [ // Среда
+        { s:'Уя',    t:'НХ',  r:'Конф.зал' },
+        { s:'Мат',   t:'СР',  r:'к.404' },
+        { s:'ИВТ',   t:'АК',  r:'IT A', pair:true },
+        null, // вторая половина пары
+        { s:'РиЛ',   t:'ЭА',  r:'к.104' },
+        { s:'Ая',    t:'ЖС',  r:'к.108' }
+      ],
+      3: [ // Четверг
+        { s:'Мат',   t:'СР',  r:'к.404' },
+        { s:'Ф-ра',  t:'АР/РФ', r:'Спортзал' },
+        { s:'Ор.иск.',t:'Юлия',r:'Театр.студ.' },
+        { s:'РиЛ',   t:'ЭА',  r:'к.104' },
+        { s:'Мат',   t:'СР',  r:'к.404' },
+        { s:'Пд',    t:'УС',  r:'' },
+        { s:'Ая',    t:'ЖС',  r:'к.108' }
+      ],
+      4: [ // Пятница
+        { s:'Ая',    t:'ЖС',  r:'к.108' },
+        { s:'Уя',    t:'НХ',  r:'Конф.зал' },
+        { s:'Физ',   t:'НШ',  r:'к.203', pair:true },
+        null, // вторая половина пары
+        { s:'Ист',   t:'МР',  r:'к.101 (кинозал)' },
+        { s:'НДП',   t:'ДН',  r:'к.303' }
+      ]
+    };
+
+    const SCHEDULE_SUBJECT_FULL = {
+      'Мат': 'Математика',
+      'Физ': 'Физика',
+      'ИВТ': 'Информатика (ИВТ)',
+      'Ая': 'Английский язык',
+      'Уя': 'Узбекский язык',
+      'РиЛ': 'Русский и Литература',
+      'Ист': 'История',
+      'Пд': 'Проектная деятельность',
+      'Ф-ра': 'Физкультура',
+      'Ор.иск.': 'Ораторское искусство',
+      'ШУ': 'Школа успеха (ШУ)',
+      'НДП': 'НДП'
+    };
+
+    const SCHEDULE_SUBJECT_COLORS = {
+      'Мат':    'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700',
+      'Физ':    'bg-orange-100 dark:bg-orange-900/40 text-orange-700 dark:text-orange-300 border-orange-300 dark:border-orange-700',
+      'ИВТ':    'bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-700',
+      'Ая':     'bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 border-sky-300 dark:border-sky-700',
+      'Уя':     'bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300 border-green-300 dark:border-green-700',
+      'РиЛ':    'bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-700',
+      'Ист':    'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700',
+      'Пд':     'bg-lime-100 dark:bg-lime-900/40 text-lime-700 dark:text-lime-300 border-lime-300 dark:border-lime-700',
+      'Ф-ра':   'bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border-red-300 dark:border-red-700',
+      'Ор.иск.':'bg-fuchsia-100 dark:bg-fuchsia-900/40 text-fuchsia-700 dark:text-fuchsia-300 border-fuchsia-300 dark:border-fuchsia-700',
+      'ШУ':     'bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 border-teal-300 dark:border-teal-700',
+      'НДП':    'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700',
+    };
+
+    const SCHEDULE_DAY_LABELS = ['Пн','Вт','Ср','Чт','Пт'];
+    const SCHEDULE_DAY_FULL   = ['Понедельник','Вторник','Среда','Четверг','Пятница'];
+
+    const SCHEDULE_TEACHERS = {
+      'СР': 'С. Р.',
+      'НШ': 'Н. Ш.',
+      'АК': 'А. К.',
+      'ЖС': 'Ж. С.',
+      'НХ': 'Н. Х.',
+      'ЭА': 'Э. А.',
+      'МР': 'М. Р.',
+      'УС': 'У. С.',
+      'АР/РФ': 'А. Р. / Р. Ф.',
+      'Юлия': 'Юлия (Театр. студ.)',
+      'ДН': 'Д. Н.'
+    };
+
+    let currentScheduleView = 'today';
+
+    function getScheduleSubjectMeta(s) {
+      const metas = {
+        'Мат':    { name: 'Математика',            icon: ICONS.algebra,  bg: 'bg-blue-500/15 dark:bg-blue-500/25',    text: 'text-blue-600 dark:text-blue-400',      border: 'border-blue-500/30' },
+        'Физ':    { name: 'Физика',                icon: ICONS.physics,  bg: 'bg-amber-500/15 dark:bg-amber-500/25',  text: 'text-amber-600 dark:text-amber-400',    border: 'border-amber-500/30' },
+        'ИВТ':    { name: 'Информатика (ИВТ)',     icon: ICONS.ivt,      bg: 'bg-cyan-500/15 dark:bg-cyan-500/25',    text: 'text-cyan-600 dark:text-cyan-400',      border: 'border-cyan-500/30' },
+        'Ая':     { name: 'Английский язык',       icon: ICONS.english,  bg: 'bg-sky-500/15 dark:bg-sky-500/25',      text: 'text-sky-600 dark:text-sky-400',        border: 'border-sky-500/30' },
+        'Уя':     { name: 'Узбекский язык',        icon: ICONS.uzbek,    bg: 'bg-emerald-500/15 dark:bg-emerald-500/25', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-500/30' },
+        'РиЛ':    { name: 'Русский язык и Лит.',   icon: ICONS.ril,      bg: 'bg-rose-500/15 dark:bg-rose-500/25',    text: 'text-rose-600 dark:text-rose-400',      border: 'border-rose-500/30' },
+        'Ист':    { name: 'История',               icon: ICONS.history,  bg: 'bg-orange-500/15 dark:bg-orange-500/25',text: 'text-orange-600 dark:text-orange-400',  border: 'border-orange-500/30' },
+        'Пд':     { name: 'Проектная деятельность', icon: ICONS.project, bg: 'bg-teal-500/15 dark:bg-teal-500/25',    text: 'text-teal-600 dark:text-teal-400',      border: 'border-teal-500/30' },
+        'Ф-ра':   { name: 'Физкультура',           icon: ICONS.pe,       bg: 'bg-red-500/15 dark:bg-red-500/25',      text: 'text-red-600 dark:text-red-400',        border: 'border-red-500/30' },
+        'Ор.иск.':{ name: 'Ораторское искусство',  icon: ICONS.speech,   bg: 'bg-fuchsia-500/15 dark:bg-fuchsia-500/25', text: 'text-fuchsia-600 dark:text-fuchsia-400', border: 'border-fuchsia-500/30' },
+        'ШУ':     { name: 'Школа успеха (ШУ)',     icon: ICONS.shu,      bg: 'bg-indigo-500/15 dark:bg-indigo-500/25',text: 'text-indigo-600 dark:text-indigo-400',  border: 'border-indigo-500/30' },
+        'НДП':    { name: 'НДП',                   icon: ICONS.ndp,      bg: 'bg-slate-500/15 dark:bg-slate-500/25',  text: 'text-slate-600 dark:text-slate-400',    border: 'border-slate-500/30' },
+      };
+      return metas[s] || {
+        name: s,
+        icon: ICONS.allTasks,
+        bg: 'bg-slate-500/15 dark:bg-white/10',
+        text: 'text-slate-700 dark:text-slate-300',
+        border: 'border-slate-300 dark:border-white/15'
+      };
+    }
+
+    function getTodayDayIndex() {
+      const jsDay = new Date().getDay(); // 0=вс, 1=пн, ..., 5=пт, 6=сб
+      if (jsDay >= 1 && jsDay <= 5) return jsDay - 1;
+      return -1; // выходные
+    }
+
+    function updateScheduleQuickSummary() {
+      const el = document.getElementById('schedule-quick-summary');
+      if (!el) return;
+      const todayIdx = getTodayDayIndex();
+      if (todayIdx >= 0 && SCHEDULE_DATA[todayIdx]) {
+        const lessons = SCHEDULE_DATA[todayIdx].filter(x => x && x.s).map(x => x.s + (x.pair ? ' (пара)' : ''));
+        el.innerText = `Сегодня (${SCHEDULE_DAY_LABELS[todayIdx]}): ${lessons.join(' · ')}`;
+      } else {
+        const monLessons = SCHEDULE_DATA[0].filter(x => x && x.s).map(x => x.s);
+        el.innerText = `Выходной · В понедельник: ${monLessons.join(' · ')}`;
+      }
+    }
+
+    function setScheduleView(view) {
+      currentScheduleView = view;
+      const tabs = ['today', 0, 1, 2, 3, 4, 'photo'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`sch-tab-${t}`);
+        if (!btn) return;
+        if (t === view) {
+          btn.className = 'py-1.5 px-3 rounded-full text-xs font-black bg-amber-400 text-slate-950 transition active:scale-95 shrink-0 shadow-sm flex items-center gap-1';
+        } else {
+          btn.className = 'py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0 flex items-center gap-1';
+        }
+      });
+
+      const dayView = document.getElementById('schedule-day-view');
+      const photoView = document.getElementById('schedule-photo-view');
+      const subtitle = document.getElementById('schedule-subtitle');
+      const toggleBtn = document.getElementById('btn-toggle-all-view');
+
+      if (view === 'photo') {
+        if (dayView) dayView.classList.add('hidden');
+        if (photoView) {
+          photoView.classList.remove('hidden');
+          photoView.classList.add('flex');
+        }
+        if (subtitle) subtitle.innerText = 'Оригинальный печатный бланк aSc Расписание';
+        if (toggleBtn) {
+          toggleBtn.innerHTML = '<span>📋 Смотреть по дням</span>';
+        }
+      } else {
+        if (photoView) {
+          photoView.classList.add('hidden');
+          photoView.classList.remove('flex');
+        }
+        if (dayView) dayView.classList.remove('hidden');
+        if (toggleBtn) {
+          toggleBtn.innerHTML = '<span>📷 Смотреть фото оригинала</span>';
+        }
+
+        let targetDay = view;
+        if (targetDay === 'today') {
+          const tIdx = getTodayDayIndex();
+          targetDay = tIdx >= 0 ? tIdx : 0;
+        }
+
+        if (subtitle) {
+          const isToday = targetDay === getTodayDayIndex();
+          subtitle.innerText = `${SCHEDULE_DAY_FULL[targetDay]} ${isToday ? '· Сегодня' : ''} · 1-я смена`;
+        }
+        renderScheduleDayView(targetDay);
+      }
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    function toggleScheduleMode() {
+      if (currentScheduleView === 'photo') {
+        setScheduleView('today');
+      } else {
+        setScheduleView('photo');
+      }
+    }
+
+    function openSchedulePhotoFullscreen() {
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+      // Открываем фото расписания в нашем полноэкранном зумируемом просмотрщике
+      openPhotoViewer('/static/schedule_10a.jpg', 0);
+    }
+
+    function renderScheduleDayView(dayIdx) {
+      const container = document.getElementById('schedule-day-view');
+      if (!container) return;
+      const slots = SCHEDULE_DATA[dayIdx] || [];
+      const isToday = dayIdx === getTodayDayIndex();
+      const list = [];
+
+      // Текущее время в минутах для живого статуса урока
+      const now = new Date();
+      const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+      function parseMinutes(hhmm) {
+        if (!hhmm) return 0;
+        const [h, m] = hhmm.split(':').map(Number);
+        return h * 60 + m;
+      }
+
+      for (let i = 0; i < slots.length; i++) {
+        const item = slots[i];
+        if (!item) continue;
+        const time = SCHEDULE_TIMES[i] || { start: '', end: '' };
+        if (item.pair) {
+          const nextTime = SCHEDULE_TIMES[i + 1] || time;
+          list.push({
+            numLabel: `${i + 1}-${i + 2} пара`,
+            start: time.start,
+            end: nextTime.end,
+            startMin: parseMinutes(time.start),
+            endMin: parseMinutes(nextTime.end),
+            isPair: true,
+            lesson: item
+          });
+        } else {
+          list.push({
+            numLabel: `${i + 1} урок`,
+            start: time.start,
+            end: time.end,
+            startMin: parseMinutes(time.start),
+            endMin: parseMinutes(time.end),
+            isPair: false,
+            lesson: item
+          });
+        }
+      }
+
+      if (list.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 px-4 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400">
+            <span class="text-3xl block mb-2">🎉</span>
+            <p class="text-sm font-bold text-slate-700 dark:text-slate-200">В этот день уроков нет</p>
+            <p class="text-xs text-slate-500 mt-1">Отдыхайте и готовьтесь к следующему дню</p>
+          </div>`;
+        return;
+      }
+
+      const totalLessons = list.reduce((acc, x) => acc + (x.isPair ? 2 : 1), 0);
+      const lastLessonEnd = list[list.length - 1].end;
+
+      let html = `
+        <!-- Дневная сводка -->
+        <div class="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-400/5 to-transparent border border-amber-400/25 flex items-center justify-between">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-sm font-black text-slate-900 dark:text-white">${SCHEDULE_DAY_FULL[dayIdx]}</h3>
+              ${isToday ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950 shadow-sm">Сегодня</span>' : ''}
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">${totalLessons} уроков · с 09:15 до ${lastLessonEnd}</p>
+          </div>
+          <button onclick="openSchedulePhotoFullscreen()" class="px-2.5 py-1.5 rounded-xl bg-white dark:bg-white/10 text-slate-700 dark:text-slate-200 text-[11px] font-bold border border-slate-200/80 dark:border-white/10 flex items-center gap-1.5 hover:border-amber-400 active:scale-95 transition shadow-sm">
+            <span>📷</span><span>Фото</span>
+          </button>
+        </div>
+      `;
+
+      list.forEach(entry => {
+        const les = entry.lesson;
+        const meta = getScheduleSubjectMeta(les.s);
+        const teacherStr = SCHEDULE_TEACHERS[les.t] || les.t;
+
+        // Живой статус
+        let isCurrent = false;
+        let isPast = false;
+        if (isToday) {
+          if (currentMinutes >= entry.startMin && currentMinutes <= entry.endMin) {
+            isCurrent = true;
+          } else if (currentMinutes > entry.endMin) {
+            isPast = true;
+          }
+        }
+
+        let cardBorder = isCurrent
+          ? 'border-2 border-emerald-500 shadow-md shadow-emerald-500/10 ring-2 ring-emerald-500/20'
+          : 'border border-slate-200/80 dark:border-white/10';
+        let cardOpacity = isPast ? 'opacity-65' : '';
+        let numBadgeClass = entry.isPair
+          ? 'bg-amber-400 text-slate-950'
+          : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300';
+
+        html += `
+          <div class="p-3.5 rounded-[22px] bg-white dark:bg-[#111f31] ${cardBorder} ${cardOpacity} shadow-sm transition">
+            <div class="flex items-center gap-3">
+              <!-- Левая колонка: Время звонков и номер -->
+              <div class="w-16 flex flex-col items-center justify-center shrink-0 border-r border-slate-200/80 dark:border-white/10 pr-2.5">
+                <span class="text-xs font-black tracking-tight text-slate-900 dark:text-white leading-none">${entry.start}</span>
+                <span class="my-1 px-1.5 py-0.5 rounded-md text-[9px] font-black ${numBadgeClass} truncate max-w-full text-center">${entry.numLabel}</span>
+                <span class="text-[10px] font-medium text-slate-400 leading-none">${entry.end}</span>
+              </div>
+
+              <!-- Иконка предмета -->
+              <div class="w-11 h-11 rounded-2xl ${meta.bg} ${meta.text} border ${meta.border} flex items-center justify-center shrink-0 shadow-sm p-2.5">
+                ${meta.icon}
+              </div>
+
+              <!-- Основное описание -->
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug">${meta.name}</h4>
+                  ${entry.isPair ? '<span class="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-400 text-slate-950 shadow-sm">⚡ ПАРА</span>' : ''}
+                  ${isCurrent ? '<span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500 text-white shadow-sm animate-pulse">🟢 ИДЁТ СЕЙЧАС</span>' : ''}
+                  ${isPast ? '<span class="text-[10px] font-bold text-slate-400">✓ Прошёл</span>' : ''}
+                </div>
+
+                <div class="flex items-center gap-2 mt-1 flex-wrap text-xs">
+                  ${les.r ? `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 font-bold text-[11px] border border-slate-200/80 dark:border-white/5">
+                      <span>📍</span><span>${les.r}</span>
+                    </span>` : ''}
+                  ${teacherStr ? `
+                    <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                      <span>👨‍🏫</span><span>${teacherStr}</span>
+                    </span>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function openScheduleModal() {
+      const modal = document.getElementById('schedule-modal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setScheduleView('today');
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    function closeScheduleModal() {
+      const modal = document.getElementById('schedule-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // ========================================================
+    // ⚙️ НАСТРОЙКИ ЛИЧНЫХ УВЕДОМЛЕНИЙ
+    // ========================================================
+    async function loadNotifPrefs() {
+      try {
+        const res = await fetch(`/api/notifications/prefs?user_id=${userId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        const t08 = document.getElementById('notif-toggle-08');
+        const t16 = document.getElementById('notif-toggle-16');
+        const t18 = document.getElementById('notif-toggle-18');
+        if (t08) t08.checked = data.notify_08 !== false;
+        if (t16) t16.checked = data.notify_16 !== false;
+        if (t18) t18.checked = data.notify_18 !== false;
+      } catch (err) {
+        console.warn('Could not load notif prefs:', err);
+      }
+    }
+
+    async function toggleNotifPref(hour) {
+      const t08 = document.getElementById('notif-toggle-08');
+      const t16 = document.getElementById('notif-toggle-16');
+      const t18 = document.getElementById('notif-toggle-18');
+      const payload = {
+        user_id: userId,
+        notify_08: t08 ? t08.checked : true,
+        notify_16: t16 ? t16.checked : true,
+        notify_18: t18 ? t18.checked : true
+      };
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      try {
+        await fetch('/api/notifications/prefs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+      } catch (err) {
+        console.error('Error saving notif prefs:', err);
+      }
+    }
+
+    function openNotifModal() {
+      const modal = document.getElementById('notif-modal');
+      if (!modal) return;
+      loadNotifPrefs();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    function closeNotifModal() {
+      const modal = document.getElementById('notif-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // Инициализация сводки расписания на главной
+    updateScheduleQuickSummary();
+  </script>
+</body>
+</html>
   </script>
 </body>
 </html>

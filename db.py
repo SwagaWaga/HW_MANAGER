@@ -11,13 +11,7 @@ def is_using_supabase() -> bool:
     return supabase_db.is_supabase_configured()
 
 def init_db():
-    # If Supabase is active, ensure connection works
-    if is_using_supabase():
-        logger.info("⚡ Using Supabase as primary database backend")
-        return
-
-    # Fallback to local SQLite
-    logger.info("📁 Using local SQLite database (homework.db)")
+    # Always ensure local SQLite schema exists for seamless fallback
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("""
@@ -59,8 +53,22 @@ def init_db():
         uploader_id INTEGER NOT NULL
     )
     """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_notification_prefs (
+        user_id INTEGER PRIMARY KEY,
+        notify_08 INTEGER DEFAULT 1,
+        notify_16 INTEGER DEFAULT 1,
+        notify_18 INTEGER DEFAULT 1
+    )
+    """)
     conn.commit()
     conn.close()
+
+    if is_using_supabase():
+        logger.info("⚡ Using Supabase as primary database backend")
+    else:
+        logger.info("📁 Using local SQLite database (homework.db)")
 
 def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Optional[str] = None, role: str = 'student', class_name: str = '10-А'):
     if is_using_supabase():
@@ -280,5 +288,45 @@ def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
+
+# ─────────────────────────────────────────────────────────────
+# USER NOTIFICATION PREFERENCES (SQLite fallback)
+# ─────────────────────────────────────────────────────────────
+
+_DEFAULT_PREFS = {"notify_08": True, "notify_16": True, "notify_18": True}
+
+def get_notification_prefs(user_id: int) -> Dict[str, bool]:
+    if is_using_supabase():
+        prefs = supabase_db.get_notification_prefs(user_id)
+        if prefs is not None:
+            return prefs
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT notify_08, notify_16, notify_18 FROM user_notification_prefs WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {"notify_08": bool(row["notify_08"]), "notify_16": bool(row["notify_16"]), "notify_18": bool(row["notify_18"])}
+    return _DEFAULT_PREFS.copy()
+
+def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, notify_18: bool) -> bool:
+    saved = False
+    if is_using_supabase():
+        saved = supabase_db.upsert_notification_prefs(user_id, notify_08, notify_16, notify_18)
+    if not saved:
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO user_notification_prefs (user_id, notify_08, notify_16, notify_18)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                notify_08 = excluded.notify_08,
+                notify_16 = excluded.notify_16,
+                notify_18 = excluded.notify_18
+        """, (user_id, int(notify_08), int(notify_16), int(notify_18)))
+        conn.commit()
+        conn.close()
+    return True
 
 init_db()

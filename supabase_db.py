@@ -299,3 +299,46 @@ def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
     except Exception as e:
         logger.error(f"Error in Supabase get_material_by_id: {e}")
         return None
+
+# ─────────────────────────────────────────────────────────────
+# USER NOTIFICATION PREFERENCES
+# Table: user_notification_prefs (user_id BIGINT PK, notify_08 BOOL, notify_16 BOOL, notify_18 BOOL)
+# ─────────────────────────────────────────────────────────────
+
+_DEFAULT_PREFS = {"notify_08": True, "notify_16": True, "notify_18": True}
+
+def get_notification_prefs(user_id: int) -> Optional[Dict[str, bool]]:
+    """Return notification preferences for a user from Supabase. Returns None if table/connection fails."""
+    client = get_supabase_client()
+    if not client:
+        return None
+    try:
+        res = client.table("user_notification_prefs").select("notify_08,notify_16,notify_18").eq("user_id", user_id).limit(1).execute()
+        if res.data and len(res.data) > 0:
+            row = res.data[0]
+            return {
+                "notify_08": bool(row.get("notify_08", True)),
+                "notify_16": bool(row.get("notify_16", True)),
+                "notify_18": bool(row.get("notify_18", True)),
+            }
+        return _DEFAULT_PREFS.copy()
+    except Exception as e:
+        logger.warning(f"Supabase user_notification_prefs unavailable ({e}), using SQLite fallback")
+        return None
+
+def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, notify_18: bool) -> bool:
+    """Save/update notification preferences for a user in Supabase."""
+    client = get_supabase_client()
+    if not client:
+        return False
+    try:
+        client.table("user_notification_prefs").upsert({
+            "user_id": user_id,
+            "notify_08": notify_08,
+            "notify_16": notify_16,
+            "notify_18": notify_18,
+        }, on_conflict="user_id").execute()
+        return True
+    except Exception as e:
+        logger.warning(f"Supabase upsert_notification_prefs failed ({e}), using SQLite fallback")
+        return False

@@ -20,7 +20,9 @@ from db import (
     get_overdue_tasks,
     delete_all_tasks,
     get_materials_for_task,
-    get_all_users
+    get_all_users,
+    get_notification_prefs,
+    upsert_notification_prefs
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -340,6 +342,14 @@ async def send_scheduled_reminder(target_hour: Optional[int] = None):
         if not uid:
             continue
         try:
+            # Check personal notification preferences
+            prefs = get_notification_prefs(uid)
+            pref_key = f"notify_{current_hour:02d}"
+            if not prefs.get(pref_key, True):
+                skipped_count += 1
+                logger.info(f"⏭ Skipping user {uid}: {pref_key} is disabled")
+                continue
+
             text, has_tasks = build_reminder_notification(uid, hour=current_hour)
             if has_tasks:
                 await bot.send_message(
@@ -361,8 +371,71 @@ async def send_evening_reminder():
     """Backward-compatible wrapper calling send_scheduled_reminder for 18:00."""
     await send_scheduled_reminder(target_hour=18)
 
+# ─────────────────────────────────────────────────────────────
+# NOTIFICATION SETTINGS HELPERS
+# ─────────────────────────────────────────────────────────────
+
+def build_settings_text(prefs: dict) -> str:
+    def st(enabled: bool) -> str:
+        return "ВКЛ ✅" if enabled else "ВЫКЛ ❌"
+    return (
+        "⚙️ <b>Настройки уведомлений</b>\n\n"
+        "Выбери, в какое время получать напоминания о домашних заданиях:\n\n"
+        f"☀️ <b>08:00</b> — Утреннее   [{st(prefs.get('notify_08', True))}]\n"
+        f"🎒 <b>16:00</b> — Дневное    [{st(prefs.get('notify_16', True))}]\n"
+        f"🌆 <b>18:00</b> — Вечернее   [{st(prefs.get('notify_18', True))}]\n\n"
+        "<i>Нажми на нужное время, чтобы включить или выключить.</i>"
+    )
+
+def build_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
+    def label(hour_key: str, emoji: str, time: str) -> str:
+        on = prefs.get(hour_key, True)
+        return f"{emoji} {time} {'✅' if on else '❌'}"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=label("notify_08", "☀️", "08:00"), callback_data="toggle_notif:08")],
+        [InlineKeyboardButton(text=label("notify_16", "🎒", "16:00"), callback_data="toggle_notif:16")],
+        [InlineKeyboardButton(text=label("notify_18", "🌆", "18:00"), callback_data="toggle_notif:18")],
+    ])
+
+@dp.message(Command("settings", "уведомления", "notif"))
+async def handle_settings(message: Message):
+    record_user_activity(message.from_user)
+    prefs = get_notification_prefs(message.from_user.id)
+    await message.answer(
+        build_settings_text(prefs),
+        parse_mode="HTML",
+        reply_markup=build_settings_keyboard(prefs)
+    )
+
 @dp.callback_query()
 async def handle_done_callback(callback: CallbackQuery):
+    # ── Toggle notification preference ──────────────────────
+    if callback.data.startswith("toggle_notif:"):
+        hour = callback.data.split(":")[1]  # "08", "16", "18"
+        uid = callback.from_user.id
+        prefs = get_notification_prefs(uid)
+        key = f"notify_{hour}"
+        prefs[key] = not prefs.get(key, True)
+        upsert_notification_prefs(uid, prefs["notify_08"], prefs["notify_16"], prefs["notify_18"])
+        await callback.answer("✅ Сохранено!")
+        # Edit message to reflect new state
+        await callback.message.edit_text(
+            build_settings_text(prefs),
+            parse_mode="HTML",
+            reply_markup=build_settings_keyboard(prefs)
+        )
+        return
+
+    if callback.data == "open_settings":
+        prefs = get_notification_prefs(callback.from_user.id)
+        await callback.answer()
+        await callback.message.answer(
+            build_settings_text(prefs),
+            parse_mode="HTML",
+            reply_markup=build_settings_keyboard(prefs)
+        )
+        return
+
     if callback.data.startswith("done:"):
         task_id = int(callback.data.split(":")[1])
         mark_task_done(task_id, callback.from_user.id)
@@ -383,7 +456,11 @@ async def handle_start(message: Message):
         f"Здесь собраны все актуальные домашние задания, дедлайны, фото учебников и конспектов.\n\n"
         f"Нажмите кнопку ниже, чтобы открыть приложение 👇"
     )
-    await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал"))
+    start_keyboard = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🚀 Открыть ДЗ Портал", web_app=WebAppInfo(url=WEB_APP_URL))],
+        [InlineKeyboardButton(text="⚙️ Настройки уведомлений", callback_data="open_settings")]
+    ])
+    await message.answer(text, parse_mode="HTML", reply_markup=start_keyboard)
 
 @dp.message(Command("remind", "notify", "tomorrow", "zavtra"))
 async def handle_remind(message: Message, command: CommandObject = None):
@@ -643,6 +720,7 @@ async def handle_help(message: Message):
     help_text = (
         "🤖 <b>Команды ДЗ Бота 10-го класса:</b>\n\n"
         "• <b>/start</b> — Главное меню и запуск приложения\n"
+        "• <b>/settings</b> — Настройки личных уведомлений (08:00, 16:00, 18:00)\n"
         "• <b>/remind [8|16|18]</b> — Проверить уведомления (утро, день, вечер)\n"
         "• <b>/notify_all [8|16|18]</b> — Разослать напоминания всем ученикам\n"
         "• <b>/today</b> — Задания на сегодня\n"

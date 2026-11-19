@@ -16,7 +16,9 @@ from db import (
     get_materials_for_tasks_batch,
     get_material_by_id,
     upsert_user,
-    is_using_supabase
+    is_using_supabase,
+    get_notification_prefs,
+    upsert_notification_prefs
 )
 import uuid
 import os
@@ -29,10 +31,39 @@ if not os.path.exists("uploads"):
     os.makedirs("uploads", exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # Сверхбыстрый многоуровневый кэш фото (RAM -> Диск uploads/ -> Supabase)
 # Устраняет повторные сетевые запросы к БД и отдает материалы за 0-2 миллисекунды
 _MATERIAL_CACHE: Dict[int, Dict[str, Any]] = {}
+
+def optimize_image_bytes(image_bytes: bytes, max_dim: int = 1600, quality: int = 80) -> tuple[bytes, str]:
+    """
+    Интеллектуальная оптимизация и сжатие загружаемых фото:
+    - Автоматически выравнивает ориентацию по EXIF смартфонов (устраняет перевернутые фото).
+    - Уменьшает гигантские снимки смартфонов (4000px -> до 1600px по длинной стороне).
+    - Сохраняет в прогрессивный JPEG с качеством 80% (идеальная четкость формул и рукописного текста при весе ~120-250 КБ).
+    - Экономит до 90% диска и трафика Supabase.
+    """
+    try:
+        from PIL import Image, ImageOps
+        import io
+        with Image.open(io.BytesIO(image_bytes)) as img:
+            img = ImageOps.exif_transpose(img)
+            if img.mode in ("RGBA", "P"):
+                img = img.convert("RGB")
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+            w, h = img.size
+            if w > max_dim or h > max_dim:
+                img.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=quality, optimize=True)
+            return buf.getvalue(), "image/jpeg"
+    except Exception as e:
+        print(f"Image optimization note: {e}")
+        return image_bytes, "image/jpeg"
 
 @app.get("/")
 def route():
@@ -274,10 +305,13 @@ async def upload_photos(
             if not ext or ext not in [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]:
                 ext = ".jpg"
             
+            raw_contents = await p.read()
+            # Оптимизация и сжатие фото
+            contents, mime = optimize_image_bytes(raw_contents, max_dim=1600, quality=80)
+            ext = ".jpg"
             unique_name = f"{task_id}_{uuid.uuid4().hex[:8]}{ext}"
             file_path = f"uploads/{unique_name}"
-            
-            contents = await p.read()
+
             # 1. Сохраняем на локальный диск
             try:
                 with open(file_path, "wb") as f:
@@ -285,7 +319,6 @@ async def upload_photos(
             except Exception as disk_err:
                 print(f"Disk write warning: {disk_err}")
 
-            mime = "image/png" if ext == ".png" else "image/jpeg"
             b64_str = base64.b64encode(contents).decode("utf-8")
             data_url = f"data:{mime};base64,{b64_str}"
 
@@ -322,3 +355,27 @@ async def upload_photos(
     except Exception as e:
         print(f"Error in /api/upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+class NotifPrefsRequest(BaseModel):
+    user_id: int
+    notify_08: bool = True
+    notify_16: bool = True
+    notify_18: bool = True
+
+@app.get("/api/notifications/prefs")
+def get_user_notification_prefs(user_id: int):
+    return get_notification_prefs(user_id)
+
+@app.post("/api/notifications/prefs")
+def update_user_notification_prefs(payload: NotifPrefsRequest):
+    success = upsert_notification_prefs(
+        payload.user_id,
+        payload.notify_08,
+        payload.notify_16,
+        payload.notify_18
+    )
+    return {"status": "ok" if success else "error", "prefs": {
+        "notify_08": payload.notify_08,
+        "notify_16": payload.notify_16,
+        "notify_18": payload.notify_18
+    }}

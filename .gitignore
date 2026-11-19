@@ -13,6 +13,7 @@ __pycache__/
 # Binaries & Temporary files
 cloudflared.exe
 *.log
+*.zip
 ACTIVE_URL.txt
 scratch/
 
