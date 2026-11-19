@@ -947,7 +947,7 @@
         <div>
           <label class="block text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wider">Предмет</label>
           <div class="grid grid-cols-3 gap-2" id="subject-selector-grid"></div>
-          <input type="hidden" id="modal-subject" value="Алгебра" />
+          <input type="hidden" id="modal-subject" value="Математика" />
         </div>
 
         <!-- Гибкий выбор даты сдачи -->
@@ -1350,14 +1350,22 @@
       check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polyline points="20 6 9 17 4 12"/></svg>`,
       trash: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`,
 
-      // Предметы
+      // Предметы (Расписание 10А инж + обратная совместимость)
       algebra: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 21h18"/><path d="M5 21l14-14"/><path d="M19 21V7"/><path d="M8 21v-3"/><path d="M11 21v-2"/><path d="M14 21v-3"/><path d="M17 21v-2"/></svg>`,
       physics: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="2.5" fill="currentColor"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(-30 12 12)"/><ellipse cx="12" cy="12" rx="10" ry="4.5" transform="rotate(90 12 12)"/></svg>`,
       chemistry: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M9 3h6"/><path d="M10 3v5l-6 10a2 2 0 0 0 1.7 3h12.6a2 2 0 0 0 1.7-3L14 8V3"/><path d="M6.5 16h11"/><circle cx="10" cy="18" r="1" fill="currentColor"/><circle cx="14" cy="18" r="1" fill="currentColor"/></svg>`,
       russian: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/><path d="M6 14h6"/><path d="M4 19.5a2.5 2.5 0 0 1 2.5-2.5H20"/></svg>`,
+      ril: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`,
       english: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 9h8"/><path d="M8 13h5"/></svg>`,
+      uzbek: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/><polygon points="18 4 18.8 6 21 6.2 19.4 7.6 19.9 9.8 18 8.7 16.1 9.8 16.6 7.6 15 6.2 17.2 6" fill="currentColor"/></svg>`,
       history: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 4h16v3H4z"/><path d="M4 17h16v3H4z"/><path d="M7 7v10"/><path d="M12 7v10"/><path d="M17 7v10"/><path d="M2 20h20"/></svg>`,
       cs: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/><path d="m8 9-2 2 2 2"/><path d="m12 9 2 2-2 2"/></svg>`,
+      ivt: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M2 20h20"/><path d="m8 9-2 2 2 2"/><path d="m12 9 2 2-2 2"/></svg>`,
+      project: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/></svg>`,
+      pe: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/><circle cx="12" cy="12" r="4"/></svg>`,
+      speech: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/><line x1="8" x2="16" y1="22" y2="22"/></svg>`,
+      shu: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+      ndp: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
       biology: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m2 15 20-6"/><path d="m2 9 20 6"/><path d="M12 4v16"/><path d="M6 6.5v11"/><path d="M18 6.5v11"/><circle cx="6" cy="6.5" r="1.5" fill="currentColor"/><circle cx="18" cy="17.5" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/></svg>`,
       geography: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4a12.5 12.5 0 0 1 0 16 12.5 12.5 0 0 1 0-16"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="M8 22h8"/></svg>`
     };
@@ -1402,35 +1410,54 @@
     safeSetIcon('icon-zoom-in', ICONS.zoomIn);
     safeSetIcon('icon-download-tray', ICONS.download);
 
-    // Стили предметов (Классическая школьная палитра)
+    // Стили предметов (Расписание 10А инж + обратная совместимость)
     const subjectStyles = {
+      'Математика': { icon: ICONS.algebra, border: 'border-l-amber-500', badge: 'bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/20' },
+      'Мат': { icon: ICONS.algebra, border: 'border-l-amber-500', badge: 'bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/20' },
       'Алгебра': { icon: ICONS.algebra, border: 'border-l-amber-500', badge: 'bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/20' },
+      'Геометрия': { icon: ICONS.algebra, border: 'border-l-amber-500', badge: 'bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/20' },
       'Физика': { icon: ICONS.physics, border: 'border-l-cyan-500', badge: 'bg-cyan-500/10 dark:bg-cyan-400/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20' },
-      'Химия': { icon: ICONS.chemistry, border: 'border-l-emerald-500', badge: 'bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' },
-      'Русский язык': { icon: ICONS.russian, border: 'border-l-blue-500', badge: 'bg-blue-500/10 dark:bg-blue-400/10 text-blue-700 dark:text-blue-300 border border-blue-500/20' },
+      'Физ': { icon: ICONS.physics, border: 'border-l-cyan-500', badge: 'bg-cyan-500/10 dark:bg-cyan-400/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20' },
+      'ИВТ': { icon: ICONS.ivt, border: 'border-l-purple-500', badge: 'bg-purple-500/10 dark:bg-purple-400/10 text-purple-700 dark:text-purple-300 border border-purple-500/20' },
+      'Информатика': { icon: ICONS.ivt, border: 'border-l-purple-500', badge: 'bg-purple-500/10 dark:bg-purple-400/10 text-purple-700 dark:text-purple-300 border border-purple-500/20' },
       'Англ. язык': { icon: ICONS.english, border: 'border-l-rose-500', badge: 'bg-rose-500/10 dark:bg-rose-400/10 text-rose-700 dark:text-rose-300 border border-rose-500/20' },
+      'Английский язык': { icon: ICONS.english, border: 'border-l-rose-500', badge: 'bg-rose-500/10 dark:bg-rose-400/10 text-rose-700 dark:text-rose-300 border border-rose-500/20' },
+      'Ая': { icon: ICONS.english, border: 'border-l-rose-500', badge: 'bg-rose-500/10 dark:bg-rose-400/10 text-rose-700 dark:text-rose-300 border border-rose-500/20' },
+      'Русский и Лит.': { icon: ICONS.ril, border: 'border-l-blue-500', badge: 'bg-blue-500/10 dark:bg-blue-400/10 text-blue-700 dark:text-blue-300 border border-blue-500/20' },
+      'РиЛ': { icon: ICONS.ril, border: 'border-l-blue-500', badge: 'bg-blue-500/10 dark:bg-blue-400/10 text-blue-700 dark:text-blue-300 border border-blue-500/20' },
+      'Русский язык': { icon: ICONS.ril, border: 'border-l-blue-500', badge: 'bg-blue-500/10 dark:bg-blue-400/10 text-blue-700 dark:text-blue-300 border border-blue-500/20' },
+      'Литература': { icon: ICONS.ril, border: 'border-l-blue-500', badge: 'bg-blue-500/10 dark:bg-blue-400/10 text-blue-700 dark:text-blue-300 border border-blue-500/20' },
+      'Узбекский язык': { icon: ICONS.uzbek, border: 'border-l-emerald-500', badge: 'bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' },
+      'Уя': { icon: ICONS.uzbek, border: 'border-l-emerald-500', badge: 'bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' },
       'История': { icon: ICONS.history, border: 'border-l-orange-500', badge: 'bg-orange-500/10 dark:bg-orange-400/10 text-orange-700 dark:text-orange-300 border border-orange-500/20' },
-      'Информатика': { icon: ICONS.cs, border: 'border-l-purple-500', badge: 'bg-purple-500/10 dark:bg-purple-400/10 text-purple-700 dark:text-purple-300 border border-purple-500/20' },
+      'Ист': { icon: ICONS.history, border: 'border-l-orange-500', badge: 'bg-orange-500/10 dark:bg-orange-400/10 text-orange-700 dark:text-orange-300 border border-orange-500/20' },
+      'Проектная деят.': { icon: ICONS.project, border: 'border-l-teal-500', badge: 'bg-teal-500/10 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 border border-teal-500/20' },
+      'Пд': { icon: ICONS.project, border: 'border-l-teal-500', badge: 'bg-teal-500/10 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 border border-teal-500/20' },
+      'Физкультура': { icon: ICONS.pe, border: 'border-l-red-500', badge: 'bg-red-500/10 dark:bg-red-400/10 text-red-700 dark:text-red-300 border border-red-500/20' },
+      'Ф-ра': { icon: ICONS.pe, border: 'border-l-red-500', badge: 'bg-red-500/10 dark:bg-red-400/10 text-red-700 dark:text-red-300 border border-red-500/20' },
+      'Ораторское иск.': { icon: ICONS.speech, border: 'border-l-fuchsia-500', badge: 'bg-fuchsia-500/10 dark:bg-fuchsia-400/10 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-500/20' },
+      'Ор.иск.': { icon: ICONS.speech, border: 'border-l-fuchsia-500', badge: 'bg-fuchsia-500/10 dark:bg-fuchsia-400/10 text-fuchsia-700 dark:text-fuchsia-300 border border-fuchsia-500/20' },
+      'ШУ': { icon: ICONS.shu, border: 'border-l-indigo-500', badge: 'bg-indigo-500/10 dark:bg-indigo-400/10 text-indigo-700 dark:text-indigo-300 border border-indigo-500/20' },
+      'НДП': { icon: ICONS.ndp, border: 'border-l-slate-500', badge: 'bg-slate-500/10 dark:bg-slate-400/10 text-slate-700 dark:text-slate-300 border border-slate-500/20' },
+      // Сохраняем старые для совместимости со старыми записями:
+      'Химия': { icon: ICONS.chemistry, border: 'border-l-emerald-500', badge: 'bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' },
       'Биология': { icon: ICONS.biology, border: 'border-l-lime-500', badge: 'bg-lime-500/10 dark:bg-lime-400/10 text-lime-700 dark:text-lime-300 border border-lime-500/20' },
-      'География': { icon: ICONS.geography, border: 'border-l-teal-500', badge: 'bg-teal-500/10 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 border border-teal-500/20' },
-      'Math': { icon: ICONS.algebra, border: 'border-l-amber-500', badge: 'bg-amber-500/10 dark:bg-amber-400/10 text-amber-700 dark:text-amber-300 border border-amber-500/20' },
-      'Physics': { icon: ICONS.physics, border: 'border-l-cyan-500', badge: 'bg-cyan-500/10 dark:bg-cyan-400/10 text-cyan-700 dark:text-cyan-300 border border-cyan-500/20' },
-      'Chemistry': { icon: ICONS.chemistry, border: 'border-l-emerald-500', badge: 'bg-emerald-500/10 dark:bg-emerald-400/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/20' },
-      'English': { icon: ICONS.english, border: 'border-l-rose-500', badge: 'bg-rose-500/10 dark:bg-rose-400/10 text-rose-700 dark:text-rose-300 border border-rose-500/20' },
-      'History': { icon: ICONS.history, border: 'border-l-orange-500', badge: 'bg-orange-500/10 dark:bg-orange-400/10 text-orange-700 dark:text-orange-300 border border-orange-500/20' },
-      'CS': { icon: ICONS.cs, border: 'border-l-purple-500', badge: 'bg-purple-500/10 dark:bg-purple-400/10 text-purple-700 dark:text-purple-300 border border-purple-500/20' }
+      'География': { icon: ICONS.geography, border: 'border-l-teal-500', badge: 'bg-teal-500/10 dark:bg-teal-400/10 text-teal-700 dark:text-teal-300 border border-teal-500/20' }
     };
 
     const subjectList = [
-      { name: 'Алгебра', label: 'Алгебра', icon: ICONS.algebra },
+      { name: 'Математика', label: 'Математика', icon: ICONS.algebra },
       { name: 'Физика', label: 'Физика', icon: ICONS.physics },
-      { name: 'Химия', label: 'Химия', icon: ICONS.chemistry },
-      { name: 'Русский язык', label: 'Русский', icon: ICONS.russian },
+      { name: 'ИВТ', label: 'ИВТ', icon: ICONS.ivt },
       { name: 'Англ. язык', label: 'Английский', icon: ICONS.english },
+      { name: 'Русский и Лит.', label: 'Русский / РиЛ', icon: ICONS.ril },
+      { name: 'Узбекский язык', label: 'Узбекский', icon: ICONS.uzbek },
       { name: 'История', label: 'История', icon: ICONS.history },
-      { name: 'Информатика', label: 'Информат.', icon: ICONS.cs },
-      { name: 'Биология', label: 'Биология', icon: ICONS.biology },
-      { name: 'География', label: 'География', icon: ICONS.geography }
+      { name: 'Проектная деят.', label: 'Проект (ПД)', icon: ICONS.project },
+      { name: 'Физкультура', label: 'Физкультура', icon: ICONS.pe },
+      { name: 'Ораторское иск.', label: 'Ораторское', icon: ICONS.speech },
+      { name: 'ШУ', label: 'ШУ', icon: ICONS.shu },
+      { name: 'НДП', label: 'НДП', icon: ICONS.ndp }
     ];
 
     const subjectGrid = document.getElementById('subject-selector-grid');
@@ -2498,7 +2525,7 @@
     function saveDraftState() {
       try {
         const draft = {
-          subject: document.getElementById('modal-subject')?.value || 'Алгебра',
+          subject: document.getElementById('modal-subject')?.value || 'Математика',
           date: document.getElementById('modal-date')?.value || '',
           desc: document.getElementById('modal-desc')?.value || '',
           isOpen: !document.getElementById('add-modal')?.classList.contains('hidden')
@@ -2929,7 +2956,7 @@
         charCount.innerText = `${(task.description || '').length} / 1500`;
       }
 
-      renderEditSubjectGrid(task.subject || 'Алгебра');
+      renderEditSubjectGrid(task.subject || 'Математика');
       updateEditDateButtons(task.due_date || getISODate(1));
       renderEditExistingPhotos();
       renderEditNewPhotos();
