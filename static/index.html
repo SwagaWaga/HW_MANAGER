@@ -41,6 +41,17 @@
       background-attachment: fixed;
     }
 
+    /* Полное скрытие полос прокрутки на всех браузерах и ОС */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none !important;
+      scrollbar-width: none !important;
+    }
+
     html.dark body {
       background-color: #071322;
       background-image: 
@@ -612,6 +623,9 @@
 </head>
 <body class="p-4 pb-28 max-w-lg mx-auto select-none transition-colors duration-200">
 
+  <!-- ХОЛСТ ОСЕННИХ ЛИСТЬЕВ (АППАРАТНЫЙ CANVAS С НУЛЕВОЙ НАГРУЗКОЙ И ФИКСИРОВАННЫМИ 60 FPS) -->
+  <canvas id="autumn-leaves-canvas" class="fixed inset-0 pointer-events-none" style="z-index: 15; width: 100vw; height: 100vh;"></canvas>
+
   <!-- ======================================================== -->
   <!-- РЮКЗАК И ТЕТРАДЬ STAR: АНИМАЦИЯ ОТКРЫТИЯ (КАК НА ФОТО)    -->
   <!-- ======================================================== -->
@@ -788,11 +802,8 @@
         </div>
       </div>
 
-      <!-- Кнопки: Топ Лидеров, Уведомления, Тема + Фирменная школьная аватарка -->
+      <!-- Кнопки: Уведомления, Тема + Фирменная школьная аватарка -->
       <div class="flex items-center gap-2">
-        <button onclick="openLeaderboardModal()" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white flex items-center justify-center transition active:scale-95 shadow-sm" title="Таблица лидеров редакторов">
-          <span class="text-base">🏆</span>
-        </button>
         <button onclick="openNotifModal()" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white flex items-center justify-center transition active:scale-95 shadow-sm" title="Настройки уведомлений">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-amber-500"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         </button>
@@ -811,7 +822,7 @@
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5 mb-1">
             <span class="w-3.5 h-3.5 text-amber-400 inline-block shrink-0" id="hero-bolt-slot"></span>
-            <span class="text-[10px] font-mono font-bold tracking-widest text-amber-400 uppercase">⚡ НЕДЕЛЬНЫЙ ПРОГРЕСС</span>
+            <span class="text-[10px] font-mono font-bold tracking-widest text-amber-400 uppercase">НЕДЕЛЬНЫЙ ПРОГРЕСС</span>
           </div>
           <h2 id="hero-title" class="text-xl font-black text-slate-900 dark:text-white leading-tight">
             Прогресс за неделю
@@ -837,149 +848,72 @@
     </div>
   </header>
 
-  <!-- БЫСТРЫЕ ДЕЙСТВИЯ: 3 СИММЕТРИЧНЫХ СКВИРКЛА (ДЛЯ ДНЯ И НОЧИ) -->
-  <section class="grid grid-cols-3 gap-3 mb-3">
-    <!-- Кнопка 1: Добавить Д/З -->
-    <button onclick="openAddModal()" class="bg-white dark:bg-[#111f31] text-slate-900 dark:text-white rounded-[24px] p-4 shadow-sm hover:shadow-md dark:shadow-xl dark:hover:shadow-2xl active:scale-95 transition flex flex-col items-center justify-center text-center gap-2 border border-slate-200/90 dark:border-white/10 border-t-white dark:border-t-white/20">
-      <div class="w-10 h-10 rounded-full bg-amber-500/15 dark:bg-white/10 flex items-center justify-center text-amber-600 dark:text-amber-400">
-        <span class="w-5 h-5 flex items-center justify-center" id="quick-icon-add"></span>
+  <!-- КЛЮЧЕВЫЕ СЕРВИСЫ: РАСПИСАНИЕ И РЕЙТИНГ (2 АККУРАТНЫЕ КОЛОНКИ БЕЗ ПОВТОРОВ) -->
+  <section class="grid grid-cols-2 gap-3 mb-4">
+    <!-- КАРТОЧКА 1: РАСПИСАНИЕ УРОКОВ -->
+    <div onclick="openScheduleModal()" class="cursor-pointer glossy-card rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-95 transition flex flex-col justify-between border border-amber-400/30 bg-gradient-to-b from-amber-500/10 via-orange-500/5 to-transparent">
+      <div class="flex items-center justify-between mb-2">
+        <div class="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-sm">10А инж</span>
       </div>
-      <span class="text-xs font-black tracking-tight">Добавить</span>
-    </button>
+      <div>
+        <span class="text-xs font-black text-slate-900 dark:text-white block">Расписание</span>
+        <span class="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5" id="schedule-quick-summary">Уроки на сегодня...</span>
+      </div>
+    </div>
 
-    <!-- Кнопка 2: На сегодня -->
-    <button onclick="setFilter('today')" class="bg-white dark:bg-[#111f31] text-slate-900 dark:text-white rounded-[24px] p-4 shadow-sm hover:shadow-md dark:shadow-xl dark:hover:shadow-2xl active:scale-95 transition flex flex-col items-center justify-center text-center gap-2 border border-slate-200/90 dark:border-white/10 border-t-white dark:border-t-white/20 relative">
-      <div class="w-10 h-10 rounded-full bg-cyan-500/15 dark:bg-white/10 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
-        <span class="w-5 h-5 flex items-center justify-center" id="quick-icon-today"></span>
+    <!-- КАРТОЧКА 2: ТАБЛИЦА ЛИДЕРОВ -->
+    <div onclick="openLeaderboardModal()" class="cursor-pointer glossy-card rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-95 transition flex flex-col justify-between border border-amber-400/30 bg-gradient-to-b from-amber-500/10 via-orange-500/5 to-transparent">
+      <div class="flex items-center justify-between mb-2">
+        <div class="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M6 4h12a2 2 0 0 1 2 2v3a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6V6a2 2 0 0 1 2-2Z"/></svg>
+        </div>
+        <span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 shadow-sm">Топ</span>
       </div>
-      <span class="text-xs font-black tracking-tight">На сегодня</span>
-      <span id="badge-count-today" class="hidden absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-cyan-500 text-white shadow-sm">0</span>
-    </button>
-
-    <!-- Кнопка 3: На завтра -->
-    <button onclick="setFilter('tomorrow')" class="bg-white dark:bg-[#111f31] text-slate-900 dark:text-white rounded-[24px] p-4 shadow-sm hover:shadow-md dark:shadow-xl dark:hover:shadow-2xl active:scale-95 transition flex flex-col items-center justify-center text-center gap-2 border border-slate-200/90 dark:border-white/10 border-t-white dark:border-t-white/20 relative">
-      <div class="w-10 h-10 rounded-full bg-emerald-500/15 dark:bg-white/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-        <span class="w-5 h-5 flex items-center justify-center" id="quick-icon-tomorrow"></span>
+      <div>
+        <span class="text-xs font-black text-slate-900 dark:text-white block">Лидеры</span>
+        <span class="text-[10px] text-slate-500 dark:text-slate-400 block truncate mt-0.5" id="leaderboard-quick-summary">Рейтинг редакторов...</span>
       </div>
-      <span class="text-xs font-black tracking-tight">На завтра</span>
-      <span id="badge-count-tomorrow" class="hidden absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white shadow-sm">0</span>
-    </button>
+    </div>
   </section>
 
-  <!-- ВТОРИЧНЫЕ КАРТОЧКИ: СИММЕТРИЧНАЯ СЕТКА 2 КАРТОЧЕК -->
-  <section class="grid grid-cols-2 gap-3 mb-3">
-    <button onclick="setFilter('overdue')" class="glossy-card text-slate-900 dark:text-white rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-95 transition flex items-center gap-3 text-left">
-      <div class="w-10 h-10 rounded-2xl bg-rose-500/15 dark:bg-white/5 text-rose-500 dark:text-rose-400 flex items-center justify-center shrink-0">
-        <span class="w-5 h-5" id="quick-icon-overdue"></span>
-      </div>
-      <div class="min-w-0 flex-1">
-        <span class="text-xs font-bold block text-slate-900 dark:text-white">Мониторинг</span>
-        <span id="badge-count-overdue" class="text-[11px] text-rose-600 dark:text-rose-400 font-bold block truncate">0 долгов</span>
-      </div>
-    </button>
-
-    <button onclick="setFilter('pending')" class="glossy-card text-slate-900 dark:text-white rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-95 transition flex items-center gap-3 text-left">
-      <div class="w-10 h-10 rounded-2xl bg-amber-500/15 dark:bg-white/5 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-        <span class="w-5 h-5" id="quick-icon-all"></span>
-      </div>
-      <div class="min-w-0 flex-1">
-        <span class="text-xs font-bold block text-slate-900 dark:text-white">Все задания</span>
-        <span id="badge-count-all" class="text-[11px] text-amber-600 dark:text-amber-300 font-bold block truncate">0 заданий</span>
-      </div>
-    </button>
-  </section>
-
-  <!-- КАРТОЧКА РАСПИСАНИЯ 10А ИНЖ -->
-  <div onclick="openScheduleModal()" class="cursor-pointer mb-2.5 glossy-card rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-98 transition flex items-center justify-between border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent">
-    <div class="flex items-center gap-3 min-w-0">
-      <div class="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-      </div>
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-black text-slate-900 dark:text-white">Расписание уроков</span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950">10А инж</span>
-        </div>
-        <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate" id="schedule-quick-summary">Загрузка уроков на сегодня...</span>
-      </div>
-    </div>
-    <div class="text-slate-400 dark:text-slate-500 pr-1 shrink-0">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>
-  </div>
-
-  <!-- КАРТОЧКА ТОП РЕДАКТОРОВ 10-А (ТАБЛИЦА ЛИДЕРОВ) -->
-  <div onclick="openLeaderboardModal()" class="cursor-pointer mb-5 glossy-card rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-98 transition flex items-center justify-between border border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 via-amber-500/5 to-transparent">
-    <div class="flex items-center gap-3 min-w-0">
-      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-950 flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/30 text-lg font-black">
-        🏆
-      </div>
-      <div class="min-w-0 flex-1">
-        <div class="flex items-center gap-2">
-          <span class="text-xs font-black text-slate-900 dark:text-white">Таблица лидеров</span>
-          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 dark:text-yellow-300 border border-yellow-400/30">Топ редакторов</span>
-        </div>
-        <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate" id="leaderboard-quick-summary">Загрузка рейтинга редакторов...</span>
-      </div>
-    </div>
-    <div class="text-slate-400 dark:text-slate-500 pr-1 shrink-0">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>
-  </div>
-
-  <!-- ГОРИЗОНТАЛЬНЫЕ ПИЛЛЫ-РАЗДЕЛЫ (ЧЕТКАЯ ВИДИМОСТЬ В СВЕТЛОЙ И ТЕМНОЙ ТЕМЕ) -->
-  <nav class="flex space-x-2.5 mb-4 overflow-x-auto pb-1 no-scrollbar select-none">
-    <button onclick="setFilter('pending')" id="tab-pending" class="py-2.5 px-5 text-xs font-black rounded-full bg-amber-400 text-slate-950 shadow-md transition shrink-0 flex items-center gap-1.5 active:scale-95">
+  <!-- ГОРИЗОНТАЛЬНЫЕ ПИЛЛЫ-РАЗДЕЛЫ (ЕДИНЫЙ ФИЛЬТР ЗАДАНИЙ) -->
+  <nav class="flex space-x-2 mb-4 overflow-x-auto pb-1 no-scrollbar select-none">
+    <button onclick="setFilter('pending')" id="tab-pending" class="py-2.5 px-4 text-xs font-black rounded-full bg-amber-400 text-slate-950 shadow-md transition shrink-0 flex items-center gap-1.5 active:scale-95">
       <span class="w-3.5 h-3.5 inline-block" id="tab-icon-pending"></span>
       <span>Все задания</span>
+      <span id="tab-badge-pending" class="px-1.5 py-0.5 rounded-full bg-slate-950/20 text-slate-950 text-[10px] font-black">0</span>
     </button>
-    <button onclick="setFilter('today')" id="tab-today" class="py-2.5 px-5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
+    <button onclick="setFilter('today')" id="tab-today" class="py-2.5 px-4 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
       <span class="w-3.5 h-3.5 inline-block" id="tab-icon-today"></span>
       <span>На сегодня</span>
+      <span id="tab-badge-today" class="hidden px-1.5 py-0.5 rounded-full bg-cyan-500 text-white text-[10px] font-black">0</span>
     </button>
-    <button onclick="setFilter('tomorrow')" id="tab-tomorrow" class="py-2.5 px-5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
+    <button onclick="setFilter('tomorrow')" id="tab-tomorrow" class="py-2.5 px-4 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
       <span class="w-3.5 h-3.5 inline-block" id="tab-icon-tomorrow"></span>
       <span>На завтра</span>
+      <span id="tab-badge-tomorrow" class="hidden px-1.5 py-0.5 rounded-full bg-emerald-500 text-white text-[10px] font-black">0</span>
     </button>
-    <button onclick="setFilter('overdue')" id="tab-overdue" class="py-2.5 px-5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
+    <button onclick="setFilter('overdue')" id="tab-overdue" class="py-2.5 px-4 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95">
       <span class="w-3.5 h-3.5 inline-block" id="tab-icon-overdue"></span>
       <span>Долги</span>
+      <span id="tab-badge-overdue" class="hidden px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[10px] font-black">0</span>
     </button>
   </nav>
 
   <!-- Список домашних заданий -->
-  <main id="tasks-container" class="space-y-3.5">
+  <main id="tasks-container" class="space-y-3.5 pb-28">
     <div class="animate-pulse glossy-card p-4.5 rounded-[24px] h-24"></div>
     <div class="animate-pulse glossy-card p-4.5 rounded-[24px] h-24"></div>
   </main>
 
-    <!-- ПЛАВАЮЩИЙ НИЖНИЙ ДОК (КАК "ВАША ЛЕНТА" В PAYME / TBC) -->
-  <div class="fixed bottom-4 left-4 right-4 max-w-md mx-auto z-40 bg-white/90 dark:bg-[#081524]/90 backdrop-blur-xl border border-slate-200/90 dark:border-white/15 rounded-full p-2 flex items-center justify-between shadow-xl shadow-slate-900/10 dark:shadow-2xl transition-colors duration-200">
-    <!-- Левая кнопка: Долги / Мониторинг -->
-    <button onclick="setFilter('overdue')" class="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white flex items-center justify-center active:scale-95 transition" title="Мониторинг долгов">
-      <span class="w-5 h-5" id="dock-icon-monitoring"></span>
-    </button>
-
-    <!-- Кнопка Таблица лидеров -->
-    <button onclick="openLeaderboardModal()" class="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white flex items-center justify-center active:scale-95 transition text-base" title="Таблица лидеров редакторов">
-      🏆
-    </button>
-
-    <!-- Центральная кнопка: Белая/янтарная пилюля "Ваша лента" -->
-    <button onclick="setFilter('pending')" class="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md flex items-center gap-2 active:scale-95 transition">
-      <span class="w-4 h-4" id="dock-icon-feed"></span>
-      <span>Ваша лента</span>
-      <span id="dock-counter" class="ml-1 px-1.5 py-0.5 rounded-full bg-slate-950 text-amber-300 text-[10px] font-bold">0</span>
-    </button>
-
-    <!-- Кнопка Расписание -->
-    <button onclick="openScheduleModal()" class="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white flex items-center justify-center active:scale-95 transition" title="Расписание уроков">
-      <span class="w-5 h-5" id="dock-icon-schedule"></span>
-    </button>
-
-    <!-- Правая кнопка: Добавить Д/З (плюсик) -->
-    <button onclick="openAddModal()" class="w-11 h-11 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black flex items-center justify-center shadow-md active:scale-95 transition" title="Добавить Д/З">
-      <span class="w-5 h-5" id="dock-icon-add"></span>
+  <!-- ЕДИНСТВЕННАЯ ПЛАВАЮЩАЯ КНОПКА: ДОБАВИТЬ Д/З (БЕЗ ДУБЛИРУЮЩЕГО ДОКА) -->
+  <div class="fixed bottom-6 left-0 right-0 max-w-md mx-auto px-4 z-40 flex justify-center pointer-events-none">
+    <button onclick="openAddModal()" class="pointer-events-auto px-6 py-3.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-400 to-yellow-300 hover:from-amber-300 hover:to-yellow-200 text-slate-950 font-black text-sm shadow-xl shadow-amber-500/35 flex items-center gap-2 active:scale-95 transition border border-white/30 backdrop-blur-md">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      <span>Добавить Д/З</span>
     </button>
   </div>
 
@@ -1053,9 +987,56 @@
 
       <!-- Подпись и переключатель -->
       <div class="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-[11px] text-slate-400 flex-shrink-0">
-        <span>Составлено 13.11.2026</span>
+        <span>💡 Нажмите на предмет, чтобы открыть Д/З</span>
         <button onclick="toggleScheduleMode()" id="btn-toggle-all-view" class="text-amber-500 font-bold hover:underline flex items-center gap-1">
           <span>📊 Сетка всей недели</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== МОДАЛЬНОЕ ОКНО: Д/З ПО ПРЕДМЕТУ ИЗ РАСПИСАНИЯ (ПОВЕРХ РАСПИСАНИЯ) ===== -->
+  <div id="schedule-subject-tasks-modal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4" style="z-index: 80;" onclick="if(event.target===this)closeScheduleSubjectTasksModal()">
+    <div class="bg-white dark:bg-[#0d1b2a] text-slate-900 dark:text-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl max-h-[88vh] flex flex-col relative transition-all">
+      <!-- Мобильный ползунок (swipe indicator) -->
+      <div class="w-10 h-1 bg-slate-300 dark:bg-white/20 rounded-full mx-auto mb-2 sm:hidden shrink-0"></div>
+
+      <!-- Шапка -->
+      <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <div id="sstm-icon-box" class="w-10 h-10 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center shrink-0 p-2 shadow-sm">
+            <!-- Иконка предмета -->
+          </div>
+          <div class="min-w-0">
+            <h3 id="sstm-subject-name" class="text-base font-black truncate">Математика</h3>
+            <p id="sstm-subtitle" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">Каб: 404 · Преподаватель: —</p>
+          </div>
+        </div>
+        <button onclick="closeScheduleSubjectTasksModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold transition active:scale-95" title="Назад к расписанию">✕</button>
+      </div>
+
+      <!-- Фильтр-заголовок -->
+      <div class="flex items-center justify-between mb-3 px-1 flex-shrink-0">
+        <div class="flex items-center gap-1.5 text-xs font-black text-amber-500">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="sstm-date-header">Д/З на сегодня</span>
+        </div>
+        <span id="sstm-badge-count" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950">0 заданий</span>
+      </div>
+
+      <!-- Контейнер со списком заданий на сегодня -->
+      <div id="sstm-tasks-container" class="overflow-y-auto flex-1 space-y-3 pr-1">
+        <!-- Сюда рендерятся задания или пустое состояние -->
+      </div>
+
+      <!-- Кнопка быстрого добавления Д/З по этому предмету -->
+      <div class="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between flex-shrink-0 gap-2">
+        <button id="sstm-btn-add" onclick="quickAddForSubject()" class="flex-1 py-2.5 px-3 rounded-2xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition active:scale-95 flex items-center justify-center gap-1.5 shadow-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Добавить Д/З по предмету</span>
+        </button>
+        <button onclick="closeScheduleSubjectTasksModal()" class="py-2.5 px-4 rounded-2xl bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-slate-200 font-bold text-xs transition active:scale-95">
+          К расписанию
         </button>
       </div>
     </div>
@@ -1067,15 +1048,20 @@
       <!-- Заголовок -->
       <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
         <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-yellow-400/20 flex items-center justify-center text-yellow-500 shrink-0 text-lg">
-            🏆
+          <div class="w-9 h-9 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M6 4h12a2 2 0 0 1 2 2v3a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6V6a2 2 0 0 1 2-2Z"/></svg>
           </div>
           <div>
             <h2 class="text-base font-black">Таблица лидеров 10-А</h2>
             <p class="text-[11px] text-slate-500 dark:text-slate-400">Самые активные редакторы и помощники</p>
           </div>
         </div>
-        <button onclick="closeLeaderboardModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">✕</button>
+        <div class="flex items-center gap-1.5">
+          <button onclick="toggleLeaderboardRules()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-600 dark:text-slate-300 flex items-center justify-center transition active:scale-95" title="Как начисляются очки?">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </button>
+          <button onclick="closeLeaderboardModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold transition active:scale-95">✕</button>
+        </div>
       </div>
 
       <!-- Подиум Топ-3 -->
@@ -1083,25 +1069,44 @@
         <!-- Генерируется через JS -->
       </div>
 
-      <!-- Правила начисления очков -->
-      <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 flex-shrink-0">
-        <div class="flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-300">
-          <span class="flex items-center gap-1"><span>✨</span><span>Очки активности:</span></span>
-          <span class="text-[10px] text-slate-500 dark:text-slate-400">Авто-подсчет</span>
+      <!-- Правила начисления очков (раскрывается по нажатию на иконку вопроса) -->
+      <div id="leaderboard-rules-box" class="hidden p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 flex-shrink-0 transition-all duration-200">
+        <div class="flex items-center justify-between text-xs font-bold text-amber-600 dark:text-amber-400 mb-2">
+          <span class="flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Как начисляются очки:</span>
+          </span>
+          <span class="text-[10px] text-amber-500 font-bold flex items-center gap-1">
+            <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span>Раз в 4 часа</span>
+          </span>
         </div>
-        <div class="grid grid-cols-3 gap-1.5 mt-2 text-center">
-          <div class="p-1.5 rounded-xl bg-white/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5">
-            <span class="block text-xs font-black text-amber-600 dark:text-amber-400">+5 очков</span>
-            <span class="text-[10px] text-slate-500 dark:text-slate-400">Задание</span>
+        <div class="grid grid-cols-3 gap-1.5 text-center">
+          <div class="p-2 rounded-xl bg-white/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 shadow-xs flex flex-col items-center">
+            <span class="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center mb-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </span>
+            <span class="block text-xs font-black text-amber-500">+5 очков</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Новое Д/З</span>
           </div>
-          <div class="p-1.5 rounded-xl bg-white/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5">
-            <span class="block text-xs font-black text-cyan-600 dark:text-cyan-400">+3 очка</span>
-            <span class="text-[10px] text-slate-500 dark:text-slate-400">Фото / Доска</span>
+          <div class="p-2 rounded-xl bg-white/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 shadow-xs flex flex-col items-center">
+            <span class="w-6 h-6 rounded-lg bg-cyan-500/15 text-cyan-500 flex items-center justify-center mb-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            </span>
+            <span class="block text-xs font-black text-cyan-500">+3 очка</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Фото / Доска</span>
           </div>
-          <div class="p-1.5 rounded-xl bg-white/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5">
-            <span class="block text-xs font-black text-emerald-600 dark:text-emerald-400">+1 очко</span>
-            <span class="text-[10px] text-slate-500 dark:text-slate-400">Выполнение</span>
+          <div class="p-2 rounded-xl bg-white/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 shadow-xs flex flex-col items-center">
+            <span class="w-6 h-6 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center mb-1">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </span>
+            <span class="block text-xs font-black text-emerald-500">+1 очко</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Выполнение</span>
           </div>
+        </div>
+        <div class="mt-2 pt-2 border-t border-amber-500/15 flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+          <span>Рейтинг пересчитывается раз в 4 часа</span>
+          <button onclick="toggleLeaderboardRules()" class="text-amber-500 hover:underline font-bold">Скрыть</button>
         </div>
       </div>
 
@@ -1142,7 +1147,9 @@
         <!-- 08:00 -->
         <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
           <div class="flex items-center gap-3">
-            <span class="text-xl">☀️</span>
+            <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            </div>
             <div>
               <span class="text-xs font-bold block text-slate-900 dark:text-white">08:00 · Утреннее</span>
               <span class="text-[10px] text-slate-500 dark:text-slate-400">Задания перед уроками</span>
@@ -1157,7 +1164,9 @@
         <!-- 16:00 -->
         <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
           <div class="flex items-center gap-3">
-            <span class="text-xl">🎒</span>
+            <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </div>
             <div>
               <span class="text-xs font-bold block text-slate-900 dark:text-white">16:00 · Дневное</span>
               <span class="text-[10px] text-slate-500 dark:text-slate-400">После окончания школы</span>
@@ -1172,7 +1181,9 @@
         <!-- 18:00 -->
         <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
           <div class="flex items-center gap-3">
-            <span class="text-xl">🌆</span>
+            <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            </div>
             <div>
               <span class="text-xs font-bold block text-slate-900 dark:text-white">18:00 · Вечернее</span>
               <span class="text-[10px] text-slate-500 dark:text-slate-400">Главное вечернее напоминание</span>
@@ -1180,6 +1191,23 @@
           </div>
           <label class="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" id="notif-toggle-18" onchange="toggleNotifPref('18')" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
+          </label>
+        </div>
+
+        <!-- Осенний листопад -->
+        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+            </div>
+            <div>
+              <span class="text-xs font-bold block text-slate-900 dark:text-white">Осенний листопад</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400">Плавные листья на фоне</span>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="leaves-toggle" onchange="toggleAutumnLeavesSetting()" class="sr-only peer" checked>
             <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
           </label>
         </div>
@@ -1192,7 +1220,7 @@
   </div>
 
   <!-- Модальное окно создания задания -->
-  <div id="add-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+  <div id="add-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4" style="z-index: 90;">
     <div class="bg-white dark:bg-[#131d27] text-slate-900 dark:text-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 border-2 border-slate-200 dark:border-white/10 shadow-2xl max-h-[90vh] overflow-y-auto">
       <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-200 dark:border-white/10">
         <div class="flex items-center gap-2">
@@ -1489,7 +1517,7 @@
   </div>
 
   <!-- Интерактивный просмотрщик фото в стиле Telegram -->
-  <div id="photo-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden flex-col justify-between p-2.5 sm:p-4 z-50 select-none overflow-hidden" onclick="closePhotoViewer()">
+  <div id="photo-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden flex-col justify-between p-2.5 sm:p-4 select-none overflow-hidden" style="z-index: 100;" onclick="closePhotoViewer()">
     
     <!-- ВЕРХНЯЯ ЧАСТЬ: Сегментированные полоски страниц и шапка в стиле Telegram -->
     <div class="w-full max-w-4xl mx-auto flex flex-col z-20 shrink-0" onclick="event.stopPropagation()">
@@ -1592,6 +1620,12 @@
       feed: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>`,
       plus: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 5v14M5 12h14"/></svg>`,
       schedule: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+      trophy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.45 1-1 1H7v4h10v-4h-2c-.55 0-1-.45-1-1v-2.34"/><path d="M6 4h12a2 2 0 0 1 2 2v3a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6V6a2 2 0 0 1 2-2Z"/></svg>`,
+      crown: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/></svg>`,
+      star: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+      book: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>`,
+      user: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 1 0-16 0"/></svg>`,
+      help: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
       backpack: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M5 10v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V10a5 5 0 0 0-5-5H10a5 5 0 0 0-5 5Z"/><path d="M9 5V3a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M9 13h6"/><path d="M8 17h8"/></svg>`,
       bolt: `<svg viewBox="0 0 24 24" fill="currentColor" class="w-full h-full"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
       moon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/><path d="M19 3v4"/><path d="M21 5h-4"/></svg>`,
@@ -1639,24 +1673,14 @@
       if (el) el.innerHTML = html;
     };
 
-// header eye and dots removed
-    setSafeHtml('dock-icon-monitoring', ICONS.monitoring);
-    setSafeHtml('dock-icon-feed', ICONS.feed);
-    setSafeHtml('dock-icon-add', ICONS.plus);
-    setSafeHtml('dock-icon-schedule', ICONS.schedule);
     setSafeHtml('hero-bolt-slot', ICONS.bolt);
-    document.getElementById('quick-icon-add').innerHTML = ICONS.pencil;
-    document.getElementById('quick-icon-today').innerHTML = ICONS.today;
-    document.getElementById('quick-icon-tomorrow').innerHTML = ICONS.calendar;
-    document.getElementById('quick-icon-overdue').innerHTML = ICONS.overdue;
-    document.getElementById('quick-icon-all').innerHTML = ICONS.allTasks;
-    document.getElementById('tab-icon-pending').innerHTML = ICONS.allTasks;
-    document.getElementById('tab-icon-today').innerHTML = ICONS.today;
-    document.getElementById('tab-icon-tomorrow').innerHTML = ICONS.calendar;
-    document.getElementById('tab-icon-overdue').innerHTML = ICONS.overdue;
+    setSafeHtml('tab-icon-pending', ICONS.allTasks);
+    setSafeHtml('tab-icon-today', ICONS.today);
+    setSafeHtml('tab-icon-tomorrow', ICONS.calendar);
+    setSafeHtml('tab-icon-overdue', ICONS.overdue);
     setSafeHtml('btn-add-pencil', ICONS.pencil);
-    document.getElementById('modal-title-icon').innerHTML = ICONS.note;
-    document.getElementById('modal-close-icon').innerHTML = ICONS.close;
+    setSafeHtml('modal-title-icon', ICONS.note);
+    setSafeHtml('modal-close-icon', ICONS.close);
     const safeSetIcon = (id, icon) => { const el = document.getElementById(id); if (el) el.innerHTML = icon; };
     safeSetIcon('photo-close-icon', ICONS.close);
     safeSetIcon('photo-camera-icon', ICONS.camera);
@@ -2478,47 +2502,38 @@
       const statText = document.getElementById('hero-stat-text');
       if (statText) {
         if (totalWeek === 0 && allTasks.length === 0) {
-          statText.innerText = `🎉 Все задания недели закрыты! Отличная успеваемость!`;
+          statText.innerText = `Все задания недели закрыты · Отличная успеваемость`;
         } else if (percent === 100) {
-          statText.innerText = `Все ${doneThisWeek} заданий этой недели успешно выполнены! ✨`;
+          statText.innerText = `Все ${doneThisWeek} заданий недели успешно выполнены`;
         } else {
           statText.innerText = `Выполнено ${doneThisWeek} из ${totalWeek} заданий на этой неделе`;
         }
       }
 
-      // Обновление бейджей на кнопках быстрого доступа
-      const bToday = document.getElementById('badge-count-today');
-      if (bToday) {
-        bToday.innerText = todayCount;
-        if (todayCount > 0) {
-          bToday.classList.remove('hidden');
-        } else {
-          bToday.classList.add('hidden');
-        }
+      // Обновление живых счетчиков на вкладках фильтрации
+      const tbPending = document.getElementById('tab-badge-pending');
+      if (tbPending) tbPending.innerText = pendingCount;
+
+      const tbToday = document.getElementById('tab-badge-today');
+      if (tbToday) {
+        tbToday.innerText = todayCount;
+        if (todayCount > 0) tbToday.classList.remove('hidden');
+        else tbToday.classList.add('hidden');
       }
 
-      const bTomorrow = document.getElementById('badge-count-tomorrow');
-      if (bTomorrow) {
-        bTomorrow.innerText = tomorrowCount;
-        if (tomorrowCount > 0) {
-          bTomorrow.classList.remove('hidden');
-        } else {
-          bTomorrow.classList.add('hidden');
-        }
+      const tbTomorrow = document.getElementById('tab-badge-tomorrow');
+      if (tbTomorrow) {
+        tbTomorrow.innerText = tomorrowCount;
+        if (tomorrowCount > 0) tbTomorrow.classList.remove('hidden');
+        else tbTomorrow.classList.add('hidden');
       }
 
-      // Обновление вторичных карточек ("1 долг", "2 долга", "0 долгов")
-      const bOverdue = document.getElementById('badge-count-overdue');
-      if (bOverdue) bOverdue.innerText = formatPlural(overdueCount, 'долг', 'долга', 'долгов');
-
-      const bAll = document.getElementById('badge-count-all');
-      if (bAll) bAll.innerText = formatPlural(pendingCount, 'задание', 'задания', 'заданий');
-
-// Вкладки без лишнего визуального шума счетчиков
-
-      // Обновление плавающего дока
-      const dockCounter = document.getElementById('dock-counter');
-      if (dockCounter) dockCounter.innerText = pendingCount;
+      const tbOverdue = document.getElementById('tab-badge-overdue');
+      if (tbOverdue) {
+        tbOverdue.innerText = overdueCount;
+        if (overdueCount > 0) tbOverdue.classList.remove('hidden');
+        else tbOverdue.classList.add('hidden');
+      }
     }
 
     // ========================================================
@@ -2615,7 +2630,7 @@
           emptyTitle = "На сегодня уроков нет!";
           emptySubtitle = "На сегодня ничего не осталось. Ты свободен!";
         } else if (currentFilter === 'overdue') {
-          emptyTitle = "🎉 Долгов нет!";
+          emptyTitle = "Долгов нет!";
           emptySubtitle = "Все хвосты закрыты вовремя. Отличная работа!";
         }
 
@@ -4417,7 +4432,9 @@
       if (list.length === 0) {
         container.innerHTML = `
           <div class="text-center py-12 px-4 rounded-3xl bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 text-slate-400">
-            <span class="text-3xl block mb-2">🎉</span>
+            <div class="w-10 h-10 mx-auto mb-2 text-amber-400 flex items-center justify-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-8 h-8"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            </div>
             <p class="text-sm font-bold text-slate-700 dark:text-slate-200">В этот день уроков нет</p>
             <p class="text-xs text-slate-500 mt-1">Отдыхайте и готовьтесь к следующему дню</p>
           </div>`;
@@ -4467,8 +4484,12 @@
           ? 'bg-amber-400 text-slate-950'
           : 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300';
 
+        const todayStr = getISODate(0);
+        const todayTasksForLesson = allTasks.filter(t => (t.due_date || '').trim() === todayStr && matchSubject(les.s, t.subject));
+        const hasTasks = todayTasksForLesson.length > 0;
+
         html += `
-          <div class="p-3.5 rounded-[22px] bg-white dark:bg-[#111f31] ${cardBorder} ${cardOpacity} shadow-sm transition">
+          <div onclick="openScheduleSubjectTasks('${les.s}', '${escapeHtml(meta.name)}', '${les.t || ''}', '${les.r || ''}')" class="p-3.5 rounded-[22px] bg-white dark:bg-[#111f31] ${cardBorder} ${cardOpacity} shadow-sm transition cursor-pointer hover:border-amber-400/80 active:scale-[0.99] group">
             <div class="flex items-center gap-3">
               <!-- Левая колонка: Время звонков и номер -->
               <div class="w-16 flex flex-col items-center justify-center shrink-0 border-r border-slate-200/80 dark:border-white/10 pr-2.5">
@@ -4484,11 +4505,19 @@
 
               <!-- Основное описание -->
               <div class="min-w-0 flex-1">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug">${meta.name}</h4>
-                  ${entry.isPair ? '<span class="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-400 text-slate-950 shadow-sm">⚡ ПАРА</span>' : ''}
-                  ${isCurrent ? '<span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500 text-white shadow-sm animate-pulse">🟢 ИДЁТ СЕЙЧАС</span>' : ''}
-                  ${isPast ? '<span class="text-[10px] font-bold text-slate-400">✓ Прошёл</span>' : ''}
+                <div class="flex items-center justify-between gap-1.5 flex-wrap">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <h4 class="text-sm font-black text-slate-900 dark:text-white leading-snug">${meta.name}</h4>
+                    ${entry.isPair ? '<span class="px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-400 text-slate-950 shadow-sm">⚡ ПАРА</span>' : ''}
+                    ${isCurrent ? '<span class="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-emerald-500 text-white shadow-sm animate-pulse">🟢 ИДЁТ СЕЙЧАС</span>' : ''}
+                    ${isPast ? '<span class="text-[10px] font-bold text-slate-400">✓ Прошёл</span>' : ''}
+                  </div>
+                  ${hasTasks ? `
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-300 font-bold text-[10px] border border-amber-400/30 shadow-2xs">
+                      <span class="w-2.5 h-2.5">${ICONS.note}</span>
+                      <span>${todayTasksForLesson.length} Д/З на сегодня</span>
+                    </span>
+                  ` : ''}
                 </div>
 
                 <div class="flex items-center gap-2 mt-1 flex-wrap text-xs">
@@ -4500,6 +4529,10 @@
                     <span class="inline-flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                       <span>👨‍🏫</span><span>${teacherStr}</span>
                     </span>` : ''}
+                  <span class="ml-auto text-[10px] font-bold text-slate-400 group-hover:text-amber-500 flex items-center gap-0.5 transition">
+                    <span>Смотреть Д/З</span>
+                    <span>→</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -4524,6 +4557,229 @@
       if (!modal) return;
       modal.classList.add('hidden');
       modal.classList.remove('flex');
+    }
+
+    // ========================================================
+    // 📖 Д/З ПО ПРЕДМЕТУ ИЗ РАСПИСАНИЯ
+    // ========================================================
+    let currentSubjectForModal = '';
+
+    function matchSubject(sSubj, tSubj) {
+      if (!sSubj || !tSubj) return false;
+      const s = String(sSubj).toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
+      const t = String(tSubj).toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
+      if (s === t || t.includes(s) || s.includes(t)) return true;
+
+      const aliasGroups = [
+        ['мат', 'математика', 'алгебра', 'геометрия'],
+        ['физ', 'физика'],
+        ['ивт', 'информатика', 'информатикаивт'],
+        ['ая', 'английский', 'английскийязык', 'english'],
+        ['уя', 'узбекский', 'узбекскийязык', 'узбектили'],
+        ['рил', 'русскийилитература', 'русскийязык', 'литература', 'русский'],
+        ['ист', 'история', 'всемирнаяистория', 'историяузбекистана'],
+        ['пд', 'проектнаядеятельность', 'проект'],
+        ['фра', 'физкультура', 'физра'],
+        ['ориск', 'ораторскоеискусство', 'ораторское'],
+        ['шу', 'школауспеха', 'школауспехашу'],
+        ['ндп', 'ндп'],
+        ['хим', 'химия'],
+        ['био', 'биология'],
+        ['гео', 'география']
+      ];
+
+      for (const group of aliasGroups) {
+        const sMatch = group.some(x => s === x || s.includes(x) || x.includes(s));
+        const tMatch = group.some(x => t === x || t.includes(x) || x.includes(t));
+        if (sMatch && tMatch) return true;
+      }
+      return false;
+    }
+
+    function openScheduleSubjectTasks(sCode, sFullName, teacher, room) {
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+      const modal = document.getElementById('schedule-subject-tasks-modal');
+      if (!modal) return;
+
+      const full = sFullName || SCHEDULE_SUBJECT_FULL[sCode] || sCode;
+      currentSubjectForModal = full;
+      const meta = getScheduleSubjectMeta(sCode);
+      const teacherStr = SCHEDULE_TEACHERS[teacher] ? `${teacher} (${SCHEDULE_TEACHERS[teacher]})` : (teacher || '—');
+
+      // Шапка модального окна
+      const iconBox = document.getElementById('sstm-icon-box');
+      if (iconBox) {
+        iconBox.className = `w-10 h-10 rounded-2xl ${meta.bg} ${meta.text} border ${meta.border} flex items-center justify-center shrink-0 p-2 shadow-sm`;
+        iconBox.innerHTML = meta.icon;
+      }
+      const nameEl = document.getElementById('sstm-subject-name');
+      if (nameEl) nameEl.innerText = full;
+
+      const subEl = document.getElementById('sstm-subtitle');
+      if (subEl) subEl.innerText = `Каб: ${room || '—'} · Преподаватель: ${teacherStr}`;
+
+      const todayStr = getISODate(0);
+      const tomorrowStr = getISODate(1);
+
+      const todayDate = new Date();
+      const ruMonthsGenitive = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+      const todayLabel = `${todayDate.getDate()} ${ruMonthsGenitive[todayDate.getMonth()]}`;
+
+      const headerEl = document.getElementById('sstm-date-header');
+      if (headerEl) headerEl.innerText = `Д/З на сегодня (${todayLabel})`;
+
+      // Фильтруем задания по предмету
+      const todayTasks = allTasks.filter(t => (t.due_date || '').trim() === todayStr && matchSubject(sCode, t.subject));
+      const otherTasks = allTasks.filter(t => (t.due_date || '').trim() !== todayStr && matchSubject(sCode, t.subject));
+
+      const badgeCount = document.getElementById('sstm-badge-count');
+      if (badgeCount) {
+        badgeCount.innerText = `${todayTasks.length} ${formatPlural(todayTasks.length, 'задание', 'задания', 'заданий')}`;
+        badgeCount.className = todayTasks.length > 0
+          ? 'px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-950 shadow-xs'
+          : 'px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-white/10 text-slate-500 dark:text-slate-400';
+      }
+
+      const container = document.getElementById('sstm-tasks-container');
+      if (container) {
+        if (todayTasks.length === 0) {
+          let otherHtml = '';
+          if (otherTasks.length > 0) {
+            otherHtml = `
+              <div class="mt-4 pt-3 border-t border-slate-200/60 dark:border-white/10">
+                <span class="text-[11px] font-black uppercase text-slate-400 block mb-2">Другие задания по этому предмету:</span>
+                <div class="space-y-2">
+                  ${otherTasks.map(t => renderMiniTaskCard(t, todayStr, tomorrowStr, false)).join('')}
+                </div>
+              </div>
+            `;
+          }
+          container.innerHTML = `
+            <div class="py-7 px-4 text-center rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/5">
+              <div class="w-11 h-11 rounded-full bg-emerald-500/15 text-emerald-500 flex items-center justify-center mx-auto mb-2 text-xl">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-5 h-5"><polyline points="20 6 9 17 4 12"/></svg>
+              </div>
+              <h4 class="text-sm font-black text-slate-800 dark:text-slate-100">На сегодня заданий нет</h4>
+              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">По предмету «${full}» на сегодня нет несданных заданий.</p>
+            </div>
+            ${otherHtml}
+          `;
+        } else {
+          let html = `
+            <div class="space-y-2.5">
+              ${todayTasks.map(t => renderMiniTaskCard(t, todayStr, tomorrowStr, true)).join('')}
+            </div>
+          `;
+          if (otherTasks.length > 0) {
+            html += `
+              <div class="mt-4 pt-3 border-t border-slate-200/60 dark:border-white/10">
+                <span class="text-[11px] font-black uppercase text-slate-400 block mb-2">Также есть на другие дни:</span>
+                <div class="space-y-2">
+                  ${otherTasks.map(t => renderMiniTaskCard(t, todayStr, tomorrowStr, false)).join('')}
+                </div>
+              </div>
+            `;
+          }
+          container.innerHTML = html;
+        }
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeScheduleSubjectTasksModal() {
+      const modal = document.getElementById('schedule-subject-tasks-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function renderMiniTaskCard(t, todayStr, tomorrowStr, isForToday = true) {
+      const safeDesc = escapeHtml(t.description);
+      const dueDateInfo = formatCardDueDate(t.due_date, todayStr, tomorrowStr);
+      const matCount = (t.materials && t.materials.length > 0) ? t.materials.length : 0;
+      const authorNick = (t.author_name && t.author_name.trim()) ? t.author_name : (t.author_nick || getAuthorNick(t.user_id));
+
+      const photoGalleryHTML = matCount > 0 ? `
+        <div class="my-2">
+          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+            ${t.materials.map((m, idx) => {
+              const rawUrl = m.url || m.file_id || '';
+              const src = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('data:')) 
+                ? rawUrl 
+                : '/' + rawUrl.replace(/^\//, '');
+              return `
+                <button type="button" onclick="openTaskPhoto(${t.id}, ${idx})" class="relative w-14 h-18 rounded-xl overflow-hidden border border-white/10 hover:border-amber-400 active:scale-95 transition shrink-0 bg-slate-900 shadow-sm" title="Открыть фото #${idx + 1}">
+                  <img src="${src}" alt="Фото ${idx + 1}" class="w-full h-full object-cover" loading="lazy" />
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex items-end p-1">
+                    <span class="text-[8.5px] font-bold text-white bg-black/60 px-1 rounded">#${idx + 1}</span>
+                  </div>
+                </button>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      ` : '';
+
+      return `
+        <div id="sstm-card-${t.id}" class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 shadow-xs flex flex-col justify-between transition">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold ${dueDateInfo.badgeBg} ${dueDateInfo.badgeColor}">
+              ${dueDateInfo.dot ? `<span class="w-1.5 h-1.5 rounded-full ${dueDateInfo.dot} shrink-0"></span>` : ''}
+              <span>${dueDateInfo.text}</span>
+            </span>
+            ${matCount > 0 ? `
+              <span class="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                📸 ${matCount} фото
+              </span>
+            ` : ''}
+          </div>
+
+          <p class="text-xs sm:text-sm text-slate-800 dark:text-slate-100 font-medium leading-relaxed my-1 break-words">
+            ${safeDesc}
+          </p>
+
+          ${photoGalleryHTML}
+
+          <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-200/60 dark:border-white/5 text-[10px] text-slate-400">
+            <span class="truncate max-w-[130px]">Автор: ${escapeHtml(authorNick)}</span>
+            <button type="button" onclick="markMiniDone(${t.id}, this)" class="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] shadow-xs active:scale-95 transition">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3 h-3"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Сдано</span>
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function markMiniDone(taskId, btn) {
+      const card = document.getElementById(`sstm-card-${taskId}`);
+      if (btn) {
+        btn.className = 'inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-500 text-white font-black text-[11px]';
+        btn.innerHTML = '<span>✓ Сдано!</span>';
+      }
+      if (card) {
+        card.classList.add('opacity-50');
+      }
+      markDone(taskId, null);
+      setTimeout(() => {
+        if (card) card.remove();
+      }, 400);
+    }
+
+    function quickAddForSubject() {
+      closeScheduleSubjectTasksModal();
+      openAddModal();
+      if (currentSubjectForModal) {
+        const sBtns = document.querySelectorAll('#subject-selector-grid .subject-btn');
+        for (const btn of sBtns) {
+          if (matchSubject(currentSubjectForModal, btn.innerText)) {
+            btn.click();
+            break;
+          }
+        }
+      }
     }
 
     // ========================================================
@@ -4562,9 +4818,7 @@
     }
 
     function showLessonToast(s, full, teacher, room) {
-      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
-      const teacherStr = SCHEDULE_TEACHERS[teacher] ? `${teacher} (${SCHEDULE_TEACHERS[teacher]})` : (teacher || '—');
-      showToast(`${s}: ${full || s} · Каб: ${room || '—'} · Препод: ${teacherStr}`, 'info');
+      openScheduleSubjectTasks(s, full, teacher, room);
     }
 
     function renderScheduleGridView() {
@@ -4622,7 +4876,7 @@
             const style = getGridSubjectStyle(item.s);
             const full = SCHEDULE_SUBJECT_FULL[item.s] || item.s;
             rowsHtml += `
-              <div onclick="showLessonToast('${item.s}', '${full}', '${item.t}', '${item.r}')" class="col-span-2 h-14 rounded-xl p-1.5 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center text-center shadow-sm select-none ${style}">
+              <div onclick="openScheduleSubjectTasks('${item.s}', '${full}', '${item.t || ''}', '${item.r || ''}')" class="col-span-2 h-14 rounded-xl p-1.5 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center text-center shadow-sm select-none ${style}">
                 <span class="text-xs font-black leading-tight">${item.s}</span>
                 <span class="text-[9px] opacity-85 truncate max-w-full leading-tight mt-0.5">${item.r || ''}</span>
                 <span class="text-[8px] font-black opacity-90 mt-0.5 px-1 rounded bg-black/25">×2 пара</span>
@@ -4633,7 +4887,7 @@
             const style = getGridSubjectStyle(item.s);
             const full = SCHEDULE_SUBJECT_FULL[item.s] || item.s;
             rowsHtml += `
-              <div onclick="showLessonToast('${item.s}', '${full}', '${item.t}', '${item.r}')" class="h-14 rounded-xl p-1.5 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center text-center shadow-sm select-none ${style}">
+              <div onclick="openScheduleSubjectTasks('${item.s}', '${full}', '${item.t || ''}', '${item.r || ''}')" class="h-14 rounded-xl p-1.5 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center text-center shadow-sm select-none ${style}">
                 <span class="text-xs font-black leading-tight">${item.s}</span>
                 <span class="text-[9px] opacity-85 truncate max-w-full leading-tight mt-0.5">${item.r || ''}</span>
               </div>
@@ -4652,24 +4906,32 @@
     // 🏆 ТАБЛИЦА ЛИДЕРОВ (РЕЙТИНГ РЕДАКТОРОВ)
     // ========================================================
     let cachedLeaderboard = [];
+    let lastLeaderboardFetch = 0;
 
-    async function loadLeaderboard() {
+    async function loadLeaderboard(force = false) {
+      const now = Date.now();
+      // Мгновенный показ из локального кэша, если запрошено повторно ранее чем через 3 минуты
+      if (!force && cachedLeaderboard.length > 0 && (now - lastLeaderboardFetch < 180000)) {
+        renderLeaderboardModal(cachedLeaderboard);
+        return;
+      }
       try {
-        const res = await fetch('/api/leaderboard?class_name=10-%D0%90');
+        const url = force ? '/api/leaderboard?class_name=10-%D0%90&refresh=true' : '/api/leaderboard?class_name=10-%D0%90';
+        const res = await fetch(url);
         if (!res.ok) return;
         const data = await res.json();
         const list = data.leaderboard || [];
         cachedLeaderboard = list;
+        lastLeaderboardFetch = now;
 
         // Обновляем плашку на главной
         const quickEl = document.getElementById('leaderboard-quick-summary');
         if (quickEl) {
           if (list.length > 0) {
             const topUser = list[0];
-            const badgeIcon = (topUser.badge || '').split(' ')[0] || '👑';
-            quickEl.innerHTML = `<span class="font-bold text-amber-500">${badgeIcon} ${escapeHtml(topUser.name)}</span> · <span class="font-black text-slate-800 dark:text-slate-100">${topUser.score} очк.</span> · 1-е место`;
+            quickEl.innerHTML = `<span class="font-bold text-amber-500">${escapeHtml(topUser.name)}</span> · <span class="font-black text-slate-700 dark:text-slate-300">${topUser.score} очк.</span>`;
           } else {
-            quickEl.innerText = 'Нажмите, чтобы увидеть рейтинг активности';
+            quickEl.innerText = 'Рейтинг редакторов...';
           }
         }
 
@@ -4691,7 +4953,7 @@
         if (listEl) {
           listEl.innerHTML = `
             <div class="text-center py-8 text-slate-400">
-              <span class="text-3xl block mb-2">🏆</span>
+              <div class="w-10 h-10 mx-auto mb-2 text-amber-500">${ICONS.trophy}</div>
               <p class="text-xs">Пока нет активных редакторов. Станьте первым!</p>
             </div>
           `;
@@ -4704,26 +4966,89 @@
       const top2 = list[1] || null;
       const top3 = list[2] || null;
 
-      function renderPodiumCard(user, place, heightClass, bgGradient, medal, ringColor) {
+      // Хелпер для званий и иконок в общем стиле приложения
+      function getBadgeDetails(badgeRaw) {
+        const raw = badgeRaw || 'Ученик';
+        // Очистка от любых unicode эмодзи
+        const title = raw.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}]/gu, '').trim() || 'Ученик';
+        
+        if (title.includes('Главный') || (title.includes('редактор') && title.includes('Главный'))) {
+          return {
+            title: title,
+            icon: ICONS.crown,
+            color: 'text-amber-500',
+            bgChip: 'bg-amber-400/10 text-amber-500 border border-amber-400/20'
+          };
+        }
+        if (title.includes('Супер') || title.includes('активист')) {
+          return {
+            title: title,
+            icon: ICONS.bolt,
+            color: 'text-cyan-400',
+            bgChip: 'bg-cyan-400/10 text-cyan-400 border border-cyan-400/20'
+          };
+        }
+        if (title.includes('Мастер') || title.includes('конспектов')) {
+          return {
+            title: title,
+            icon: ICONS.star,
+            color: 'text-yellow-400',
+            bgChip: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20'
+          };
+        }
+        if (title.includes('Архивариус')) {
+          return {
+            title: title,
+            icon: ICONS.book,
+            color: 'text-purple-400',
+            bgChip: 'bg-purple-400/10 text-purple-400 border border-purple-400/20'
+          };
+        }
+        if (title.includes('Редактор')) {
+          return {
+            title: title,
+            icon: ICONS.pencil,
+            color: 'text-blue-400',
+            bgChip: 'bg-blue-400/10 text-blue-400 border border-blue-400/20'
+          };
+        }
+        return {
+          title: title,
+          icon: ICONS.user,
+          color: 'text-slate-400',
+          bgChip: 'bg-slate-400/10 text-slate-400 border border-slate-400/20'
+        };
+      }
+
+      function renderPodiumCard(user, place, heightClass, bgGradient, ringColor) {
         if (!user) {
-          return `<div class="flex flex-col items-center justify-end ${heightClass} opacity-40">
-            <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-sm font-bold">${medal}</div>
+          return `<div class="flex flex-col items-center justify-end ${heightClass} opacity-30">
+            <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-xs font-black text-slate-500">${place}</div>
             <div class="w-full mt-2 h-14 rounded-2xl bg-slate-100 dark:bg-white/5"></div>
           </div>`;
         }
         const initial = (user.name || 'У')[0].toUpperCase();
+        const badgeInfo = getBadgeDetails(user.badge);
+        
+        const rankPill = place === 1 
+          ? `<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-black text-[10px] shadow-md ring-2 ring-white dark:ring-[#0d1b2a]">1</div>`
+          : place === 2
+          ? `<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-300 text-slate-900 flex items-center justify-center font-black text-[10px] shadow-md ring-2 ring-white dark:ring-[#0d1b2a]">2</div>`
+          : `<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-700 text-white flex items-center justify-center font-black text-[10px] shadow-md ring-2 ring-white dark:ring-[#0d1b2a]">3</div>`;
+
         return `
           <div class="flex flex-col items-center justify-end ${heightClass} transition transform active:scale-95">
             <div class="relative">
               <div class="w-12 h-12 rounded-full ${bgGradient} text-slate-950 font-black flex items-center justify-center text-base shadow-lg ${ringColor} ring-2">
                 ${initial}
               </div>
-              <span class="absolute -bottom-1 -right-1 text-sm">${medal}</span>
+              ${rankPill}
             </div>
             <span class="text-xs font-black text-slate-900 dark:text-white mt-1.5 max-w-[90px] truncate text-center">${escapeHtml(user.name)}</span>
             <span class="text-[10px] text-amber-500 font-bold leading-none mb-1">${user.score} очк.</span>
-            <div class="w-full py-2 px-1 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex flex-col items-center justify-center text-center">
-              <span class="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 truncate max-w-full">${user.badge.split(' ').slice(1).join(' ') || user.badge}</span>
+            <div class="w-full py-1.5 px-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex items-center justify-center gap-1 text-center">
+              <span class="w-3 h-3 ${badgeInfo.color} flex items-center justify-center">${badgeInfo.icon}</span>
+              <span class="text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 truncate max-w-[70px]">${escapeHtml(badgeInfo.title)}</span>
             </div>
           </div>
         `;
@@ -4732,11 +5057,11 @@
       if (podiumEl) {
         podiumEl.innerHTML = `
           <!-- 2-е место (Серебро) -->
-          ${renderPodiumCard(top2, 2, 'h-40', 'bg-gradient-to-tr from-slate-300 to-slate-100', '🥈', 'ring-slate-300')}
+          ${renderPodiumCard(top2, 2, 'h-40', 'bg-gradient-to-tr from-slate-300 to-slate-100', 'ring-slate-300')}
           <!-- 1-е место (Золото) -->
-          ${renderPodiumCard(top1, 1, 'h-48', 'bg-gradient-to-tr from-yellow-400 to-amber-300', '🥇', 'ring-yellow-400 ring-4')}
+          ${renderPodiumCard(top1, 1, 'h-48', 'bg-gradient-to-tr from-yellow-400 to-amber-300', 'ring-yellow-400 ring-4')}
           <!-- 3-е место (Бронза) -->
-          ${renderPodiumCard(top3, 3, 'h-36', 'bg-gradient-to-tr from-amber-700 to-amber-500', '🥉', 'ring-amber-600')}
+          ${renderPodiumCard(top3, 3, 'h-36', 'bg-gradient-to-tr from-amber-700 to-amber-500', 'ring-amber-600')}
         `;
       }
 
@@ -4745,7 +5070,18 @@
         let html = '';
         list.forEach((u, idx) => {
           const rank = u.rank || (idx + 1);
-          let medalIcon = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : `#${rank}`));
+          let rankBadgeHtml = '';
+          if (rank === 1) {
+            rankBadgeHtml = `<span class="w-5 h-5 rounded-full bg-amber-400/20 text-amber-500 border border-amber-400/40 font-black text-[10px] flex items-center justify-center">1</span>`;
+          } else if (rank === 2) {
+            rankBadgeHtml = `<span class="w-5 h-5 rounded-full bg-slate-400/20 text-slate-300 border border-slate-400/40 font-black text-[10px] flex items-center justify-center">2</span>`;
+          } else if (rank === 3) {
+            rankBadgeHtml = `<span class="w-5 h-5 rounded-full bg-amber-700/20 text-amber-600 border border-amber-700/40 font-black text-[10px] flex items-center justify-center">3</span>`;
+          } else {
+            rankBadgeHtml = `<span class="w-5 text-center font-bold text-xs text-slate-400">${rank}</span>`;
+          }
+
+          const badgeInfo = getBadgeDetails(u.badge);
           const initial = (u.name || 'У')[0].toUpperCase();
           const isMe = u.user_id === userId;
           const meBorder = isMe ? 'border-2 border-amber-400 bg-amber-400/5' : 'border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#111f31]';
@@ -4753,7 +5089,9 @@
           html += `
             <div class="p-3 rounded-2xl ${meBorder} flex items-center justify-between gap-3 shadow-sm transition">
               <div class="flex items-center gap-2.5 min-w-0">
-                <span class="w-6 text-center font-black text-xs text-slate-400">${medalIcon}</span>
+                <div class="w-6 flex items-center justify-center shrink-0">
+                  ${rankBadgeHtml}
+                </div>
                 <div class="w-9 h-9 rounded-full bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white font-black text-xs flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-white/10">
                   ${initial}
                 </div>
@@ -4762,12 +5100,24 @@
                     <span class="text-xs font-black text-slate-900 dark:text-white truncate">${escapeHtml(u.name)}</span>
                     ${isMe ? '<span class="px-1.5 py-0.2 rounded-md bg-amber-400 text-slate-950 text-[9px] font-black">ВЫ</span>' : ''}
                   </div>
-                  <div class="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap">
-                    <span>${u.badge}</span>
-                    <span>·</span>
-                    <span>📝 ${u.tasks}</span>
-                    <span>📸 ${u.materials}</span>
-                    <span>✅ ${u.completions}</span>
+                  <div class="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap mt-0.5">
+                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md ${badgeInfo.bgChip} text-[9px] font-bold">
+                      <span class="w-2.5 h-2.5 flex items-center justify-center">${badgeInfo.icon}</span>
+                      <span>${escapeHtml(badgeInfo.title)}</span>
+                    </span>
+                    <span class="text-slate-300 dark:text-slate-600">·</span>
+                    <span class="inline-flex items-center gap-1 text-[11px] text-amber-500 font-bold" title="Добавлено заданий">
+                      <span class="w-3 h-3 flex items-center justify-center">${ICONS.note}</span>
+                      <span>${u.tasks}</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-[11px] text-cyan-500 font-bold" title="Фото и материалы">
+                      <span class="w-3 h-3 flex items-center justify-center">${ICONS.camera}</span>
+                      <span>${u.materials}</span>
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-[11px] text-emerald-500 font-bold" title="Выполнено уроков">
+                      <span class="w-3 h-3 flex items-center justify-center">${ICONS.check}</span>
+                      <span>${u.completions}</span>
+                    </span>
                   </div>
                 </div>
               </div>
@@ -4780,6 +5130,14 @@
           `;
         });
         listEl.innerHTML = html;
+      }
+    }
+
+    function toggleLeaderboardRules() {
+      const box = document.getElementById('leaderboard-rules-box');
+      if (box) {
+        box.classList.toggle('hidden');
+        if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
       }
     }
 
@@ -4856,9 +5214,235 @@
       modal.classList.remove('flex');
     }
 
-    // Инициализация сводок и рейтинга на главной
+    // ========================================================
+    // 🍁 АППАРАТНЫЙ ОСЕННИЙ ЛИСТОПАД (60 FPS, 0% CPU, ZERO LAG)
+    // ========================================================
+    let autumnLeavesRunning = false;
+    let autumnLeavesAnimId = null;
+
+    function initAutumnLeavesEngine() {
+      const canvas = document.getElementById('autumn-leaves-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d', { alpha: true });
+      if (!ctx) return;
+
+      const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const userDisabled = localStorage.getItem('hw_disable_leaves') === 'true';
+
+      const toggleInput = document.getElementById('leaves-toggle');
+      if (toggleInput) {
+        toggleInput.checked = !userDisabled && !prefersReduced;
+      }
+
+      if (userDisabled || prefersReduced) {
+        canvas.style.display = 'none';
+        return;
+      }
+
+      canvas.style.display = 'block';
+
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      function resize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        canvas.width = Math.floor(width * dpr);
+        canvas.height = Math.floor(height * dpr);
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.scale(dpr, dpr);
+      }
+      resize();
+
+      // Генерация 6 пререндеренных текстур листьев во внеэкранных холстах
+      // Теплые осенние тона из фото-референса (глубокий янтарь, спелая охра, пламенный клен)
+      function createMapleCanvas(col1, col2, blurPx) {
+        const c = document.createElement('canvas');
+        c.width = 64;
+        c.height = 64;
+        const cx = c.getContext('2d');
+        if (blurPx) cx.filter = `blur(${blurPx}px)`;
+
+        const grad = cx.createLinearGradient(16, 6, 48, 58);
+        grad.addColorStop(0, col1);
+        grad.addColorStop(1, col2);
+        cx.fillStyle = grad;
+
+        cx.beginPath();
+        const pts = [
+          [32, 6], [35, 16], [42, 13], [39, 21], [49, 19],
+          [44, 27], [55, 29], [47, 36], [56, 40], [46, 45],
+          [50, 52], [38, 50], [36, 59], [33, 59], [32, 50],
+          [28, 52], [32, 45], [22, 40], [31, 36], [23, 29],
+          [34, 27], [29, 19], [39, 21], [36, 16]
+        ];
+        cx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) cx.lineTo(pts[i][0], pts[i][1]);
+        cx.closePath();
+        cx.fill();
+
+        cx.strokeStyle = col2;
+        cx.lineWidth = 1.5;
+        cx.beginPath();
+        cx.moveTo(33, 46);
+        cx.lineTo(35, 60);
+        cx.stroke();
+        return c;
+      }
+
+      function createBirchCanvas(col1, col2, blurPx) {
+        const c = document.createElement('canvas');
+        c.width = 64;
+        c.height = 64;
+        const cx = c.getContext('2d');
+        if (blurPx) cx.filter = `blur(${blurPx}px)`;
+
+        const grad = cx.createLinearGradient(18, 6, 46, 56);
+        grad.addColorStop(0, col1);
+        grad.addColorStop(1, col2);
+        cx.fillStyle = grad;
+
+        cx.beginPath();
+        cx.moveTo(32, 8);
+        cx.bezierCurveTo(48, 16, 54, 38, 33, 54);
+        cx.bezierCurveTo(14, 38, 16, 16, 32, 8);
+        cx.closePath();
+        cx.fill();
+
+        cx.strokeStyle = col2;
+        cx.lineWidth = 1.5;
+        cx.beginPath();
+        cx.moveTo(33, 52);
+        cx.lineTo(34, 61);
+        cx.stroke();
+        return c;
+      }
+
+      const sprites = [
+        createMapleCanvas('#f59e0b', '#d97706', 0),    // Янтарный клен
+        createMapleCanvas('#ea580c', '#c2410c', 0),    // Огненный клен
+        createMapleCanvas('#f97316', '#b45309', 1.2),  // Мягкий размытый клен (эффект боке/глубины)
+        createBirchCanvas('#fbbf24', '#f59e0b', 0),    // Золотая береза
+        createBirchCanvas('#ea580c', '#9a3412', 0),    // Осенний дуб
+        createBirchCanvas('#f59e0b', '#d97706', 1.0)   // Размытая листва заднего плана
+      ];
+
+      // Всего 18 частиц — нулевая нагрузка на процессор, стабильные 60 кадров/сек
+      const LEAF_COUNT = 18;
+      const leaves = [];
+
+      function spawnLeaf(l, initial) {
+        l.baseX = Math.random() * width;
+        l.y = initial ? Math.random() * height : -35 - Math.random() * 20;
+        l.size = 15 + Math.random() * 16; // 15px - 31px
+        l.speedY = 0.5 + Math.random() * 0.7; // Спокойный, плавный дрейф вниз
+        l.swayAmp = 22 + Math.random() * 32;
+        l.swaySpeed = 0.014 + Math.random() * 0.018;
+        l.swayPhase = Math.random() * Math.PI * 2;
+        l.rot = Math.random() * Math.PI * 2;
+        l.rotSpeed = (Math.random() - 0.5) * 0.02;
+        l.rotY = Math.random() * Math.PI * 2;
+        l.rotYSpeed = 0.018 + Math.random() * 0.025; // 3D кувыркание в воздухе
+        l.opacity = 0.35 + Math.random() * 0.45;
+        l.spriteIdx = Math.floor(Math.random() * sprites.length);
+      }
+
+      for (let i = 0; i < LEAF_COUNT; i++) {
+        const l = {};
+        spawnLeaf(l, true);
+        leaves.push(l);
+      }
+
+      let lastNow = performance.now();
+      autumnLeavesRunning = true;
+
+      function render(now) {
+        if (!autumnLeavesRunning) return;
+        autumnLeavesAnimId = requestAnimationFrame(render);
+
+        const delta = Math.min((now - lastNow) / 16.67, 2.5);
+        lastNow = now;
+
+        ctx.clearRect(0, 0, width, height);
+
+        for (let i = 0; i < leaves.length; i++) {
+          const l = leaves[i];
+          l.y += l.speedY * delta;
+          l.swayPhase += l.swaySpeed * delta;
+          l.rot += l.rotSpeed * delta;
+          l.rotY += l.rotYSpeed * delta;
+
+          const currentX = l.baseX + Math.sin(l.swayPhase) * l.swayAmp;
+          const flipX = Math.cos(l.rotY); // Реалистичный 3D эффект переворота листа в воздухе
+
+          if (l.y > height + 40 || currentX < -50 || currentX > width + 50) {
+            spawnLeaf(l, false);
+            continue;
+          }
+
+          ctx.save();
+          ctx.translate(currentX, l.y);
+          ctx.rotate(l.rot);
+          ctx.scale(flipX, 1);
+          ctx.globalAlpha = l.opacity;
+          const spr = sprites[l.spriteIdx];
+          ctx.drawImage(spr, -l.size / 2, -l.size / 2, l.size, l.size);
+          ctx.restore();
+        }
+      }
+
+      autumnLeavesAnimId = requestAnimationFrame(render);
+
+      // Оптимизация энергосбережения при неактивной вкладке
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+          autumnLeavesRunning = false;
+          if (autumnLeavesAnimId) cancelAnimationFrame(autumnLeavesAnimId);
+        } else {
+          if (localStorage.getItem('hw_disable_leaves') !== 'true') {
+            lastNow = performance.now();
+            autumnLeavesRunning = true;
+            autumnLeavesAnimId = requestAnimationFrame(render);
+          }
+        }
+      });
+
+      // Дебаунс изменения размера окна
+      let resizeTimeout;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(resize, 150);
+      }, { passive: true });
+    }
+
+    function toggleAutumnLeavesSetting() {
+      const toggle = document.getElementById('leaves-toggle');
+      const canvas = document.getElementById('autumn-leaves-canvas');
+      if (!toggle || !canvas) return;
+
+      const enabled = toggle.checked;
+      if (enabled) {
+        localStorage.removeItem('hw_disable_leaves');
+        if (!autumnLeavesRunning) {
+          initAutumnLeavesEngine();
+        }
+      } else {
+        localStorage.setItem('hw_disable_leaves', 'true');
+        autumnLeavesRunning = false;
+        if (autumnLeavesAnimId) cancelAnimationFrame(autumnLeavesAnimId);
+        canvas.style.display = 'none';
+      }
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    // Инициализация сводок, рейтинга и осенней атмосферы на главной
     updateScheduleQuickSummary();
     loadLeaderboard();
+    initAutumnLeavesEngine();
   </script>
 </body>
 </html>

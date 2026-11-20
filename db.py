@@ -330,14 +330,27 @@ def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, no
     return True
 
 # ─────────────────────────────────────────────────────────────
-# LEADERBOARD / RATING
+# LEADERBOARD / RATING (КЭШИРОВАНИЕ НА 4 ЧАСА)
 # ─────────────────────────────────────────────────────────────
 
-def get_leaderboard(class_name: str = "10-А") -> List[Dict[str, Any]]:
+import time
+import datetime
+import os
+
+_LEADERBOARD_CACHE: Dict[str, Dict[str, Any]] = {}
+LEADERBOARD_CACHE_TTL = 4 * 3600  # 4 часа (14400 секунд)
+
+def get_leaderboard(class_name: str = "10-А", force_refresh: bool = False) -> List[Dict[str, Any]]:
     if is_using_supabase():
-        res = supabase_db.get_leaderboard(class_name)
-        if res:
+        res = supabase_db.get_leaderboard(class_name, force_refresh=force_refresh)
+        if res is not None:
             return res
+
+    now = time.time()
+    cached = _LEADERBOARD_CACHE.get(class_name)
+    if not force_refresh and cached and (now - cached.get("timestamp", 0) < LEADERBOARD_CACHE_TTL):
+        return cached.get("data", [])
+
     try:
         from collections import Counter
         conn = sqlite3.connect(DB_NAME)
@@ -380,20 +393,73 @@ def get_leaderboard(class_name: str = "10-А") -> List[Dict[str, Any]]:
         for idx, item in enumerate(leaderboard, 1):
             item["rank"] = idx
             if idx == 1:
-                item["badge"] = "👑 Главный редактор"
+                item["badge"] = "Главный редактор"
             elif idx == 2:
-                item["badge"] = "⚡ Супер-активист"
+                item["badge"] = "Супер-активист"
             elif idx == 3:
-                item["badge"] = "🌟 Мастер конспектов"
+                item["badge"] = "Мастер конспектов"
             elif item["score"] >= 15:
-                item["badge"] = "📚 Архивариус"
+                item["badge"] = "Архивариус"
             elif item["score"] >= 5:
-                item["badge"] = "✍️ Редактор"
+                item["badge"] = "Редактор"
             else:
-                item["badge"] = "🎒 Ученик"
+                item["badge"] = "Ученик"
+
+        _LEADERBOARD_CACHE[class_name] = {
+            "timestamp": now,
+            "data": leaderboard
+        }
         return leaderboard
     except Exception as e:
         logger.error(f"Error calculating SQLite leaderboard: {e}")
-        return []
+        return cached.get("data", []) if cached else []
+
+# ─────────────────────────────────────────────────────────────
+# АВТООЧИСТКА УСТАРЕВШИХ ЗАДАНИЙ (> 30 ДНЕЙ / ЗА МЕСЯЦ)
+# ─────────────────────────────────────────────────────────────
+
+def cleanup_old_tasks(days: int = 30) -> int:
+    """
+    Полная очистка всех заданий, которым уже за месяц (по умолчанию старше 30 дней).
+    Удаляет дочерние записи (материалы, отметки выполнения), сами задания и файлы на диске.
+    Поддерживает как Supabase, так и локальный SQLite.
+    Возвращает количество удаленных заданий.
+    """
+    deleted_count = 0
+    if is_using_supabase():
+        deleted_count = supabase_db.cleanup_old_tasks(days=days)
+
+    try:
+        cutoff_date = (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+        conn = sqlite3.connect(DB_NAME)
+        cursor = conn.cursor()
+        cursor.execute("SELECT id FROM tasks WHERE due_date < ?", (cutoff_date,))
+        old_ids = [row[0] for row in cursor.fetchall()]
+        if old_ids:
+            placeholders = ",".join("?" * len(old_ids))
+            cursor.execute(f"DELETE FROM task_materials WHERE task_id IN ({placeholders})", old_ids)
+            cursor.execute(f"DELETE FROM user_completions WHERE task_id IN ({placeholders})", old_ids)
+            cursor.execute(f"DELETE FROM tasks WHERE id IN ({placeholders})", old_ids)
+            conn.commit()
+            if not is_using_supabase():
+                deleted_count = len(old_ids)
+            logger.info(f"🧹 SQLite: очищено {len(old_ids)} заданий старше {days} дней (дедлайн до {cutoff_date})")
+        conn.close()
+
+        # Очищаем связанные файлы фото из uploads/
+        if old_ids and os.path.exists("uploads"):
+            prefixes = tuple(f"{tid}_" for tid in old_ids)
+            for fname in os.listdir("uploads"):
+                if fname.startswith(prefixes):
+                    try:
+                        os.remove(os.path.join("uploads", fname))
+                    except Exception:
+                        pass
+    except Exception as e:
+        logger.error(f"Error in SQLite cleanup_old_tasks: {e}")
+
+    global _LEADERBOARD_CACHE
+    _LEADERBOARD_CACHE.clear()
+    return deleted_count
 
 init_db()

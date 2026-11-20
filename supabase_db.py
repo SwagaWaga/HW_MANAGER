@@ -344,19 +344,33 @@ def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, no
         return False
 
 # ─────────────────────────────────────────────────────────────
-# LEADERBOARD / АКТИВНЫЕ РЕДАКТОРЫ
+# LEADERBOARD / АКТИВНЫЕ РЕДАКТОРЫ (КЭШИРОВАНИЕ НА 4 ЧАСА)
 # ─────────────────────────────────────────────────────────────
 
-def get_leaderboard(class_name: str = "10-А") -> List[Dict[str, Any]]:
+import time
+import datetime
+
+# Кэширование таблицы лидеров в памяти на 4 часа (14400 секунд)
+# Резко сокращает обращения к Supabase и устраняет лаги / задержки для пользователей
+_LEADERBOARD_CACHE: Dict[str, Dict[str, Any]] = {}
+LEADERBOARD_CACHE_TTL = 4 * 3600  # 4 часа
+
+def get_leaderboard(class_name: str = "10-А", force_refresh: bool = False) -> List[Dict[str, Any]]:
     """
     Calculates leaderboard of most active contributors / editors:
     - Added tasks: +5 pts
     - Uploaded materials (photos): +3 pts
     - Completed tasks: +1 pt
+    Кэшируется в оперативной памяти на 4 часа для идеальной отзывчивости.
     """
+    now = time.time()
+    cached = _LEADERBOARD_CACHE.get(class_name)
+    if not force_refresh and cached and (now - cached.get("timestamp", 0) < LEADERBOARD_CACHE_TTL):
+        return cached.get("data", [])
+
     client = get_supabase_client()
     if not client:
-        return []
+        return cached.get("data", []) if cached else []
     try:
         from collections import Counter
         users_res = client.table("users").select("id, telegram_nick, full_name, role, class_name").execute()
@@ -397,19 +411,73 @@ def get_leaderboard(class_name: str = "10-А") -> List[Dict[str, Any]]:
         for idx, item in enumerate(leaderboard, 1):
             item["rank"] = idx
             if idx == 1:
-                item["badge"] = "👑 Главный редактор"
+                item["badge"] = "Главный редактор"
             elif idx == 2:
-                item["badge"] = "⚡ Супер-активист"
+                item["badge"] = "Супер-активист"
             elif idx == 3:
-                item["badge"] = "🌟 Мастер конспектов"
+                item["badge"] = "Мастер конспектов"
             elif item["score"] >= 15:
-                item["badge"] = "📚 Архивариус"
+                item["badge"] = "Архивариус"
             elif item["score"] >= 5:
-                item["badge"] = "✍️ Редактор"
+                item["badge"] = "Редактор"
             else:
-                item["badge"] = "🎒 Ученик"
+                item["badge"] = "Ученик"
 
+        _LEADERBOARD_CACHE[class_name] = {
+            "timestamp": now,
+            "data": leaderboard
+        }
         return leaderboard
     except Exception as e:
         logger.error(f"Error calculating Supabase leaderboard: {e}")
-        return []
+        return cached.get("data", []) if cached else []
+
+# ─────────────────────────────────────────────────────────────
+# АВТООЧИСТКА УСТАРЕВШИХ ЗАДАНИЙ (> 30 ДНЕЙ / ЗА МЕСЯЦ)
+# ─────────────────────────────────────────────────────────────
+
+def cleanup_old_tasks(days: int = 30) -> int:
+    """
+    Полная очистка всех заданий, которым уже за месяц (по умолчанию старше 30 дней).
+    Удаляет связанные записи в task_materials и user_completions, затем сами задания.
+    Возвращает количество удаленных заданий.
+    """
+    client = get_supabase_client()
+    if not client:
+        return 0
+    try:
+        cutoff_date = (datetime.date.today() - datetime.timedelta(days=days)).isoformat()
+        # Поиск заданий с дедлайном старше 30 дней
+        res = client.table("tasks").select("id").lt("due_date", cutoff_date).execute()
+        old_tasks = res.data or []
+        if not old_tasks:
+            return 0
+
+        old_task_ids = [t["id"] for t in old_tasks if "id" in t]
+        if not old_task_ids:
+            return 0
+
+        # 1. Удаляем прикрепленные материалы и отметки выполнения
+        try:
+            client.table("task_materials").delete().in_("task_id", old_task_ids).execute()
+        except Exception as m_err:
+            logger.warning(f"Warning cleaning old task_materials: {m_err}")
+
+        try:
+            client.table("user_completions").delete().in_("task_id", old_task_ids).execute()
+        except Exception as c_err:
+            logger.warning(f"Warning cleaning old user_completions: {c_err}")
+
+        # 2. Удаляем сами задания
+        del_res = client.table("tasks").delete().in_("id", old_task_ids).execute()
+        deleted_count = len(del_res.data or []) if del_res.data else len(old_task_ids)
+        logger.info(f"🧹 Supabase: успешно очищено {deleted_count} заданий старше {days} дней (дедлайн до {cutoff_date})")
+
+        # Сбрасываем кэш рейтинга
+        global _LEADERBOARD_CACHE
+        _LEADERBOARD_CACHE.clear()
+
+        return deleted_count
+    except Exception as e:
+        logger.error(f"Error in Supabase cleanup_old_tasks: {e}")
+        return 0

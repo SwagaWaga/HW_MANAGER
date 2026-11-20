@@ -23,7 +23,8 @@ from db import (
     get_all_users,
     get_notification_prefs,
     upsert_notification_prefs,
-    get_leaderboard
+    get_leaderboard,
+    cleanup_old_tasks
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -845,6 +846,18 @@ async def handle_help(message: Message):
     )
     await message.answer(help_text, parse_mode="HTML", reply_markup=get_portal_keyboard())
 
+@dp.message(Command("cleanup"))
+async def cmd_cleanup(message: Message):
+    """Ручная очистка заданий старше 30 дней."""
+    record_user_activity(message.from_user)
+    deleted = cleanup_old_tasks(days=30)
+    await message.answer(
+        f"🧹 <b>Очистка устаревших заданий завершена!</b>\n\n"
+        f"Удалено заданий старше 1 месяца (> 30 дней): <b>{deleted}</b>\n"
+        f"База данных и кэш оптимизированы.",
+        parse_mode="HTML"
+    )
+
 # --- Text fallback handler ---
 # Replaces old text parsing with a friendly guide to the WebApp portal
 @dp.message()
@@ -876,8 +889,16 @@ async def main():
     # 1. Start background reminder scheduler (every day at 08:00, 16:00, 18:00 in Asia/Tashkent)
     scheduler = AsyncIOScheduler(timezone=TARGET_TZ)
     scheduler.add_job(send_scheduled_reminder, 'cron', hour='8,16,18', minute=0)
+    # Ежедневная автоочистка заданий старше 30 дней в 03:30 ночи
+    scheduler.add_job(lambda: cleanup_old_tasks(days=30), 'cron', hour=3, minute=30)
     scheduler.start()
-    logger.info(f"⏰ Background scheduler started (reminders at 08:00, 16:00, 18:00 in {TARGET_TZ})")
+    logger.info(f"⏰ Background scheduler started (reminders at 08:00, 16:00, 18:00; cleanup at 03:30 in {TARGET_TZ})")
+
+    # Разовая проверка устаревших заданий при старте
+    try:
+        cleanup_old_tasks(days=30)
+    except Exception as cl_err:
+        logger.warning(f"Startup task cleanup error: {cl_err}")
 
     await dp.start_polling(bot)
 

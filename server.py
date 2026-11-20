@@ -19,12 +19,17 @@ from db import (
     is_using_supabase,
     get_notification_prefs,
     upsert_notification_prefs,
-    get_leaderboard
+    get_leaderboard,
+    cleanup_old_tasks
 )
 import uuid
 import os
 import base64
 import hashlib
+import asyncio
+import logging
+
+logger = logging.getLogger("server")
 
 app = FastAPI()
 
@@ -34,6 +39,24 @@ if not os.path.exists("uploads"):
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 if os.path.exists("static"):
     app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# ─────────────────────────────────────────────────────────────
+# ФОНОВАЯ АВТОМАТИЧЕСКАЯ ОЧИСТКА ЗАДАНИЙ СТАРШЕ 30 ДНЕЙ
+# ─────────────────────────────────────────────────────────────
+@app.on_event("startup")
+async def on_startup_tasks():
+    asyncio.create_task(run_periodic_cleanup_loop())
+
+async def run_periodic_cleanup_loop():
+    """Фоновый цикл автоочистки устаревших заданий (> 30 дней) каждые 12 часов."""
+    while True:
+        try:
+            cleaned = cleanup_old_tasks(days=30)
+            if cleaned > 0:
+                logger.info(f"🧹 [Auto-Cleanup] Успешно удалено {cleaned} устаревших заданий старше 30 дней")
+        except Exception as e:
+            logger.warning(f"Auto-cleanup error: {e}")
+        await asyncio.sleep(43200)  # Раз в 12 часов
 
 # Сверхбыстрый многоуровневый кэш фото (RAM -> Диск uploads/ -> Supabase)
 # Устраняет повторные сетевые запросы к БД и отдает материалы за 0-2 миллисекунды
@@ -382,9 +405,22 @@ def update_user_notification_prefs(payload: NotifPrefsRequest):
     }}
 
 @app.get("/api/leaderboard")
-def api_get_leaderboard(class_name: str = "10-А"):
+def api_get_leaderboard(class_name: str = "10-А", refresh: bool = False):
     return {
         "status": "ok",
         "class_name": class_name,
-        "leaderboard": get_leaderboard(class_name)
+        "leaderboard": get_leaderboard(class_name, force_refresh=refresh),
+        "cache_interval_hours": 4
+    }
+
+@app.post("/api/tasks/cleanup")
+@app.get("/api/tasks/cleanup")
+def api_cleanup_old_tasks(days: int = 30):
+    """Ручной и автоматический эндпоинт для очистки заданий старше указанного количества дней."""
+    deleted_count = cleanup_old_tasks(days=days)
+    return {
+        "status": "ok",
+        "deleted_tasks": deleted_count,
+        "days_threshold": days,
+        "message": f"Очищено {deleted_count} заданий старше {days} дней"
     }
