@@ -329,4 +329,71 @@ def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, no
         conn.close()
     return True
 
+# ─────────────────────────────────────────────────────────────
+# LEADERBOARD / RATING
+# ─────────────────────────────────────────────────────────────
+
+def get_leaderboard(class_name: str = "10-А") -> List[Dict[str, Any]]:
+    if is_using_supabase():
+        res = supabase_db.get_leaderboard(class_name)
+        if res:
+            return res
+    try:
+        from collections import Counter
+        conn = sqlite3.connect(DB_NAME)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, telegram_nick, full_name, role, class_name FROM users WHERE class_name = ?", (class_name,))
+        users_map = {row["id"]: dict(row) for row in cursor.fetchall()}
+
+        cursor.execute("SELECT user_id FROM tasks WHERE class_name = ?", (class_name,))
+        t_counts = Counter(row["user_id"] for row in cursor.fetchall())
+
+        cursor.execute("SELECT uploader_id FROM task_materials WHERE uploader_id IS NOT NULL")
+        m_counts = Counter(row["uploader_id"] for row in cursor.fetchall())
+
+        cursor.execute("SELECT user_id FROM user_completions")
+        c_counts = Counter(row["user_id"] for row in cursor.fetchall())
+        conn.close()
+
+        all_ids = set(users_map.keys()) | set(t_counts.keys()) | set(m_counts.keys()) | set(c_counts.keys())
+        leaderboard = []
+        for uid in all_ids:
+            u = users_map.get(uid, {})
+            name = u.get("full_name") or u.get("telegram_nick") or f"Ученик #{uid}"
+            nick = u.get("telegram_nick") or ""
+            t_cnt = t_counts.get(uid, 0)
+            m_cnt = m_counts.get(uid, 0)
+            c_cnt = c_counts.get(uid, 0)
+            score = (t_cnt * 5) + (m_cnt * 3) + (c_cnt * 1)
+            if score > 0:
+                leaderboard.append({
+                    "user_id": uid,
+                    "name": name,
+                    "nick": nick,
+                    "tasks": t_cnt,
+                    "materials": m_cnt,
+                    "completions": c_cnt,
+                    "score": score
+                })
+        leaderboard.sort(key=lambda x: (x["score"], x["tasks"], x["materials"]), reverse=True)
+        for idx, item in enumerate(leaderboard, 1):
+            item["rank"] = idx
+            if idx == 1:
+                item["badge"] = "👑 Главный редактор"
+            elif idx == 2:
+                item["badge"] = "⚡ Супер-активист"
+            elif idx == 3:
+                item["badge"] = "🌟 Мастер конспектов"
+            elif item["score"] >= 15:
+                item["badge"] = "📚 Архивариус"
+            elif item["score"] >= 5:
+                item["badge"] = "✍️ Редактор"
+            else:
+                item["badge"] = "🎒 Ученик"
+        return leaderboard
+    except Exception as e:
+        logger.error(f"Error calculating SQLite leaderboard: {e}")
+        return []
+
 init_db()

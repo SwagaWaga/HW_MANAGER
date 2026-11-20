@@ -788,8 +788,11 @@
         </div>
       </div>
 
-      <!-- Кнопки: Уведомления, Тема + Фирменная школьная аватарка -->
+      <!-- Кнопки: Топ Лидеров, Уведомления, Тема + Фирменная школьная аватарка -->
       <div class="flex items-center gap-2">
+        <button onclick="openLeaderboardModal()" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white flex items-center justify-center transition active:scale-95 shadow-sm" title="Таблица лидеров редакторов">
+          <span class="text-base">🏆</span>
+        </button>
         <button onclick="openNotifModal()" class="w-11 h-11 rounded-full bg-white dark:bg-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-white flex items-center justify-center transition active:scale-95 shadow-sm" title="Настройки уведомлений">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 text-amber-500"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
         </button>
@@ -887,7 +890,7 @@
   </section>
 
   <!-- КАРТОЧКА РАСПИСАНИЯ 10А ИНЖ -->
-  <div onclick="openScheduleModal()" class="cursor-pointer mb-5 glossy-card rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-98 transition flex items-center justify-between border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent">
+  <div onclick="openScheduleModal()" class="cursor-pointer mb-2.5 glossy-card rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-98 transition flex items-center justify-between border border-amber-400/30 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-transparent">
     <div class="flex items-center gap-3 min-w-0">
       <div class="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -898,6 +901,25 @@
           <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950">10А инж</span>
         </div>
         <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate" id="schedule-quick-summary">Загрузка уроков на сегодня...</span>
+      </div>
+    </div>
+    <div class="text-slate-400 dark:text-slate-500 pr-1 shrink-0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </div>
+
+  <!-- КАРТОЧКА ТОП РЕДАКТОРОВ 10-А (ТАБЛИЦА ЛИДЕРОВ) -->
+  <div onclick="openLeaderboardModal()" class="cursor-pointer mb-5 glossy-card rounded-[22px] p-3.5 shadow-sm hover:shadow-md active:scale-98 transition flex items-center justify-between border border-yellow-500/30 bg-gradient-to-r from-yellow-500/10 via-amber-500/5 to-transparent">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 text-slate-950 flex items-center justify-center shrink-0 shadow-sm shadow-amber-500/30 text-lg font-black">
+        🏆
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-black text-slate-900 dark:text-white">Таблица лидеров</span>
+          <span class="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-yellow-400/20 text-yellow-700 dark:text-yellow-300 border border-yellow-400/30">Топ редакторов</span>
+        </div>
+        <span class="text-[11px] text-slate-500 dark:text-slate-400 block truncate" id="leaderboard-quick-summary">Загрузка рейтинга редакторов...</span>
       </div>
     </div>
     <div class="text-slate-400 dark:text-slate-500 pr-1 shrink-0">
@@ -938,6 +960,11 @@
       <span class="w-5 h-5" id="dock-icon-monitoring"></span>
     </button>
 
+    <!-- Кнопка Таблица лидеров -->
+    <button onclick="openLeaderboardModal()" class="w-11 h-11 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/20 text-slate-700 dark:text-white flex items-center justify-center active:scale-95 transition text-base" title="Таблица лидеров редакторов">
+      🏆
+    </button>
+
     <!-- Центральная кнопка: Белая/янтарная пилюля "Ваша лента" -->
     <button onclick="setFilter('pending')" class="px-6 py-2.5 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow-md flex items-center gap-2 active:scale-95 transition">
       <span class="w-4 h-4" id="dock-icon-feed"></span>
@@ -973,10 +1000,13 @@
         <button onclick="closeScheduleModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">✕</button>
       </div>
 
-      <!-- Вкладки: Дни недели + Оригинальное фото -->
+      <!-- Вкладки: Дни недели + Оригинальное фото + Сетка недели -->
       <div class="flex space-x-1.5 overflow-x-auto pb-1 mb-3 no-scrollbar select-none flex-shrink-0" id="schedule-tabs">
         <button onclick="setScheduleView('today')" id="sch-tab-today" class="py-1.5 px-3 rounded-full text-xs font-black bg-amber-400 text-slate-950 transition active:scale-95 shrink-0 shadow-sm flex items-center gap-1">
           <span>☀️</span><span>Сегодня</span>
+        </button>
+        <button onclick="setScheduleView('grid')" id="sch-tab-grid" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0 flex items-center gap-1">
+          <span>📊</span><span>Вся неделя</span>
         </button>
         <button onclick="setScheduleView(0)" id="sch-tab-0" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0">Пн</button>
         <button onclick="setScheduleView(1)" id="sch-tab-1" class="py-1.5 px-3 rounded-full text-xs font-semibold bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 transition active:scale-95 shrink-0">Вт</button>
@@ -1012,15 +1042,77 @@
         </div>
       </div>
 
+      <!-- ВИД 3: ИНТЕРАКТИВНАЯ СЕТКА ВСЕЙ НЕДЕЛИ (ОРИГИНАЛЬНАЯ ТАБЛИЦА С ЧИПАМИ) -->
+      <div id="schedule-grid-view" class="overflow-y-auto flex-1 hidden flex-col">
+        <div class="overflow-x-auto no-scrollbar pb-2 pt-1">
+          <div id="schedule-grid-table-container" class="min-w-[690px]">
+            <!-- Генерируется через JS -->
+          </div>
+        </div>
+      </div>
+
       <!-- Подпись и переключатель -->
       <div class="mt-3 pt-3 border-t border-slate-200 dark:border-white/10 flex items-center justify-between text-[11px] text-slate-400 flex-shrink-0">
         <span>Составлено 13.11.2026</span>
         <button onclick="toggleScheduleMode()" id="btn-toggle-all-view" class="text-amber-500 font-bold hover:underline flex items-center gap-1">
-          <span>📷 Смотреть фото оригинала</span>
+          <span>📊 Сетка всей недели</span>
         </button>
       </div>
     </div>
   </div>
+
+  <!-- ===== МОДАЛЬНОЕ ОКНО ТАБЛИЦЫ ЛИДЕРОВ (РЕЙТИНГ РЕДАКТОРОВ) ===== -->
+  <div id="leaderboard-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeLeaderboardModal()">
+    <div class="bg-white dark:bg-[#0d1b2a] text-slate-900 dark:text-white w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-5 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl max-h-[92vh] flex flex-col">
+      <!-- Заголовок -->
+      <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 dark:border-white/10 flex-shrink-0">
+        <div class="flex items-center gap-2.5">
+          <div class="w-9 h-9 rounded-xl bg-yellow-400/20 flex items-center justify-center text-yellow-500 shrink-0 text-lg">
+            🏆
+          </div>
+          <div>
+            <h2 class="text-base font-black">Таблица лидеров 10-А</h2>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Самые активные редакторы и помощники</p>
+          </div>
+        </div>
+        <button onclick="closeLeaderboardModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">✕</button>
+      </div>
+
+      <!-- Подиум Топ-3 -->
+      <div id="leaderboard-podium" class="grid grid-cols-3 gap-2 items-end mb-3 pt-2 px-1 flex-shrink-0">
+        <!-- Генерируется через JS -->
+      </div>
+
+      <!-- Правила начисления очков -->
+      <div class="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 flex-shrink-0">
+        <div class="flex items-center justify-between text-xs font-bold text-amber-700 dark:text-amber-300">
+          <span class="flex items-center gap-1"><span>✨</span><span>Очки активности:</span></span>
+          <span class="text-[10px] text-slate-500 dark:text-slate-400">Авто-подсчет</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5 mt-2 text-center">
+          <div class="p-1.5 rounded-xl bg-white/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5">
+            <span class="block text-xs font-black text-amber-600 dark:text-amber-400">+5 очков</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">Задание</span>
+          </div>
+          <div class="p-1.5 rounded-xl bg-white/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5">
+            <span class="block text-xs font-black text-cyan-600 dark:text-cyan-400">+3 очка</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">Фото / Доска</span>
+          </div>
+          <div class="p-1.5 rounded-xl bg-white/70 dark:bg-white/5 border border-slate-200/60 dark:border-white/5">
+            <span class="block text-xs font-black text-emerald-600 dark:text-emerald-400">+1 очко</span>
+            <span class="text-[10px] text-slate-500 dark:text-slate-400">Выполнение</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Список всех участников -->
+      <div class="text-[11px] font-black uppercase tracking-wider text-slate-400 px-1 mb-1.5 flex justify-between items-center flex-shrink-0">
+        <span>Рейтинг класса</span>
+        <span id="leaderboard-total-count">0 участников</span>
+      </div>
+      <div id="leaderboard-list" class="overflow-y-auto flex-1 space-y-2 pr-1">
+        <!-- Строки участников -->
+      </div>
     </div>
   </div>
 
@@ -4004,6 +4096,7 @@
         allTasks = await res.json();
         updateProgressBar();
         renderTasks();
+        loadLeaderboard();
       } catch (err) {
         console.error("Error in loadTasks:", err);
         document.getElementById('tasks-container').innerHTML = `
@@ -4188,7 +4281,7 @@
 
     function setScheduleView(view) {
       currentScheduleView = view;
-      const tabs = ['today', 0, 1, 2, 3, 4, 'photo'];
+      const tabs = ['today', 'grid', 0, 1, 2, 3, 4, 'photo'];
       tabs.forEach(t => {
         const btn = document.getElementById(`sch-tab-${t}`);
         if (!btn) return;
@@ -4201,11 +4294,13 @@
 
       const dayView = document.getElementById('schedule-day-view');
       const photoView = document.getElementById('schedule-photo-view');
+      const gridView = document.getElementById('schedule-grid-view');
       const subtitle = document.getElementById('schedule-subtitle');
       const toggleBtn = document.getElementById('btn-toggle-all-view');
 
       if (view === 'photo') {
         if (dayView) dayView.classList.add('hidden');
+        if (gridView) gridView.classList.add('hidden');
         if (photoView) {
           photoView.classList.remove('hidden');
           photoView.classList.add('flex');
@@ -4214,14 +4309,33 @@
         if (toggleBtn) {
           toggleBtn.innerHTML = '<span>📋 Смотреть по дням</span>';
         }
+      } else if (view === 'grid') {
+        if (dayView) dayView.classList.add('hidden');
+        if (photoView) {
+          photoView.classList.add('hidden');
+          photoView.classList.remove('flex');
+        }
+        if (gridView) {
+          gridView.classList.remove('hidden');
+          gridView.classList.add('flex');
+        }
+        if (subtitle) subtitle.innerText = 'Интерактивная сетка недели · 1-я смена';
+        if (toggleBtn) {
+          toggleBtn.innerHTML = '<span>📷 Смотреть фото оригинала</span>';
+        }
+        renderScheduleGridView();
       } else {
         if (photoView) {
           photoView.classList.add('hidden');
           photoView.classList.remove('flex');
         }
+        if (gridView) {
+          gridView.classList.add('hidden');
+          gridView.classList.remove('flex');
+        }
         if (dayView) dayView.classList.remove('hidden');
         if (toggleBtn) {
-          toggleBtn.innerHTML = '<span>📷 Смотреть фото оригинала</span>';
+          toggleBtn.innerHTML = '<span>📊 Сетка всей недели</span>';
         }
 
         let targetDay = view;
@@ -4241,9 +4355,11 @@
 
     function toggleScheduleMode() {
       if (currentScheduleView === 'photo') {
+        setScheduleView('grid');
+      } else if (currentScheduleView === 'grid') {
         setScheduleView('today');
       } else {
-        setScheduleView('photo');
+        setScheduleView('grid');
       }
     }
 
@@ -4411,6 +4527,279 @@
     }
 
     // ========================================================
+    // 📊 ИНТЕРАКТИВНАЯ СЕТКА ВСЕЙ НЕДЕЛИ (ТАБЛИЦА С ЧИПАМИ)
+    // ========================================================
+    function getGridSubjectStyle(s) {
+      const clean = (s || '').trim();
+      switch (clean) {
+        case 'Ист':
+          return 'bg-[#3e2417] border border-[#784323] text-[#fcd34d] hover:bg-[#4d2d1d]';
+        case 'ИВТ':
+          return 'bg-[#2d1b4e] border border-[#6b3ba7] text-[#e9d5ff] hover:bg-[#3a2364]';
+        case 'ШУ':
+        case 'Уя':
+          return 'bg-[#0e3328] border border-[#1b6b52] text-[#6ee7b7] hover:bg-[#144738]';
+        case 'Мат':
+          return 'bg-[#13274f] border border-[#254b9c] text-[#93c5fd] hover:bg-[#193366]';
+        case 'Физ':
+          return 'bg-[#3f2010] border border-[#85431d] text-[#fdba74] hover:bg-[#4f2814]';
+        case 'Ая':
+          return 'bg-[#0e3146] border border-[#185e82] text-[#67e8f9] hover:bg-[#14425e]';
+        case 'РиЛ':
+          return 'bg-[#3b1223] border border-[#7e2548] text-[#f472b6] hover:bg-[#4c172d]';
+        case 'Ф-ра':
+          return 'bg-[#451a1a] border border-[#882d2d] text-[#fca5a5] hover:bg-[#572121]';
+        case 'Ор.иск.':
+          return 'bg-[#3e1338] border border-[#7f2674] text-[#f0abfc] hover:bg-[#4f1847]';
+        case 'Пд':
+        case 'ПД':
+          return 'bg-[#223113] border border-[#486b24] text-[#bef264] hover:bg-[#2d4019]';
+        case 'НДП':
+          return 'bg-[#201c45] border border-[#443896] text-[#c7d2fe] hover:bg-[#2b255c]';
+        default:
+          return 'bg-slate-800 border border-slate-700 text-slate-200';
+      }
+    }
+
+    function showLessonToast(s, full, teacher, room) {
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      const teacherStr = SCHEDULE_TEACHERS[teacher] ? `${teacher} (${SCHEDULE_TEACHERS[teacher]})` : (teacher || '—');
+      showToast(`${s}: ${full || s} · Каб: ${room || '—'} · Препод: ${teacherStr}`, 'info');
+    }
+
+    function renderScheduleGridView() {
+      const container = document.getElementById('schedule-grid-table-container');
+      if (!container) return;
+
+      const todayIdx = getTodayDayIndex();
+      const dayNames = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'];
+
+      // Шапка со звонками (8 колонок)
+      let headerHtml = `
+        <div class="grid grid-cols-[56px_repeat(8,minmax(72px,1fr))] gap-1.5 pb-2 border-b border-slate-200/80 dark:border-white/10 mb-2">
+          <div class="text-[10px] font-black text-slate-400 flex items-center justify-center">ДЕНЬ</div>
+      `;
+      for (let i = 0; i < 8; i++) {
+        const t = SCHEDULE_TIMES[i] || { start: '', end: '' };
+        headerHtml += `
+          <div class="flex flex-col items-center justify-center p-1 rounded-xl bg-slate-100 dark:bg-white/5 border border-slate-200/60 dark:border-white/5 text-center">
+            <span class="text-xs font-black text-slate-800 dark:text-white leading-none">${i + 1}</span>
+            <span class="text-[9px] text-slate-400 font-semibold mt-0.5 leading-none">${t.start}</span>
+            <span class="text-[9px] text-slate-400 font-semibold leading-none">${t.end}</span>
+          </div>
+        `;
+      }
+      headerHtml += `</div>`;
+
+      // Строки по дням
+      let rowsHtml = '';
+      for (let dayIdx = 0; dayIdx < 5; dayIdx++) {
+        const isToday = dayIdx === todayIdx;
+        const slots = SCHEDULE_DATA[dayIdx] || [];
+        const rowBorder = isToday
+          ? 'border-2 border-amber-400 bg-amber-400/10 shadow-md shadow-amber-500/15 rounded-2xl p-1.5 my-1.5'
+          : 'border border-slate-200/60 dark:border-white/5 rounded-2xl p-1.5 my-1 bg-slate-50/50 dark:bg-white/[0.02]';
+
+        rowsHtml += `
+          <div class="${rowBorder} grid grid-cols-[56px_repeat(8,minmax(72px,1fr))] gap-1.5 items-center">
+            <!-- Метка дня -->
+            <div class="flex flex-col items-center justify-center text-xs font-black ${isToday ? 'text-amber-500 font-black' : 'text-slate-700 dark:text-slate-300'}">
+              <span>${dayNames[dayIdx]}</span>
+              ${isToday ? '<span class="text-amber-400 text-base leading-none">●</span>' : ''}
+            </div>
+        `;
+
+        let col = 0;
+        while (col < 8) {
+          const item = slots[col];
+          if (!item) {
+            rowsHtml += `<div class="h-14 rounded-xl border border-dashed border-slate-200/50 dark:border-white/5 flex items-center justify-center text-[10px] text-slate-400/40 select-none">—</div>`;
+            col++;
+            continue;
+          }
+
+          if (item.pair) {
+            const style = getGridSubjectStyle(item.s);
+            const full = SCHEDULE_SUBJECT_FULL[item.s] || item.s;
+            rowsHtml += `
+              <div onclick="showLessonToast('${item.s}', '${full}', '${item.t}', '${item.r}')" class="col-span-2 h-14 rounded-xl p-1.5 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center text-center shadow-sm select-none ${style}">
+                <span class="text-xs font-black leading-tight">${item.s}</span>
+                <span class="text-[9px] opacity-85 truncate max-w-full leading-tight mt-0.5">${item.r || ''}</span>
+                <span class="text-[8px] font-black opacity-90 mt-0.5 px-1 rounded bg-black/25">×2 пара</span>
+              </div>
+            `;
+            col += 2;
+          } else {
+            const style = getGridSubjectStyle(item.s);
+            const full = SCHEDULE_SUBJECT_FULL[item.s] || item.s;
+            rowsHtml += `
+              <div onclick="showLessonToast('${item.s}', '${full}', '${item.t}', '${item.r}')" class="h-14 rounded-xl p-1.5 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center text-center shadow-sm select-none ${style}">
+                <span class="text-xs font-black leading-tight">${item.s}</span>
+                <span class="text-[9px] opacity-85 truncate max-w-full leading-tight mt-0.5">${item.r || ''}</span>
+              </div>
+            `;
+            col++;
+          }
+        }
+
+        rowsHtml += `</div>`;
+      }
+
+      container.innerHTML = headerHtml + rowsHtml;
+    }
+
+    // ========================================================
+    // 🏆 ТАБЛИЦА ЛИДЕРОВ (РЕЙТИНГ РЕДАКТОРОВ)
+    // ========================================================
+    let cachedLeaderboard = [];
+
+    async function loadLeaderboard() {
+      try {
+        const res = await fetch('/api/leaderboard?class_name=10-%D0%90');
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = data.leaderboard || [];
+        cachedLeaderboard = list;
+
+        // Обновляем плашку на главной
+        const quickEl = document.getElementById('leaderboard-quick-summary');
+        if (quickEl) {
+          if (list.length > 0) {
+            const topUser = list[0];
+            const badgeIcon = (topUser.badge || '').split(' ')[0] || '👑';
+            quickEl.innerHTML = `<span class="font-bold text-amber-500">${badgeIcon} ${escapeHtml(topUser.name)}</span> · <span class="font-black text-slate-800 dark:text-slate-100">${topUser.score} очк.</span> · 1-е место`;
+          } else {
+            quickEl.innerText = 'Нажмите, чтобы увидеть рейтинг активности';
+          }
+        }
+
+        renderLeaderboardModal(list);
+      } catch (err) {
+        console.error('Leaderboard error:', err);
+      }
+    }
+
+    function renderLeaderboardModal(list) {
+      const podiumEl = document.getElementById('leaderboard-podium');
+      const listEl = document.getElementById('leaderboard-list');
+      const countEl = document.getElementById('leaderboard-total-count');
+
+      if (countEl) countEl.innerText = `${list.length} участников`;
+
+      if (!list || list.length === 0) {
+        if (podiumEl) podiumEl.innerHTML = '';
+        if (listEl) {
+          listEl.innerHTML = `
+            <div class="text-center py-8 text-slate-400">
+              <span class="text-3xl block mb-2">🏆</span>
+              <p class="text-xs">Пока нет активных редакторов. Станьте первым!</p>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      // Топ 3 для подиума
+      const top1 = list[0] || null;
+      const top2 = list[1] || null;
+      const top3 = list[2] || null;
+
+      function renderPodiumCard(user, place, heightClass, bgGradient, medal, ringColor) {
+        if (!user) {
+          return `<div class="flex flex-col items-center justify-end ${heightClass} opacity-40">
+            <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-sm font-bold">${medal}</div>
+            <div class="w-full mt-2 h-14 rounded-2xl bg-slate-100 dark:bg-white/5"></div>
+          </div>`;
+        }
+        const initial = (user.name || 'У')[0].toUpperCase();
+        return `
+          <div class="flex flex-col items-center justify-end ${heightClass} transition transform active:scale-95">
+            <div class="relative">
+              <div class="w-12 h-12 rounded-full ${bgGradient} text-slate-950 font-black flex items-center justify-center text-base shadow-lg ${ringColor} ring-2">
+                ${initial}
+              </div>
+              <span class="absolute -bottom-1 -right-1 text-sm">${medal}</span>
+            </div>
+            <span class="text-xs font-black text-slate-900 dark:text-white mt-1.5 max-w-[90px] truncate text-center">${escapeHtml(user.name)}</span>
+            <span class="text-[10px] text-amber-500 font-bold leading-none mb-1">${user.score} очк.</span>
+            <div class="w-full py-2 px-1 rounded-2xl bg-slate-100 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex flex-col items-center justify-center text-center">
+              <span class="text-[9px] font-black uppercase text-slate-500 dark:text-slate-400 truncate max-w-full">${user.badge.split(' ').slice(1).join(' ') || user.badge}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      if (podiumEl) {
+        podiumEl.innerHTML = `
+          <!-- 2-е место (Серебро) -->
+          ${renderPodiumCard(top2, 2, 'h-40', 'bg-gradient-to-tr from-slate-300 to-slate-100', '🥈', 'ring-slate-300')}
+          <!-- 1-е место (Золото) -->
+          ${renderPodiumCard(top1, 1, 'h-48', 'bg-gradient-to-tr from-yellow-400 to-amber-300', '🥇', 'ring-yellow-400 ring-4')}
+          <!-- 3-е место (Бронза) -->
+          ${renderPodiumCard(top3, 3, 'h-36', 'bg-gradient-to-tr from-amber-700 to-amber-500', '🥉', 'ring-amber-600')}
+        `;
+      }
+
+      // Полный список всех участников
+      if (listEl) {
+        let html = '';
+        list.forEach((u, idx) => {
+          const rank = u.rank || (idx + 1);
+          let medalIcon = rank === 1 ? '🥇' : (rank === 2 ? '🥈' : (rank === 3 ? '🥉' : `#${rank}`));
+          const initial = (u.name || 'У')[0].toUpperCase();
+          const isMe = u.user_id === userId;
+          const meBorder = isMe ? 'border-2 border-amber-400 bg-amber-400/5' : 'border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#111f31]';
+
+          html += `
+            <div class="p-3 rounded-2xl ${meBorder} flex items-center justify-between gap-3 shadow-sm transition">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="w-6 text-center font-black text-xs text-slate-400">${medalIcon}</span>
+                <div class="w-9 h-9 rounded-full bg-slate-100 dark:bg-white/10 text-slate-800 dark:text-white font-black text-xs flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-white/10">
+                  ${initial}
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs font-black text-slate-900 dark:text-white truncate">${escapeHtml(u.name)}</span>
+                    ${isMe ? '<span class="px-1.5 py-0.2 rounded-md bg-amber-400 text-slate-950 text-[9px] font-black">ВЫ</span>' : ''}
+                  </div>
+                  <div class="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap">
+                    <span>${u.badge}</span>
+                    <span>·</span>
+                    <span>📝 ${u.tasks}</span>
+                    <span>📸 ${u.materials}</span>
+                    <span>✅ ${u.completions}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="shrink-0 text-right">
+                <span class="px-2.5 py-1 rounded-xl bg-amber-500/15 border border-amber-500/25 text-amber-600 dark:text-amber-400 font-black text-xs">
+                  ${u.score} очк.
+                </span>
+              </div>
+            </div>
+          `;
+        });
+        listEl.innerHTML = html;
+      }
+    }
+
+    function openLeaderboardModal() {
+      const modal = document.getElementById('leaderboard-modal');
+      if (!modal) return;
+      loadLeaderboard();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    function closeLeaderboardModal() {
+      const modal = document.getElementById('leaderboard-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // ========================================================
     // ⚙️ НАСТРОЙКИ ЛИЧНЫХ УВЕДОМЛЕНИЙ
     // ========================================================
     async function loadNotifPrefs() {
@@ -4467,11 +4856,9 @@
       modal.classList.remove('flex');
     }
 
-    // Инициализация сводки расписания на главной
+    // Инициализация сводок и рейтинга на главной
     updateScheduleQuickSummary();
-  </script>
-</body>
-</html>
+    loadLeaderboard();
   </script>
 </body>
 </html>

@@ -18,7 +18,8 @@ from db import (
     upsert_user,
     is_using_supabase,
     get_notification_prefs,
-    upsert_notification_prefs
+    upsert_notification_prefs,
+    get_leaderboard
 )
 import uuid
 import os
@@ -379,3 +380,11 @@ def update_user_notification_prefs(payload: NotifPrefsRequest):
         "notify_16": payload.notify_16,
         "notify_18": payload.notify_18
     }}
+
+@app.get("/api/leaderboard")
+def api_get_leaderboard(class_name: str = "10-А"):
+    return {
+        "status": "ok",
+        "class_name": class_name,
+        "leaderboard": get_leaderboard(class_name)
+    }

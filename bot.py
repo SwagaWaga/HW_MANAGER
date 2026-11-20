@@ -22,7 +22,8 @@ from db import (
     get_materials_for_task,
     get_all_users,
     get_notification_prefs,
-    upsert_notification_prefs
+    upsert_notification_prefs,
+    get_leaderboard
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -60,13 +61,75 @@ async def sync_menu_button(chat_id: int = None):
         await bot.set_chat_menu_button(
             chat_id=chat_id,
             menu_button=MenuButtonWebApp(
-                text="🎒 ДЗ Портал",
+                text="🚀 ДЗ Портал",
                 web_app=WebAppInfo(url=WEB_APP_URL)
             )
         )
         logger.info(f"✅ Telegram Chat Menu Button synced to: {WEB_APP_URL} (chat_id={chat_id})")
     except Exception as e:
         logger.warning(f"Note syncing menu button: {e}")
+
+async def sync_bot_profile():
+    """
+    Sets global Menu Button (Mini App launch button in Telegram chat),
+    custom short description (replaces the plain 'bot' in chat list),
+    full bot description, and bot commands menu.
+    """
+    if not bot:
+        return
+    from aiogram.types import MenuButtonWebApp, WebAppInfo, BotCommand
+
+    # 1. Global Menu Button
+    try:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(
+                text="🚀 ДЗ Портал",
+                web_app=WebAppInfo(url=WEB_APP_URL)
+            )
+        )
+        logger.info(f"✅ Global Chat Menu Button set to: {WEB_APP_URL}")
+    except Exception as e:
+        logger.warning(f"Note setting global menu button: {e}")
+
+    # 2. Short description (replaces grey 'bot' subtitle under bot name in chat list)
+    try:
+        await bot.set_my_short_description(
+            "🎒 ДЗ Портал 10-А • Расписание, домашка и конспекты"
+        )
+        logger.info("✅ Bot short description updated.")
+    except Exception as e:
+        logger.warning(f"Note setting short description: {e}")
+
+    # 3. Full description (displayed on empty chat screen before clicking Start)
+    try:
+        await bot.set_my_description(
+            "🎒 Официальный бот и WebApp портал 10-А класса.\n\n"
+            "✨ Актуальное расписание уроков и звонков\n"
+            "📚 Домашние задания и дедлайны по дням\n"
+            "📸 Фотографии конспектов, учебников и доски\n"
+            "🏆 Таблица лидеров и самых активных редакторов\n"
+            "⚙️ Персональные напоминания в 08:00, 16:00, 18:00\n\n"
+            "Нажмите «Запустить» или синюю кнопку в чате, чтобы открыть приложение!"
+        )
+        logger.info("✅ Bot full description updated.")
+    except Exception as e:
+        logger.warning(f"Note setting full description: {e}")
+
+    # 4. Commands menu
+    try:
+        commands = [
+            BotCommand(command="start", description="🚀 Открыть ДЗ Портал 10-А"),
+            BotCommand(command="top", description="🏆 Таблица лидеров редакторов"),
+            BotCommand(command="settings", description="⚙️ Настройки уведомлений (8/16/18)"),
+            BotCommand(command="today", description="📅 Уроки и задания на сегодня"),
+            BotCommand(command="priority", description="⚡ Срочные задания по дням"),
+            BotCommand(command="overdue", description="⏳ Просроченные задания"),
+            BotCommand(command="help", description="ℹ️ Справка по всем командам"),
+        ]
+        await bot.set_my_commands(commands)
+        logger.info("✅ Bot commands updated.")
+    except Exception as e:
+        logger.warning(f"Note setting bot commands: {e}")
 
 # Russian localization helpers
 RU_WEEKDAYS = {
@@ -407,6 +470,31 @@ async def handle_settings(message: Message):
         reply_markup=build_settings_keyboard(prefs)
     )
 
+def format_leaderboard_text(leaders: List[Dict[str, Any]]) -> str:
+    if not leaders:
+        return (
+            "🏆 <b>Таблица лидеров 10-А класса</b>\n\n"
+            "Пока нет данных об активности. Добавляйте задания и загружайте фото, чтобы занять 1-е место!"
+        )
+    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
+    lines = [
+        "🏆 <b>Таблица лидеров редакторов 10-А класса</b>\n",
+        "<i>Баллы начисляются за вклад в общее дело:</i>",
+        "➕ Задание: <b>+5</b> | 📸 Фото/конспект: <b>+3</b> | ✅ Выполнение: <b>+1</b>\n"
+    ]
+    for item in leaders[:10]:
+        rank = item["rank"]
+        medal = medals.get(rank, f"<b>{rank}.</b>")
+        name = html.escape(str(item.get("name", "Ученик")))
+        badge = item.get("badge", "")
+        score = item["score"]
+        t = item["tasks"]
+        m = item["materials"]
+        c = item["completions"]
+        lines.append(f"{medal} <b>{name}</b> — <b>{score}</b> очк. ({badge})")
+        lines.append(f"    └ 📝 Заданий: {t} | 📸 Фото: {m} | ✅ Сдано: {c}")
+    return "\n".join(lines)
+
 @dp.callback_query()
 async def handle_done_callback(callback: CallbackQuery):
     # ── Toggle notification preference ──────────────────────
@@ -436,6 +524,17 @@ async def handle_done_callback(callback: CallbackQuery):
         )
         return
 
+    if callback.data == "open_leaderboard":
+        await callback.answer()
+        leaders = get_leaderboard("10-А")
+        text = format_leaderboard_text(leaders)
+        await callback.message.answer(
+            text,
+            parse_mode="HTML",
+            reply_markup=get_portal_keyboard("🏆 Открыть рейтинг в приложении")
+        )
+        return
+
     if callback.data.startswith("done:"):
         task_id = int(callback.data.split(":")[1])
         mark_task_done(task_id, callback.from_user.id)
@@ -458,9 +557,23 @@ async def handle_start(message: Message):
     )
     start_keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🚀 Открыть ДЗ Портал", web_app=WebAppInfo(url=WEB_APP_URL))],
-        [InlineKeyboardButton(text="⚙️ Настройки уведомлений", callback_data="open_settings")]
+        [
+            InlineKeyboardButton(text="🏆 Таблица лидеров", callback_data="open_leaderboard"),
+            InlineKeyboardButton(text="⚙️ Уведомления", callback_data="open_settings")
+        ]
     ])
     await message.answer(text, parse_mode="HTML", reply_markup=start_keyboard)
+
+@dp.message(Command("top", "leaderboard", "rating", "рейтинг"))
+async def handle_leaderboard_command(message: Message):
+    record_user_activity(message.from_user)
+    leaders = get_leaderboard("10-А")
+    text = format_leaderboard_text(leaders)
+    await message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=get_portal_keyboard("🏆 Открыть рейтинг в приложении")
+    )
 
 @dp.message(Command("remind", "notify", "tomorrow", "zavtra"))
 async def handle_remind(message: Message, command: CommandObject = None):
@@ -720,6 +833,7 @@ async def handle_help(message: Message):
     help_text = (
         "🤖 <b>Команды ДЗ Бота 10-го класса:</b>\n\n"
         "• <b>/start</b> — Главное меню и запуск приложения\n"
+        "• <b>/top</b> — 🏆 Таблица лидеров и самых активных редакторов\n"
         "• <b>/settings</b> — Настройки личных уведомлений (08:00, 16:00, 18:00)\n"
         "• <b>/remind [8|16|18]</b> — Проверить уведомления (утро, день, вечер)\n"
         "• <b>/notify_all [8|16|18]</b> — Разослать напоминания всем ученикам\n"
@@ -753,6 +867,12 @@ async def main():
         logger.error("❌ BOT_TOKEN is missing! Please configure BOT_TOKEN in .env or Render Environment Variables.")
         return
     init_db()
+    # Sync global menu button, short description and commands on startup
+    try:
+        await sync_bot_profile()
+    except Exception as e:
+        logger.warning(f"Could not sync bot profile on startup: {e}")
+
     # 1. Start background reminder scheduler (every day at 08:00, 16:00, 18:00 in Asia/Tashkent)
     scheduler = AsyncIOScheduler(timezone=TARGET_TZ)
     scheduler.add_job(send_scheduled_reminder, 'cron', hour='8,16,18', minute=0)

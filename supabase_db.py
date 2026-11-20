@@ -342,3 +342,74 @@ def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, no
     except Exception as e:
         logger.warning(f"Supabase upsert_notification_prefs failed ({e}), using SQLite fallback")
         return False
+
+# ─────────────────────────────────────────────────────────────
+# LEADERBOARD / АКТИВНЫЕ РЕДАКТОРЫ
+# ─────────────────────────────────────────────────────────────
+
+def get_leaderboard(class_name: str = "10-А") -> List[Dict[str, Any]]:
+    """
+    Calculates leaderboard of most active contributors / editors:
+    - Added tasks: +5 pts
+    - Uploaded materials (photos): +3 pts
+    - Completed tasks: +1 pt
+    """
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        from collections import Counter
+        users_res = client.table("users").select("id, telegram_nick, full_name, role, class_name").execute()
+        users_map = {u["id"]: u for u in (users_res.data or [])}
+
+        tasks_res = client.table("tasks").select("user_id").execute()
+        materials_res = client.table("task_materials").select("uploader_id").execute()
+        comps_res = client.table("user_completions").select("user_id").execute()
+
+        t_counts = Counter(t["user_id"] for t in (tasks_res.data or []))
+        m_counts = Counter(m["uploader_id"] for m in (materials_res.data or []))
+        c_counts = Counter(c["user_id"] for c in (comps_res.data or []))
+
+        all_ids = set(users_map.keys()) | set(t_counts.keys()) | set(m_counts.keys()) | set(c_counts.keys())
+        leaderboard = []
+
+        for uid in all_ids:
+            u = users_map.get(uid, {})
+            name = u.get("full_name") or u.get("telegram_nick") or f"Ученик #{uid}"
+            nick = u.get("telegram_nick") or ""
+            t_cnt = t_counts.get(uid, 0)
+            m_cnt = m_counts.get(uid, 0)
+            c_cnt = c_counts.get(uid, 0)
+            score = (t_cnt * 5) + (m_cnt * 3) + (c_cnt * 1)
+            if score > 0:
+                leaderboard.append({
+                    "user_id": uid,
+                    "name": name,
+                    "nick": nick,
+                    "tasks": t_cnt,
+                    "materials": m_cnt,
+                    "completions": c_cnt,
+                    "score": score
+                })
+
+        leaderboard.sort(key=lambda x: (x["score"], x["tasks"], x["materials"]), reverse=True)
+
+        for idx, item in enumerate(leaderboard, 1):
+            item["rank"] = idx
+            if idx == 1:
+                item["badge"] = "👑 Главный редактор"
+            elif idx == 2:
+                item["badge"] = "⚡ Супер-активист"
+            elif idx == 3:
+                item["badge"] = "🌟 Мастер конспектов"
+            elif item["score"] >= 15:
+                item["badge"] = "📚 Архивариус"
+            elif item["score"] >= 5:
+                item["badge"] = "✍️ Редактор"
+            else:
+                item["badge"] = "🎒 Ученик"
+
+        return leaderboard
+    except Exception as e:
+        logger.error(f"Error calculating Supabase leaderboard: {e}")
+        return []
