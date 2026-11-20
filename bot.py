@@ -41,6 +41,10 @@ WEB_APP_URL = (
     or 'https://hw-manager-portal.onrender.com'
 ).rstrip('/')
 
+# Версия приложения для мгновенного сброса кэша Telegram WebView
+APP_VERSION = "2.2.0"
+WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
+
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
 try:
     TARGET_TZ = ZoneInfo(TARGET_TZ_NAME)
@@ -63,7 +67,7 @@ async def sync_menu_button(chat_id: int = None):
             chat_id=chat_id,
             menu_button=MenuButtonWebApp(
                 text="🚀 ДЗ Портал",
-                web_app=WebAppInfo(url=WEB_APP_URL)
+                web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL)
             )
         )
         logger.info(f"✅ Telegram Chat Menu Button synced to: {WEB_APP_URL} (chat_id={chat_id})")
@@ -85,7 +89,7 @@ async def sync_bot_profile():
         await bot.set_chat_menu_button(
             menu_button=MenuButtonWebApp(
                 text="🚀 ДЗ Портал",
-                web_app=WebAppInfo(url=WEB_APP_URL)
+                web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL)
             )
         )
         logger.info(f"✅ Global Chat Menu Button set to: {WEB_APP_URL}")
@@ -226,7 +230,7 @@ def get_subject_icon(subject: str) -> str:
 
 def get_portal_keyboard(button_text: str = "🚀 Открыть ДЗ Портал") -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(text=button_text, web_app=WebAppInfo(url=WEB_APP_URL))
+        InlineKeyboardButton(text=button_text, web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL))
     ]])
 
 def record_user_activity(from_user):
@@ -557,7 +561,7 @@ async def handle_start(message: Message):
         f"Нажмите кнопку ниже, чтобы открыть приложение 👇"
     )
     start_keyboard = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🚀 Открыть ДЗ Портал", web_app=WebAppInfo(url=WEB_APP_URL))],
+        [InlineKeyboardButton(text="🚀 Открыть ДЗ Портал", web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL))],
         [
             InlineKeyboardButton(text="🏆 Таблица лидеров", callback_data="open_leaderboard"),
             InlineKeyboardButton(text="⚙️ Уведомления", callback_data="open_settings")
@@ -774,7 +778,7 @@ async def handle_add(message: Message, command: CommandObject):
 
     keyboard = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Отметить сделанным", callback_data=f"done:{task_id}")],
-        [InlineKeyboardButton(text="🚀 Открыть ДЗ Портал", web_app=WebAppInfo(url=WEB_APP_URL))]
+        [InlineKeyboardButton(text="🚀 Открыть ДЗ Портал", web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL))]
     ])
 
     await message.answer(

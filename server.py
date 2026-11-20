@@ -91,7 +91,14 @@ def optimize_image_bytes(image_bytes: bytes, max_dim: int = 1600, quality: int =
 
 @app.get("/")
 def route():
-    return FileResponse("static/index.html")
+    return FileResponse(
+        "static/index.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
 
 @app.get("/test-backpack")
 def test_backpack():
