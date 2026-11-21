@@ -1248,6 +1248,23 @@
             <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
           </label>
         </div>
+
+        <!-- Звуки интерфейса -->
+        <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+          <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+            </div>
+            <div>
+              <span class="text-xs font-bold block text-slate-900 dark:text-white">Звуки интерфейса</span>
+              <span class="text-[10px] text-slate-500 dark:text-slate-400">Тактильный аудио-отклик кликов</span>
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="sound-toggle" onchange="toggleSoundSetting()" class="sr-only peer" checked>
+            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-400"></div>
+          </label>
+        </div>
       </div>
 
       <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 text-center">
@@ -1648,6 +1665,212 @@
     }
 
     // ========================================================
+    // 🔊 МЯГКИЙ АУДИО-ДВИЖОК ИНТЕРФЕЙСА (WEB AUDIO API)
+    // Нулевая задержка (0ms), 0 КБ трафика, синтез приятных звуков
+    // ========================================================
+    class SoundFXManager {
+      constructor() {
+        this.ctx = null;
+        this.enabled = localStorage.getItem('hw_sound_enabled') !== 'false';
+        this.lastPlayTime = 0;
+        this.throttleMs = 30;
+      }
+
+      initContext() {
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) {
+            this.ctx = new AudioCtx();
+          }
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      canPlay() {
+        if (!this.enabled) return false;
+        const now = performance.now();
+        if (now - this.lastPlayTime < this.throttleMs) return false;
+        this.lastPlayTime = now;
+        this.initContext();
+        return !!this.ctx;
+      }
+
+      // 1. Мягкий клик / тап (кнопки, ссылки, карточки, чипы)
+      playTap() {
+        if (!this.canPlay()) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(480, t);
+          osc.frequency.exponentialRampToValueAtTime(160, t + 0.032);
+
+          gain.gain.setValueAtTime(0.07, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.032);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(t);
+          osc.stop(t + 0.035);
+        } catch (e) {}
+      }
+
+      // 2. Переключение табов и фильтров
+      playTab() {
+        if (!this.canPlay()) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(620, t);
+          osc.frequency.exponentialRampToValueAtTime(320, t + 0.028);
+
+          gain.gain.setValueAtTime(0.065, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.028);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(t);
+          osc.stop(t + 0.03);
+        } catch (e) {}
+      }
+
+      // 3. Открытие модального окна (мягкий восходящий тон)
+      playOpen() {
+        if (!this.canPlay()) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(340, t);
+          osc.frequency.exponentialRampToValueAtTime(540, t + 0.065);
+
+          gain.gain.setValueAtTime(0.055, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(t);
+          osc.stop(t + 0.075);
+        } catch (e) {}
+      }
+
+      // 4. Закрытие модального окна (мягкий нисходящий щелчок)
+      playClose() {
+        if (!this.canPlay()) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(420, t);
+          osc.frequency.exponentialRampToValueAtTime(200, t + 0.045);
+
+          gain.gain.setValueAtTime(0.055, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.048);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(t);
+          osc.stop(t + 0.05);
+        } catch (e) {}
+      }
+
+      // 5. Успех / Выполнение задания (мажорный аккорд C5 -> E5)
+      playSuccess() {
+        if (!this.canPlay()) return;
+        try {
+          const t = this.ctx.currentTime;
+          
+          const osc1 = this.ctx.createOscillator();
+          const gain1 = this.ctx.createGain();
+          osc1.type = 'sine';
+          osc1.frequency.setValueAtTime(523.25, t);
+          gain1.gain.setValueAtTime(0.08, t);
+          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+          osc1.connect(gain1);
+          gain1.connect(this.ctx.destination);
+          osc1.start(t);
+          osc1.stop(t + 0.12);
+
+          const osc2 = this.ctx.createOscillator();
+          const gain2 = this.ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.setValueAtTime(659.25, t + 0.04);
+          gain2.gain.setValueAtTime(0.001, t);
+          gain2.gain.setValueAtTime(0.09, t + 0.04);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
+          osc2.connect(gain2);
+          gain2.connect(this.ctx.destination);
+          osc2.start(t + 0.04);
+          osc2.stop(t + 0.21);
+        } catch (e) {}
+      }
+
+      // 6. Удаление / отмена
+      playDelete() {
+        if (!this.canPlay()) return;
+        try {
+          const t = this.ctx.currentTime;
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(280, t);
+          osc.frequency.exponentialRampToValueAtTime(140, t + 0.07);
+
+          gain.gain.setValueAtTime(0.05, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.075);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+
+          osc.start(t);
+          osc.stop(t + 0.08);
+        } catch (e) {}
+      }
+
+      toggle(enabled) {
+        if (enabled !== undefined) {
+          this.enabled = !!enabled;
+        } else {
+          this.enabled = !this.enabled;
+        }
+        localStorage.setItem('hw_sound_enabled', this.enabled ? 'true' : 'false');
+        if (this.enabled) this.playSuccess();
+        return this.enabled;
+      }
+    }
+
+    const soundFx = new SoundFXManager();
+
+    // Разблокировка AudioContext при первом же касании экрана
+    ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach(evt => {
+      window.addEventListener(evt, () => soundFx.initContext(), { once: true, passive: true });
+    });
+
+    // Глобальная делегация кликов для интерактивных элементов
+    document.addEventListener('click', (e) => {
+      const el = e.target.closest('button, [onclick], .cursor-pointer, input[type="checkbox"], [role="button"], a');
+      if (!el) return;
+      if (el.dataset.sound === 'none' || el.dataset.soundCustom) return;
+      soundFx.playTap();
+    }, { passive: true });
+
+    // ========================================================
     // ВЕКТОРНЫЕ SVG ИКОНКИ С НУЛЯ
     // ========================================================
     const ICONS = {
@@ -1929,6 +2152,7 @@
     }
 
     function openCameraModal() {
+      soundFx.playOpen();
       const modal = document.getElementById('camera-modal');
       if (modal) {
         modal.classList.remove('hidden');
@@ -1939,6 +2163,7 @@
     }
 
     function closeInAppCamera() {
+      soundFx.playClose();
       if (cameraStream) {
         try {
           cameraStream.getTracks().forEach(t => t.stop());
@@ -2577,6 +2802,7 @@
     // ФИЛЬТРАЦИЯ ВКЛАДОК (С КЛАССИЧЕСКИМ АМБЕРНЫМ СТИЛЕМ)
     // ========================================================
     function setFilter(filter) {
+      soundFx.playTab();
       currentFilter = filter;
       const tabs = ['pending', 'today', 'tomorrow', 'overdue'];
       
@@ -2794,6 +3020,7 @@
     }
 
     async function markDone(taskId, btn) {
+      soundFx.playSuccess();
       if (btn) {
         btn.className = 'inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-500 text-white border border-emerald-500 text-xs font-semibold shadow-sm ml-auto transition';
         btn.innerHTML = `<span class="w-3.5 h-3.5 text-white">${ICONS.check}</span><span>Сдано! ✨</span>`;
@@ -2878,11 +3105,13 @@
     }
 
     function openAddModal() {
+      soundFx.playOpen();
       document.getElementById('add-modal').classList.remove('hidden');
       document.getElementById('add-modal').classList.add('flex');
       saveDraftState();
     }
     function closeAddModal() {
+      soundFx.playClose();
       document.getElementById('add-modal').classList.add('hidden');
       document.getElementById('add-modal').classList.remove('flex');
       clearAllPhotos();
@@ -3002,6 +3231,7 @@
           }).catch(() => {});
         } catch(e) {}
 
+        soundFx.playSuccess();
         if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         showToast('✓ Задание опубликовано в класс! Можно изменить кнопкой «Изм.»', 'success');
         loadTasks();
@@ -3252,6 +3482,7 @@
     }
 
     function openEditModal(taskId) {
+      soundFx.playOpen();
       const task = allTasks.find(t => t.id === taskId);
       if (!task) {
         showToast('Задание не найдено', 'warning');
@@ -3287,6 +3518,7 @@
     }
 
     function closeEditModal() {
+      soundFx.playClose();
       const modal = document.getElementById('edit-modal');
       if (modal) {
         modal.classList.add('hidden');
@@ -3400,6 +3632,7 @@
 
         closeEditModal();
         showToast('✓ Изменения сохранены!', 'success');
+        soundFx.playSuccess();
         if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         loadTasks();
       } catch (err) {
@@ -3445,6 +3678,7 @@
 
         closeEditModal();
         showToast('✓ Задание успешно удалено', 'success');
+        soundFx.playDelete();
         if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
         loadTasks();
       } catch (err) {
@@ -3497,6 +3731,7 @@
 
     function openPhotoGallery(materials, startIndex = 0, taskId = null) {
       if (!materials || materials.length === 0) return;
+      soundFx.playOpen();
       currentGalleryTaskId = taskId;
       const editBtn = document.getElementById('photo-edit-task-btn');
       if (editBtn) {
@@ -3666,6 +3901,7 @@
     }
 
     function closePhotoViewer() {
+      soundFx.playClose();
       const modal = document.getElementById('photo-modal');
       modal.classList.add('hidden');
       modal.classList.remove('flex');
@@ -4332,6 +4568,7 @@
     }
 
     function setScheduleView(view) {
+      soundFx.playTab();
       currentScheduleView = view;
       const tabs = ['today', 'grid', 0, 1, 2, 3, 4, 'photo'];
       tabs.forEach(t => {
@@ -4581,6 +4818,7 @@
     }
 
     function openScheduleModal() {
+      soundFx.playOpen();
       const modal = document.getElementById('schedule-modal');
       if (!modal) return;
       modal.classList.remove('hidden');
@@ -4590,6 +4828,7 @@
     }
 
     function closeScheduleModal() {
+      soundFx.playClose();
       const modal = document.getElementById('schedule-modal');
       if (!modal) return;
       modal.classList.add('hidden');
@@ -4634,6 +4873,7 @@
     }
 
     function openScheduleSubjectTasks(sCode, sFullName, teacher, room) {
+      soundFx.playOpen();
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
       const modal = document.getElementById('schedule-subject-tasks-modal');
       if (!modal) return;
@@ -4726,6 +4966,7 @@
     }
 
     function closeScheduleSubjectTasksModal() {
+      soundFx.playClose();
       const modal = document.getElementById('schedule-subject-tasks-modal');
       if (!modal) return;
       modal.classList.add('hidden');
@@ -5179,6 +5420,7 @@
     }
 
     function openLeaderboardModal() {
+      soundFx.playOpen();
       const modal = document.getElementById('leaderboard-modal');
       if (!modal) return;
       loadLeaderboard();
@@ -5188,6 +5430,7 @@
     }
 
     function closeLeaderboardModal() {
+      soundFx.playClose();
       const modal = document.getElementById('leaderboard-modal');
       if (!modal) return;
       modal.classList.add('hidden');
@@ -5198,6 +5441,8 @@
     // ⚙️ НАСТРОЙКИ ЛИЧНЫХ УВЕДОМЛЕНИЙ
     // ========================================================
     async function loadNotifPrefs() {
+      const sToggle = document.getElementById('sound-toggle');
+      if (sToggle) sToggle.checked = soundFx.enabled;
       try {
         const res = await fetch(`/api/notifications/prefs?user_id=${userId}`);
         if (!res.ok) return;
@@ -5215,6 +5460,14 @@
       } catch (err) {
         console.warn('Could not load notif prefs:', err);
       }
+    }
+
+    function toggleSoundSetting() {
+      const toggle = document.getElementById('sound-toggle');
+      if (!toggle) return;
+      const newState = soundFx.toggle(toggle.checked);
+      toggle.checked = newState;
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     }
 
     async function toggleNotifPref(key) {
@@ -5244,6 +5497,7 @@
     }
 
     function openNotifModal() {
+      soundFx.playOpen();
       const modal = document.getElementById('notif-modal');
       if (!modal) return;
       loadNotifPrefs();
@@ -5253,6 +5507,7 @@
     }
 
     function closeNotifModal() {
+      soundFx.playClose();
       const modal = document.getElementById('notif-modal');
       if (!modal) return;
       modal.classList.add('hidden');
