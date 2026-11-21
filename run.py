@@ -5,7 +5,7 @@ import logging
 import uvicorn
 from contextlib import asynccontextmanager
 from server import app
-from bot import dp, bot, send_scheduled_reminder, send_evening_reminder, sync_menu_button, sync_bot_profile, TARGET_TZ
+from bot import dp, bot, send_scheduled_reminder, send_evening_reminder, send_weekly_reminder, sync_menu_button, sync_bot_profile, TARGET_TZ
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from db import init_db
 
@@ -54,11 +54,14 @@ async def lifespan(fastapi_app):
     logger.info("🚀 Starting 10th Grade Homework Portal & Bot...")
     init_db()
 
-    # 1. Start reminder scheduler (every day at 08:00, 16:00, 18:00 local time)
+    # 1. Start reminder scheduler (every day at 08:00, 16:00, 18:00 and Sunday weekly at 18:00)
     try:
+        # Напоминания в 08:00, 16:00, 18:00 (включая дедлайны за 2 дня)
         scheduler.add_job(send_scheduled_reminder, 'cron', hour='8,16,18', minute=0)
+        # Еженедельный дайджест со всеми ДЗ на предстоящую неделю каждое воскресенье в 18:00
+        scheduler.add_job(send_weekly_reminder, 'cron', day_of_week='sun', hour=18, minute=0)
         scheduler.start()
-        logger.info(f"⏰ Scheduler started (Reminders at 08:00, 16:00, 18:00 in {TARGET_TZ})")
+        logger.info(f"⏰ Scheduler started (Reminders at 08:00, 16:00, 18:00; Weekly on Sun 18:00 in {TARGET_TZ})")
     except Exception as e:
         logger.warning(f"Scheduler note: {e}")
 

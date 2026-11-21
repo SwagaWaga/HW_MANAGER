@@ -392,6 +392,8 @@ class NotifPrefsRequest(BaseModel):
     notify_08: bool = True
     notify_16: bool = True
     notify_18: bool = True
+    notify_2days: bool = True
+    notify_weekly: bool = True
 
 @app.get("/api/notifications/prefs")
 def get_user_notification_prefs(user_id: int):
@@ -403,12 +405,16 @@ def update_user_notification_prefs(payload: NotifPrefsRequest):
         payload.user_id,
         payload.notify_08,
         payload.notify_16,
-        payload.notify_18
+        payload.notify_18,
+        payload.notify_2days,
+        payload.notify_weekly
     )
     return {"status": "ok" if success else "error", "prefs": {
         "notify_08": payload.notify_08,
         "notify_16": payload.notify_16,
-        "notify_18": payload.notify_18
+        "notify_18": payload.notify_18,
+        "notify_2days": payload.notify_2days,
+        "notify_weekly": payload.notify_weekly
     }}
 
 @app.get("/api/leaderboard")

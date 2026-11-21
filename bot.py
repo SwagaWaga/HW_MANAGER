@@ -42,7 +42,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.2.0"
+APP_VERSION = "2.3.0"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -124,10 +124,11 @@ async def sync_bot_profile():
     try:
         commands = [
             BotCommand(command="start", description="🚀 Открыть ДЗ Портал 10-А"),
-            BotCommand(command="top", description="🏆 Таблица лидеров редакторов"),
-            BotCommand(command="settings", description="⚙️ Настройки уведомлений (8/16/18)"),
+            BotCommand(command="week", description="🗓️ Все задания на неделю"),
             BotCommand(command="today", description="📅 Уроки и задания на сегодня"),
             BotCommand(command="priority", description="⚡ Срочные задания по дням"),
+            BotCommand(command="top", description="🏆 Таблица лидеров редакторов"),
+            BotCommand(command="settings", description="⚙️ Настройки уведомлений (8/16/18/2 дня/неделя)"),
             BotCommand(command="overdue", description="⏳ Просроченные задания"),
             BotCommand(command="help", description="ℹ️ Справка по всем командам"),
         ]
@@ -254,12 +255,15 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
 
     today = now_local.date()
     tomorrow = today + timedelta(days=1)
+    in_2_days = today + timedelta(days=2)
     today_str = today.isoformat()
     tomorrow_str = tomorrow.isoformat()
+    in_2_days_str = in_2_days.isoformat()
 
     pending = get_pending_tasks(user_id)
     today_tasks = [t for t in pending if str(t.get('due_date')) == today_str]
     tomorrow_tasks = [t for t in pending if str(t.get('due_date')) == tomorrow_str]
+    in_2_days_tasks = [t for t in pending if str(t.get('due_date')) == in_2_days_str]
     overdue_tasks = [t for t in pending if str(t.get('due_date')) < today_str]
 
     today_nom = RU_WEEKDAYS_NOMINATIVE.get(today.weekday(), "Сегодня")
@@ -267,6 +271,12 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
     tomorrow_nom = RU_WEEKDAYS_NOMINATIVE.get(tomorrow.weekday(), "Завтра")
     tomorrow_label = f"{tomorrow.day} {RU_MONTHS[tomorrow.month]}"
     tomorrow_prep = RU_WEEKDAYS.get(tomorrow.weekday(), "завтра")
+    in_2_days_nom = RU_WEEKDAYS_NOMINATIVE.get(in_2_days.weekday(), "Послезавтра")
+    in_2_days_label = f"{in_2_days.day} {RU_MONTHS[in_2_days.month]}"
+    in_2_days_prep = RU_WEEKDAYS.get(in_2_days.weekday(), "через 2 дня")
+
+    prefs = get_notification_prefs(user_id)
+    include_2days = prefs.get('notify_2days', True)
 
     def format_task_list(tasks):
         lines = []
@@ -279,12 +289,12 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
 
     if target_hour <= 10:
         # --- 08:00 Morning Reminder ---
-        has_tasks = bool(today_tasks or tomorrow_tasks or overdue_tasks)
+        has_tasks = bool(today_tasks or tomorrow_tasks or (include_2days and in_2_days_tasks) or overdue_tasks)
         if not has_tasks:
             text = (
                 f"☀️ <b>Доброе утро!</b>\n\n"
                 f"📅 <i>{today_nom}, {today_label}</i>\n\n"
-                f"🎉 На сегодня и завтра нет невыполненных заданий!\n"
+                f"🎉 На сегодня и ближайшие дни нет невыполненных заданий!\n"
                 f"Отличного и продуктивного учебного дня! 🚀"
             )
             return text, False
@@ -304,6 +314,11 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
             lines.extend(format_task_list(tomorrow_tasks))
             lines.append("")
 
+        if include_2days and in_2_days_tasks:
+            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(in_2_days_tasks)}):</b>")
+            lines.extend(format_task_list(in_2_days_tasks))
+            lines.append("")
+
         if overdue_tasks:
             lines.append(f"⚠️ <b>Просроченные задания ({len(overdue_tasks)}):</b>")
             lines.extend(format_task_list(overdue_tasks))
@@ -314,12 +329,12 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
 
     elif target_hour <= 16:
         # --- 16:00 Afternoon / After-school Reminder ---
-        has_tasks = bool(tomorrow_tasks or today_tasks or overdue_tasks)
+        has_tasks = bool(tomorrow_tasks or today_tasks or (include_2days and in_2_days_tasks) or overdue_tasks)
         if not has_tasks:
             text = (
                 f"🎒 <b>Дневное напоминание о ДЗ</b>\n\n"
                 f"📅 <i>{tomorrow_nom}, {tomorrow_label} (завтра)</i>\n\n"
-                f"🎉 На завтра нет невыполненных заданий!\n"
+                f"🎉 На завтра и ближайшие дни нет невыполненных заданий!\n"
                 f"Все уроки готовы, можно отдыхать или заняться своими делами ☕"
             )
             return text, False
@@ -332,6 +347,11 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
         if tomorrow_tasks:
             lines.append(f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>")
             lines.extend(format_task_list(tomorrow_tasks))
+            lines.append("")
+
+        if include_2days and in_2_days_tasks:
+            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(in_2_days_tasks)}):</b>")
+            lines.extend(format_task_list(in_2_days_tasks))
             lines.append("")
 
         if today_tasks:
@@ -350,12 +370,12 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
     else:
         # --- 18:00 Evening Reminder ---
         remaining = today_tasks + overdue_tasks
-        has_tasks = bool(tomorrow_tasks or remaining)
+        has_tasks = bool(tomorrow_tasks or remaining or (include_2days and in_2_days_tasks))
         if not has_tasks:
             text = (
                 f"🌆 <b>Вечерний чек-лист ДЗ</b>\n\n"
                 f"📅 <i>{tomorrow_nom}, {tomorrow_label} (завтра)</i>\n\n"
-                f"🎉 На завтра нет невыполненных заданий!\n"
+                f"🎉 На завтра и ближайшие дни нет невыполненных заданий!\n"
                 f"Все уроки сделаны, приятного вечера и хорошего отдыха ✨"
             )
             return text, False
@@ -368,6 +388,11 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
         if tomorrow_tasks:
             lines.append(f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>")
             lines.extend(format_task_list(tomorrow_tasks))
+            lines.append("")
+
+        if include_2days and in_2_days_tasks:
+            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(in_2_days_tasks)}):</b>")
+            lines.extend(format_task_list(in_2_days_tasks))
             lines.append("")
 
         if remaining:
@@ -439,6 +464,124 @@ async def send_evening_reminder():
     """Backward-compatible wrapper calling send_scheduled_reminder for 18:00."""
     await send_scheduled_reminder(target_hour=18)
 
+def build_weekly_notification(user_id: int, start_date: Optional[date] = None, end_date: Optional[date] = None) -> tuple[str, bool]:
+    """
+    Builds a weekly summary of all upcoming homework assignments
+    grouped by day of the week for the upcoming school week.
+    Returns (formatted_html_text, has_tasks).
+    """
+    now_local = datetime.now(TARGET_TZ)
+    today = now_local.date()
+
+    if start_date is None or end_date is None:
+        if today.weekday() == 6:  # Воскресенье
+            # Предстоящая учебная неделя: пн - вс
+            start_date = today + timedelta(days=1)
+            end_date = start_date + timedelta(days=6)
+        elif today.weekday() == 0:  # Понедельник
+            start_date = today
+            end_date = today + timedelta(days=6)
+        else:
+            # Ближайшие 7 дней от сегодня
+            start_date = today
+            end_date = today + timedelta(days=7)
+
+    start_str = start_date.isoformat()
+    end_str = end_date.isoformat()
+
+    pending = get_pending_tasks(user_id)
+    week_tasks = [t for t in pending if start_str <= str(t.get('due_date', '')) <= end_str]
+
+    start_lbl = f"{start_date.day} {RU_MONTHS[start_date.month]}"
+    end_lbl = f"{end_date.day} {RU_MONTHS[end_date.month]}"
+
+    if not week_tasks:
+        text = (
+            f"🗓️ <b>ДЗ на неделю ({start_lbl} — {end_lbl})</b>\n\n"
+            f"🎉 <b>На предстоящую неделю нет невыполненных заданий!</b>\n"
+            f"Все уроки готовы или ещё не записаны в расписание. Отличного отдыха! ✨"
+        )
+        return text, False
+
+    by_date: Dict[str, List[Dict[str, Any]]] = {}
+    for t in week_tasks:
+        d = str(t.get('due_date', ''))
+        by_date.setdefault(d, []).append(t)
+
+    sorted_dates = sorted(by_date.keys())
+    lines = [
+        f"🗓️ <b>ПЛАН Д/З НА ПРЕДСТОЯЩУЮ НЕДЕЛЮ (10-А класс)</b>",
+        f"📅 <i>Период: {start_lbl} — {end_lbl}</i>\n"
+    ]
+
+    for d_str in sorted_dates:
+        d_tasks = by_date[d_str]
+        try:
+            d_obj = datetime.strptime(d_str, "%Y-%m-%d").date()
+            weekday_nom = RU_WEEKDAYS_NOMINATIVE.get(d_obj.weekday(), "День")
+            date_lbl = f"{d_obj.day} {RU_MONTHS[d_obj.month]}"
+        except Exception:
+            weekday_nom = "Срок"
+            date_lbl = d_str
+
+        lines.append(f"🔹 <b>{weekday_nom}, {date_lbl} ({len(d_tasks)}):</b>")
+        for idx, t in enumerate(d_tasks, 1):
+            icon = get_subject_icon(t.get('subject', ''))
+            subj = html.escape(str(t.get('subject', 'Предмет')).strip())
+            desc = html.escape(str(t.get('description', '')).strip())
+            lines.append(f"  {idx}. {icon} <b>{subj}</b>: {desc}")
+        lines.append("")
+
+    lines.append(f"📊 Всего заданий на неделю: <b>{len(week_tasks)}</b>")
+    lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал, посмотреть страницы учебников или отметить сделанным 👇")
+    return "\n".join(lines).strip(), True
+
+async def send_weekly_reminder():
+    """
+    Weekly automated digest sent every Sunday at 18:00 (Asia/Tashkent),
+    summarizing all homework for the upcoming week.
+    """
+    if not bot:
+        logger.warning("⏰ send_weekly_reminder skipped: Telegram Bot instance is not initialized")
+        return
+
+    now_local = datetime.now(TARGET_TZ)
+    logger.info(f"📅 Running weekly reminder for upcoming week (local time: {now_local.strftime('%Y-%m-%d %H:%M:%S %Z')})...")
+
+    users = get_all_users()
+    if not users:
+        users = [{"id": 5783100321}]
+
+    sent_count = 0
+    skipped_count = 0
+    for u in users:
+        uid = u.get("id")
+        if not uid:
+            continue
+        try:
+            prefs = get_notification_prefs(uid)
+            if not prefs.get("notify_weekly", True):
+                skipped_count += 1
+                logger.info(f"⏭ Skipping user {uid}: notify_weekly is disabled")
+                continue
+
+            text, has_tasks = build_weekly_notification(uid)
+            if has_tasks:
+                await bot.send_message(
+                    chat_id=uid,
+                    text=text,
+                    parse_mode="HTML",
+                    reply_markup=get_portal_keyboard("🗓️ Открыть Портал на неделю")
+                )
+                sent_count += 1
+                await asyncio.sleep(0.05)
+            else:
+                skipped_count += 1
+        except Exception as e:
+            logger.warning(f"Could not send weekly reminder to user {uid}: {e}")
+
+    logger.info(f"📅 Weekly reminder finished: sent {sent_count} notifications, {skipped_count} skipped.")
+
 # ─────────────────────────────────────────────────────────────
 # NOTIFICATION SETTINGS HELPERS
 # ─────────────────────────────────────────────────────────────
@@ -448,21 +591,25 @@ def build_settings_text(prefs: dict) -> str:
         return "ВКЛ ✅" if enabled else "ВЫКЛ ❌"
     return (
         "⚙️ <b>Настройки уведомлений</b>\n\n"
-        "Выбери, в какое время получать напоминания о домашних заданиях:\n\n"
-        f"☀️ <b>08:00</b> — Утреннее   [{st(prefs.get('notify_08', True))}]\n"
-        f"🎒 <b>16:00</b> — Дневное    [{st(prefs.get('notify_16', True))}]\n"
-        f"🌆 <b>18:00</b> — Вечернее   [{st(prefs.get('notify_18', True))}]\n\n"
-        "<i>Нажми на нужное время, чтобы включить или выключить.</i>"
+        "Выбери, какие напоминания о домашних заданиях получать:\n\n"
+        f"☀️ <b>08:00</b> — Утреннее перед уроками   [{st(prefs.get('notify_08', True))}]\n"
+        f"🎒 <b>16:00</b> — Дневное после уроков       [{st(prefs.get('notify_16', True))}]\n"
+        f"🌆 <b>18:00</b> — Вечерний чек-лист        [{st(prefs.get('notify_18', True))}]\n"
+        f"⏳ <b>За 2 дня</b> — Предупреждение о дедлайне [{st(prefs.get('notify_2days', True))}]\n"
+        f"🗓️ <b>Неделя</b> — Дайджест на вс. 18:00   [{st(prefs.get('notify_weekly', True))}]\n\n"
+        "<i>Нажми на нужное время или тип, чтобы включить/выключить.</i>"
     )
 
 def build_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
-    def label(hour_key: str, emoji: str, time: str) -> str:
-        on = prefs.get(hour_key, True)
+    def label(key: str, emoji: str, time: str) -> str:
+        on = prefs.get(key, True)
         return f"{emoji} {time} {'✅' if on else '❌'}"
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=label("notify_08", "☀️", "08:00"), callback_data="toggle_notif:08")],
-        [InlineKeyboardButton(text=label("notify_16", "🎒", "16:00"), callback_data="toggle_notif:16")],
-        [InlineKeyboardButton(text=label("notify_18", "🌆", "18:00"), callback_data="toggle_notif:18")],
+        [InlineKeyboardButton(text=label("notify_08", "☀️", "08:00 Утреннее"), callback_data="toggle_notif:08")],
+        [InlineKeyboardButton(text=label("notify_16", "🎒", "16:00 Дневное"), callback_data="toggle_notif:16")],
+        [InlineKeyboardButton(text=label("notify_18", "🌆", "18:00 Вечернее"), callback_data="toggle_notif:18")],
+        [InlineKeyboardButton(text=label("notify_2days", "⏳", "За 2 дня до сдачи"), callback_data="toggle_notif:2days")],
+        [InlineKeyboardButton(text=label("notify_weekly", "🗓️", "Недельный дайджест (вс)"), callback_data="toggle_notif:weekly")],
     ])
 
 @dp.message(Command("settings", "уведомления", "notif"))
@@ -504,12 +651,19 @@ def format_leaderboard_text(leaders: List[Dict[str, Any]]) -> str:
 async def handle_done_callback(callback: CallbackQuery):
     # ── Toggle notification preference ──────────────────────
     if callback.data.startswith("toggle_notif:"):
-        hour = callback.data.split(":")[1]  # "08", "16", "18"
+        hour = callback.data.split(":")[1]  # "08", "16", "18", "2days", "weekly"
         uid = callback.from_user.id
         prefs = get_notification_prefs(uid)
         key = f"notify_{hour}"
         prefs[key] = not prefs.get(key, True)
-        upsert_notification_prefs(uid, prefs["notify_08"], prefs["notify_16"], prefs["notify_18"])
+        upsert_notification_prefs(
+            uid,
+            prefs.get("notify_08", True),
+            prefs.get("notify_16", True),
+            prefs.get("notify_18", True),
+            prefs.get("notify_2days", True),
+            prefs.get("notify_weekly", True)
+        )
         await callback.answer("✅ Сохранено!")
         # Edit message to reflect new state
         await callback.message.edit_text(
@@ -718,21 +872,25 @@ async def handle_overdue(message: Message):
 @dp.message(Command("priority", "pending"))
 async def handle_priority(message: Message):
     record_user_activity(message.from_user)
-    today_str = date.today().isoformat()
-    tomorrow_str = (date.today() + timedelta(days=1)).isoformat()
+    today = get_local_today()
+    today_str = today.isoformat()
+    tomorrow_str = (today + timedelta(days=1)).isoformat()
+    in2days_str = (today + timedelta(days=2)).isoformat()
     tasks = get_pending_tasks(message.from_user.id)
 
     if not tasks:
         await message.answer("🎉 <b>У вас нет невыполненных заданий! Всё чисто.</b>", parse_mode="HTML", reply_markup=get_portal_keyboard())
         return
 
-    p_today, p_tomorrow, p_other = [], [], []
+    p_today, p_tomorrow, p_in2days, p_other = [], [], [], []
     for t in tasks:
         d = str(t.get('due_date', ''))
         if d <= today_str:
             p_today.append(t)
         elif d == tomorrow_str:
             p_tomorrow.append(t)
+        elif d == in2days_str:
+            p_in2days.append(t)
         else:
             p_other.append(t)
 
@@ -749,6 +907,12 @@ async def handle_priority(message: Message):
             lines.append(f"• {get_subject_icon(t.get('subject', ''))} <b>{html.escape(str(t.get('subject', '')))}</b>: {html.escape(str(t.get('description', '')))}")
         lines.append("")
 
+    if p_in2days:
+        lines.append(f"⏳ <b>Через 2 дня ({len(p_in2days)}):</b>")
+        for t in p_in2days:
+            lines.append(f"• {get_subject_icon(t.get('subject', ''))} <b>{html.escape(str(t.get('subject', '')))}</b>: {html.escape(str(t.get('description', '')))}")
+        lines.append("")
+
     if p_other:
         lines.append(f"📅 <b>На другие дни ({len(p_other)}):</b>")
         for t in p_other:
@@ -757,6 +921,23 @@ async def handle_priority(message: Message):
 
     lines.append("🚀 Открыть приложение:")
     await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=get_portal_keyboard())
+
+@dp.message(Command("week", "weekly", "неделя"))
+async def handle_weekly_command(message: Message):
+    record_user_activity(message.from_user)
+    text, has_tasks = build_weekly_notification(message.from_user.id)
+    await message.answer(
+        text,
+        parse_mode="HTML",
+        reply_markup=get_portal_keyboard("🗓️ Открыть Портал на неделю")
+    )
+
+@dp.message(Command("broadcast_weekly", "notify_week"))
+async def handle_broadcast_weekly(message: Message):
+    record_user_activity(message.from_user)
+    await message.answer("🔄 Запуск рассылки недельного дайджеста...")
+    await send_weekly_reminder()
+    await message.answer("✅ Рассылка недельного дайджеста завершена!")
 
 @dp.message(Command("add"))
 async def handle_add(message: Message, command: CommandObject):
@@ -892,11 +1073,14 @@ async def main():
 
     # 1. Start background reminder scheduler (every day at 08:00, 16:00, 18:00 in Asia/Tashkent)
     scheduler = AsyncIOScheduler(timezone=TARGET_TZ)
+    # Напоминания в 08:00, 16:00, 18:00 (включая дедлайны за 2 дня до сдачи)
     scheduler.add_job(send_scheduled_reminder, 'cron', hour='8,16,18', minute=0)
+    # Недельный дайджест со всеми ДЗ на предстоящую неделю каждое воскресенье в 18:00
+    scheduler.add_job(send_weekly_reminder, 'cron', day_of_week='sun', hour=18, minute=0)
     # Ежедневная автоочистка заданий старше 30 дней в 03:30 ночи
     scheduler.add_job(lambda: cleanup_old_tasks(days=30), 'cron', hour=3, minute=30)
     scheduler.start()
-    logger.info(f"⏰ Background scheduler started (reminders at 08:00, 16:00, 18:00; cleanup at 03:30 in {TARGET_TZ})")
+    logger.info(f"⏰ Background scheduler started (reminders at 08:00, 16:00, 18:00; weekly on Sun 18:00; cleanup at 03:30 in {TARGET_TZ})")
 
     # Разовая проверка устаревших заданий при старте
     try:

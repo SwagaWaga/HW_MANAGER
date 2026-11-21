@@ -305,7 +305,13 @@ def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
 # Table: user_notification_prefs (user_id BIGINT PK, notify_08 BOOL, notify_16 BOOL, notify_18 BOOL)
 # ─────────────────────────────────────────────────────────────
 
-_DEFAULT_PREFS = {"notify_08": True, "notify_16": True, "notify_18": True}
+_DEFAULT_PREFS = {
+    "notify_08": True,
+    "notify_16": True,
+    "notify_18": True,
+    "notify_2days": True,
+    "notify_weekly": True
+}
 
 def get_notification_prefs(user_id: int) -> Optional[Dict[str, bool]]:
     """Return notification preferences for a user from Supabase. Returns None if table/connection fails."""
@@ -313,35 +319,50 @@ def get_notification_prefs(user_id: int) -> Optional[Dict[str, bool]]:
     if not client:
         return None
     try:
-        res = client.table("user_notification_prefs").select("notify_08,notify_16,notify_18").eq("user_id", user_id).limit(1).execute()
+        res = client.table("user_notification_prefs").select("*").eq("user_id", user_id).limit(1).execute()
         if res.data and len(res.data) > 0:
             row = res.data[0]
             return {
                 "notify_08": bool(row.get("notify_08", True)),
                 "notify_16": bool(row.get("notify_16", True)),
                 "notify_18": bool(row.get("notify_18", True)),
+                "notify_2days": bool(row.get("notify_2days", True)),
+                "notify_weekly": bool(row.get("notify_weekly", True)),
             }
         return _DEFAULT_PREFS.copy()
     except Exception as e:
         logger.warning(f"Supabase user_notification_prefs unavailable ({e}), using SQLite fallback")
         return None
 
-def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, notify_18: bool) -> bool:
+def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, notify_18: bool, notify_2days: bool = True, notify_weekly: bool = True) -> bool:
     """Save/update notification preferences for a user in Supabase."""
     client = get_supabase_client()
     if not client:
         return False
+    # 1. Попытка записать с новыми полями
     try:
         client.table("user_notification_prefs").upsert({
             "user_id": user_id,
             "notify_08": notify_08,
             "notify_16": notify_16,
             "notify_18": notify_18,
+            "notify_2days": notify_2days,
+            "notify_weekly": notify_weekly,
         }, on_conflict="user_id").execute()
         return True
     except Exception as e:
-        logger.warning(f"Supabase upsert_notification_prefs failed ({e}), using SQLite fallback")
-        return False
+        # 2. Фолбэк на базовые поля, если колонки в Supabase еще не созданы
+        try:
+            client.table("user_notification_prefs").upsert({
+                "user_id": user_id,
+                "notify_08": notify_08,
+                "notify_16": notify_16,
+                "notify_18": notify_18,
+            }, on_conflict="user_id").execute()
+            return True
+        except Exception as e2:
+            logger.warning(f"Supabase upsert_notification_prefs failed ({e2}), using SQLite fallback")
+            return False
 
 # ─────────────────────────────────────────────────────────────
 # LEADERBOARD / АКТИВНЫЕ РЕДАКТОРЫ (КЭШИРОВАНИЕ НА 4 ЧАСА)

@@ -59,9 +59,16 @@ def init_db():
         user_id INTEGER PRIMARY KEY,
         notify_08 INTEGER DEFAULT 1,
         notify_16 INTEGER DEFAULT 1,
-        notify_18 INTEGER DEFAULT 1
+        notify_18 INTEGER DEFAULT 1,
+        notify_2days INTEGER DEFAULT 1,
+        notify_weekly INTEGER DEFAULT 1
     )
     """)
+    for col in ("notify_2days", "notify_weekly"):
+        try:
+            cursor.execute(f"ALTER TABLE user_notification_prefs ADD COLUMN {col} INTEGER DEFAULT 1")
+        except Exception:
+            pass
     conn.commit()
     conn.close()
 
@@ -293,7 +300,13 @@ def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
 # USER NOTIFICATION PREFERENCES (SQLite fallback)
 # ─────────────────────────────────────────────────────────────
 
-_DEFAULT_PREFS = {"notify_08": True, "notify_16": True, "notify_18": True}
+_DEFAULT_PREFS = {
+    "notify_08": True,
+    "notify_16": True,
+    "notify_18": True,
+    "notify_2days": True,
+    "notify_weekly": True
+}
 
 def get_notification_prefs(user_id: int) -> Dict[str, bool]:
     if is_using_supabase():
@@ -303,29 +316,68 @@ def get_notification_prefs(user_id: int) -> Dict[str, bool]:
     conn = sqlite3.connect(DB_NAME)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT notify_08, notify_16, notify_18 FROM user_notification_prefs WHERE user_id = ?", (user_id,))
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return {"notify_08": bool(row["notify_08"]), "notify_16": bool(row["notify_16"]), "notify_18": bool(row["notify_18"])}
+    try:
+        cursor.execute("SELECT notify_08, notify_16, notify_18, notify_2days, notify_weekly FROM user_notification_prefs WHERE user_id = ?", (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return {
+                "notify_08": bool(row["notify_08"]),
+                "notify_16": bool(row["notify_16"]),
+                "notify_18": bool(row["notify_18"]),
+                "notify_2days": bool(row["notify_2days"]) if "notify_2days" in row.keys() else True,
+                "notify_weekly": bool(row["notify_weekly"]) if "notify_weekly" in row.keys() else True,
+            }
+    except Exception:
+        try:
+            cursor.execute("SELECT notify_08, notify_16, notify_18 FROM user_notification_prefs WHERE user_id = ?", (user_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                return {
+                    "notify_08": bool(row["notify_08"]),
+                    "notify_16": bool(row["notify_16"]),
+                    "notify_18": bool(row["notify_18"]),
+                    "notify_2days": True,
+                    "notify_weekly": True,
+                }
+        except Exception:
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
     return _DEFAULT_PREFS.copy()
 
-def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, notify_18: bool) -> bool:
+def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, notify_18: bool, notify_2days: bool = True, notify_weekly: bool = True) -> bool:
     saved = False
     if is_using_supabase():
-        saved = supabase_db.upsert_notification_prefs(user_id, notify_08, notify_16, notify_18)
+        saved = supabase_db.upsert_notification_prefs(user_id, notify_08, notify_16, notify_18, notify_2days, notify_weekly)
     if not saved:
         conn = sqlite3.connect(DB_NAME)
         cursor = conn.cursor()
-        cursor.execute("""
-            INSERT INTO user_notification_prefs (user_id, notify_08, notify_16, notify_18)
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                notify_08 = excluded.notify_08,
-                notify_16 = excluded.notify_16,
-                notify_18 = excluded.notify_18
-        """, (user_id, int(notify_08), int(notify_16), int(notify_18)))
-        conn.commit()
+        try:
+            cursor.execute("""
+                INSERT INTO user_notification_prefs (user_id, notify_08, notify_16, notify_18, notify_2days, notify_weekly)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    notify_08 = excluded.notify_08,
+                    notify_16 = excluded.notify_16,
+                    notify_18 = excluded.notify_18,
+                    notify_2days = excluded.notify_2days,
+                    notify_weekly = excluded.notify_weekly
+            """, (user_id, int(notify_08), int(notify_16), int(notify_18), int(notify_2days), int(notify_weekly)))
+            conn.commit()
+        except Exception:
+            cursor.execute("""
+                INSERT INTO user_notification_prefs (user_id, notify_08, notify_16, notify_18)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    notify_08 = excluded.notify_08,
+                    notify_16 = excluded.notify_16,
+                    notify_18 = excluded.notify_18
+            """, (user_id, int(notify_08), int(notify_16), int(notify_18)))
+            conn.commit()
         conn.close()
     return True
 
