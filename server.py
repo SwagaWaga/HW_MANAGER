@@ -16,6 +16,7 @@ from db import (
     get_materials_for_tasks_batch,
     get_material_by_id,
     upsert_user,
+    get_user,
     is_using_supabase,
     get_notification_prefs,
     upsert_notification_prefs,
@@ -312,7 +313,9 @@ class UserSync(BaseModel):
 @app.post('/api/user/sync')
 def sync_user(data: UserSync):
     upsert_user(data.user_id, telegram_nick=data.telegram_nick, full_name=data.full_name)
-    return {"status": "ok"}
+    user_info = get_user(data.user_id)
+    role = user_info.get("role", "student") if isinstance(user_info, dict) else "student"
+    return {"status": "ok", "role": role}
 
 @app.post("/api/upload")
 async def upload_photos(

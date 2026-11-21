@@ -1238,11 +1238,22 @@
         
         <!-- ================= ВКЛАДКА 1: НАПОМИНАНИЯ ================= -->
         <div id="settings-pane-notifs" class="space-y-4">
+          <!-- Индикатор автосохранения -->
+          <div id="notif-saved-badge" class="hidden opacity-0 transition-opacity duration-300 py-1.5 px-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between">
+            <div class="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 text-xs font-bold">
+              <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>Настройки успешно сохранены</span>
+            </div>
+            <span class="text-[10px] text-emerald-500/80 font-medium">Синхронизировано</span>
+          </div>
+
           <!-- Когда напоминать -->
           <div>
             <div class="flex items-center justify-between mb-2 px-1">
               <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">⏰ Когда напоминать</span>
-              <span class="text-[10px] text-slate-400 font-medium">Базовое + Своё</span>
+              <button type="button" onclick="resetNotifsToDefault()" class="text-[10.5px] font-bold text-slate-500 hover:text-amber-500 dark:text-slate-400 dark:hover:text-amber-400 underline transition active:scale-95">
+                Сбросить на базовые
+              </button>
             </div>
 
             <!-- Базовые часы -->
@@ -1560,7 +1571,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
-              <span class="font-mono font-bold text-amber-500">v2.8.0</span>
+              <span class="font-mono font-bold text-amber-500">v2.8.1</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Класс</span>
@@ -2895,6 +2906,7 @@
     const userName = tgUser?.first_name ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : 'Ученик';
     const userNick = tgUser?.username ? `@${tgUser.username}` : (tgUser?.first_name ? `@${tgUser.first_name}` : '@ученик_10а');
     const userPhoto = tgUser?.photo_url || '';
+    let userRole = 'student';
 
     let authorCache = {};
     try {
@@ -3400,65 +3412,76 @@
 
     function renderTasks() {
       const container = document.getElementById('tasks-container');
-      const todayStr = getISODate(0);
-      const tomorrowStr = getISODate(1);
+      if (!container) return;
 
-      let filtered = allTasks;
-      if (selectedWorkloadDate) {
-        filtered = allTasks.filter(t => (t.due_date || '').trim() === selectedWorkloadDate);
-      } else if (currentFilter === 'today') {
-        filtered = allTasks.filter(t => (t.due_date || '').trim() === todayStr);
-      } else if (currentFilter === 'tomorrow') {
-        filtered = allTasks.filter(t => (t.due_date || '').trim() === tomorrowStr);
-      } else if (currentFilter === 'overdue') {
-        filtered = allTasks.filter(t => (t.due_date || '').trim() < todayStr);
-      }
+      try {
+        const todayStr = getISODate(0);
+        const tomorrowStr = getISODate(1);
 
-      if (filtered.length === 0) {
-        let emptyTitle = "Всё сделано!";
-        let emptySubtitle = "В этом разделе нет заданий. Отдыхай!";
-        
+        let filtered = allTasks || [];
         if (selectedWorkloadDate) {
-          const d = new Date(selectedWorkloadDate + 'T00:00:00');
-          const dateTitle = d.toLocaleDateString('ru-RU', { weekday: 'short', month: 'short', day: 'numeric' });
-          emptyTitle = `На ${dateTitle} нет заданий!`;
-          emptySubtitle = "На этот день ничего не задано или всё уже выполнено. Можно отдыхать!";
-        } else if (currentFilter === 'tomorrow') {
-          emptyTitle = "На завтра ничего не задано!";
-          emptySubtitle = "Все уроки на завтра сделаны или ещё не записаны. Отличный повод отдохнуть!";
+          filtered = allTasks.filter(t => (t.due_date || '').trim() === selectedWorkloadDate);
         } else if (currentFilter === 'today') {
-          emptyTitle = "На сегодня уроков нет!";
-          emptySubtitle = "На сегодня ничего не осталось. Ты свободен!";
+          filtered = allTasks.filter(t => (t.due_date || '').trim() === todayStr);
+        } else if (currentFilter === 'tomorrow') {
+          filtered = allTasks.filter(t => (t.due_date || '').trim() === tomorrowStr);
         } else if (currentFilter === 'overdue') {
-          emptyTitle = "Долгов нет!";
-          emptySubtitle = "Все хвосты закрыты вовремя. Отличная работа!";
+          filtered = allTasks.filter(t => (t.due_date || '').trim() < todayStr);
         }
 
-        container.innerHTML = `
-          <div class="text-center py-16 text-slate-500">
-            <div class="w-14 h-14 mx-auto mb-3 text-amber-400">${ICONS.backpack}</div>
-            <p class="text-base font-bold text-slate-900 dark:text-slate-100">${escapeHtml(emptyTitle)}</p>
-            <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">${escapeHtml(emptySubtitle)}</p>
-          </div>`;
-        return;
-      }
+        if (filtered.length === 0) {
+          let emptyTitle = "Всё сделано!";
+          let emptySubtitle = "В этом разделе нет заданий. Отдыхай!";
+          
+          if (selectedWorkloadDate) {
+            const d = new Date(selectedWorkloadDate + 'T00:00:00');
+            const dateTitle = d.toLocaleDateString('ru-RU', { weekday: 'short', month: 'short', day: 'numeric' });
+            emptyTitle = `На ${dateTitle} нет заданий!`;
+            emptySubtitle = "На этот день ничего не задано или всё уже выполнено. Можно отдыхать!";
+          } else if (currentFilter === 'tomorrow') {
+            emptyTitle = "На завтра ничего не задано!";
+            emptySubtitle = "Все уроки на завтра сделаны или ещё не записаны. Отличный повод отдохнуть!";
+          } else if (currentFilter === 'today') {
+            emptyTitle = "На сегодня уроков нет!";
+            emptySubtitle = "На сегодня ничего не осталось. Ты свободен!";
+          } else if (currentFilter === 'overdue') {
+            emptyTitle = "Долгов нет!";
+            emptySubtitle = "Все хвосты закрыты вовремя. Отличная работа!";
+          }
 
-      container.innerHTML = filtered.map(t => {
-        const safeSubject = escapeHtml(t.subject);
-        const safeDesc = escapeHtml(t.description);
-        const dueDateInfo = formatCardDueDate(t.due_date, todayStr, tomorrowStr);
+          container.innerHTML = `
+            <div class="text-center py-16 text-slate-500">
+              <div class="w-14 h-14 mx-auto mb-3 text-amber-400">${ICONS.backpack}</div>
+              <p class="text-base font-bold text-slate-900 dark:text-slate-100">${escapeHtml(emptyTitle)}</p>
+              <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto leading-relaxed">${escapeHtml(emptySubtitle)}</p>
+              ${((allTasks && allTasks.length > 0) && (currentFilter !== 'pending' || selectedWorkloadDate)) ? `
+                <div class="mt-4">
+                  <button type="button" onclick="setFilter('pending')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs transition shadow-sm active:scale-95">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="w-3.5 h-3.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
+                    <span>Показать все задания (${allTasks.length})</span>
+                  </button>
+                </div>
+              ` : ''}
+            </div>`;
+          return;
+        }
 
-        const style = subjectStyles[t.subject] || { 
-          icon: ICONS.note, 
-          badge: 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10' 
-        };
+        container.innerHTML = filtered.map(t => {
+          const safeSubject = escapeHtml(t.subject || 'Предмет');
+          const safeDesc = escapeHtml(t.description || '');
+          const dueDateInfo = formatCardDueDate(t.due_date, todayStr, tomorrowStr);
 
-        const matCount = (t.materials && t.materials.length > 0) ? t.materials.length : 0;
-        const authorAvatarHTML = renderAvatarElement(t.user_id, 'w-6 h-6 text-[10px]');
-        const authorNickText = (t.author_name && t.author_name.trim()) ? t.author_name : (t.author_nick || getAuthorNick(t.user_id));
-        const isMeAuthor = (t.user_id && t.user_id == userId);
-        const canEdit = isMeAuthor || !t.user_id || (userRole === 'admin');
-        const hasBeenEdited = Boolean(t.last_edited_by_name);
+          const style = subjectStyles[t.subject] || { 
+            icon: ICONS.note, 
+            badge: 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10' 
+          };
+
+          const matCount = (t.materials && t.materials.length > 0) ? t.materials.length : 0;
+          const authorAvatarHTML = renderAvatarElement(t.user_id, 'w-6 h-6 text-[10px]');
+          const authorNickText = (t.author_name && t.author_name.trim()) ? t.author_name : (t.author_nick || getAuthorNick(t.user_id));
+          const isMeAuthor = Boolean(t.user_id && t.user_id == userId);
+          const canEdit = isMeAuthor || !t.user_id || (typeof userRole !== 'undefined' && userRole === 'admin');
+          const hasBeenEdited = Boolean(t.last_edited_by_name);
 
         const isDescDuplicate = safeDesc.trim().toLowerCase() === safeSubject.trim().toLowerCase();
 
@@ -3569,8 +3592,16 @@
               </button>
             </div>
           </div>
-        `;
-      }).join('');
+        }).join('');
+      } catch (err) {
+        console.error("Critical error in renderTasks:", err);
+        container.innerHTML = `
+          <div class="text-center py-12 px-4 rounded-[24px] glossy-card text-slate-500 dark:text-slate-400 text-sm max-w-sm mx-auto shadow-sm">
+            <div class="w-10 h-10 mx-auto mb-2 text-amber-500">${ICONS.note}</div>
+            <p class="font-bold text-slate-800 dark:text-slate-200">Ошибка отображения заданий</p>
+            <p class="text-xs text-slate-500 mt-1">${escapeHtml(err?.message || 'Попробуйте обновить страницу')}</p>
+          </div>`;
+      }
     }
 
     async function markDone(taskId, btn) {
@@ -4043,8 +4074,8 @@
         return;
       }
 
-      const isMeAuthor = (task.user_id && task.user_id == userId);
-      const canEdit = isMeAuthor || !task.user_id || (userRole === 'admin');
+      const isMeAuthor = Boolean(task.user_id && task.user_id == userId);
+      const canEdit = isMeAuthor || !task.user_id || (typeof userRole !== 'undefined' && userRole === 'admin');
       if (!canEdit) {
         const authorNickText = (task.author_name && task.author_name.trim()) ? task.author_name : (task.author_nick || getAuthorNick(task.user_id));
         showAuthorOnlyNotice(authorNickText);
@@ -5085,8 +5116,28 @@
       });
     }
 
+    // Синхронизация данных профиля и роли
+    async function syncUserInfo() {
+      try {
+        const res = await fetch('/api/user/sync', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            user_id: userId,
+            telegram_nick: userNick,
+            full_name: (userName && userName !== 'Ученик') ? userName : null
+          })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.role) userRole = data.role;
+        }
+      } catch(e) {}
+    }
+
     // Загрузка данных асинхронно без блокировки потока анимации
     loadTasks();
+    syncUserInfo();
     restoreDraftState();
 
     // ========================================================
@@ -6250,10 +6301,51 @@
             userCustomTimes = data.prefs.custom_times;
             renderCustomTimesList();
           }
+          showNotifSavedBadge();
         }
       } catch (err) {
         console.error('Error saving notif prefs:', err);
       }
+    }
+
+    function showNotifSavedBadge() {
+      const badge = document.getElementById('notif-saved-badge');
+      if (!badge) return;
+      badge.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        badge.classList.remove('opacity-0');
+        badge.classList.add('opacity-100');
+      });
+      clearTimeout(window._notifBadgeTimer);
+      window._notifBadgeTimer = setTimeout(() => {
+        badge.classList.remove('opacity-100');
+        badge.classList.add('opacity-0');
+        setTimeout(() => badge.classList.add('hidden'), 300);
+      }, 2500);
+    }
+
+    async function resetNotifsToDefault() {
+      soundFx.playTap();
+      const t08 = document.getElementById('notif-toggle-08');
+      const t16 = document.getElementById('notif-toggle-16');
+      const t18 = document.getElementById('notif-toggle-18');
+      const twk = document.getElementById('notif-toggle-weekly');
+      const ttd = document.getElementById('notif-toggle-today');
+      const ttm = document.getElementById('notif-toggle-tomorrow');
+      const t2d = document.getElementById('notif-toggle-2days');
+      const tod = document.getElementById('notif-toggle-overdue');
+      if (t08) t08.checked = true;
+      if (t16) t16.checked = true;
+      if (t18) t18.checked = true;
+      if (twk) twk.checked = true;
+      if (ttd) ttd.checked = true;
+      if (ttm) ttm.checked = true;
+      if (t2d) t2d.checked = true;
+      if (tod) tod.checked = true;
+      userCustomTimes = [];
+      renderCustomTimesList();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      await saveAllNotifPrefs();
     }
 
     function switchSettingsTab(tabName) {

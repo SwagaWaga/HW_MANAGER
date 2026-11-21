@@ -119,6 +119,17 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
     conn.commit()
     conn.close()
 
+def get_user(user_id: int) -> Optional[Dict[str, Any]]:
+    if is_using_supabase():
+        return supabase_db.get_user(user_id)
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, telegram_nick, full_name, role, class_name FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
 def get_all_users(class_name: str = '10-А') -> List[Dict[str, Any]]:
     if is_using_supabase():
         return supabase_db.get_all_users(class_name)
