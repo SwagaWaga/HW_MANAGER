@@ -94,6 +94,48 @@ def add_task(user_id: int, subject: str, description: str, due_date: str, class_
         logger.error(f"Error in Supabase add_task: {e}")
         return None
 
+def get_task_by_id(task_id: int) -> Optional[Dict[str, Any]]:
+    client = get_supabase_client()
+    if not client:
+        return None
+    try:
+        # First attempt: with author relation
+        res = client.table("tasks").select("*, users!tasks_user_id_fkey(telegram_nick, full_name, role)").eq("id", task_id).limit(1).execute()
+        if res.data and len(res.data) > 0:
+            row = res.data[0]
+            u_info = row.get("users") or {}
+            row["author_nick"] = u_info.get("telegram_nick") or f"@ученик_{row.get('user_id')}"
+            row["author_name"] = u_info.get("full_name") or ""
+            row["role"] = u_info.get("role", "student")
+            return row
+    except Exception as e:
+        logger.warning(f"Note: get_task_by_id with relation skipped: {e}")
+
+    # Fallback: direct select without embedding
+    try:
+        res = client.table("tasks").select("*").eq("id", task_id).limit(1).execute()
+        if res.data and len(res.data) > 0:
+            row = res.data[0]
+            uid = row.get("user_id")
+            row["author_nick"] = f"@ученик_{uid}"
+            row["author_name"] = ""
+            row["role"] = "student"
+            if uid:
+                try:
+                    u_res = client.table("users").select("telegram_nick, full_name, role").eq("id", uid).limit(1).execute()
+                    if u_res.data:
+                        u = u_res.data[0]
+                        row["author_nick"] = u.get("telegram_nick") or row["author_nick"]
+                        row["author_name"] = u.get("full_name") or ""
+                        row["role"] = u.get("role", "student")
+                except Exception:
+                    pass
+            return row
+    except Exception as e:
+        logger.error(f"Error in Supabase get_task_by_id fallback: {e}")
+
+    return None
+
 def get_pending_tasks(user_id: int, class_name: str = "10-А") -> List[Dict[str, Any]]:
     client = get_supabase_client()
     if not client:
@@ -104,30 +146,37 @@ def get_pending_tasks(user_id: int, class_name: str = "10-А") -> List[Dict[str,
         comp_res = client.table("user_completions").select("task_id").eq("user_id", user_id).execute()
         completed_ids = [row["task_id"] for row in (comp_res.data or [])]
 
-        # 2. Query tasks with author info (явно указываем внешний ключ tasks_user_id_fkey для устранения конфликта PostgREST PGRST201)
+        # 2. Query tasks with author info
+        res_data = []
         try:
-            query = client.table("tasks").select("id, user_id, subject, description, due_date, class_name, created_at, users!tasks_user_id_fkey(telegram_nick, full_name, role)")
-        except Exception:
-            query = client.table("tasks").select("id, user_id, subject, description, due_date, class_name, created_at, users(telegram_nick, full_name, role)")
-        if completed_ids:
-            # Filter out completed tasks
-            # PostgREST not.in syntax:
-            query = query.not_.in_("id", completed_ids)
-
-        res = query.order("due_date", desc=False).execute()
+            query = client.table("tasks").select("*, users!tasks_user_id_fkey(telegram_nick, full_name, role)")
+            if completed_ids:
+                query = query.not_.in_("id", completed_ids)
+            res = query.order("due_date", desc=False).execute()
+            res_data = res.data or []
+        except Exception as e:
+            logger.warning(f"Note: get_pending_tasks with relation skipped ({e}), falling back to direct select")
+            query = client.table("tasks").select("*")
+            if completed_ids:
+                query = query.not_.in_("id", completed_ids)
+            res = query.order("due_date", desc=False).execute()
+            res_data = res.data or []
 
         tasks = []
-        for row in (res.data or []):
+        for row in res_data:
             u_info = row.get("users") or {}
-            author_nick = u_info.get("telegram_nick") or f"@ученик_{row['user_id']}"
+            author_nick = u_info.get("telegram_nick") or f"@ученик_{row.get('user_id')}"
             author_name = u_info.get("full_name") or ""
             
             task_dict = {
                 "id": row["id"],
-                "user_id": row["user_id"],
-                "subject": row["subject"],
-                "description": row["description"],
-                "due_date": str(row["due_date"]),
+                "user_id": row.get("user_id"),
+                "subject": row.get("subject"),
+                "description": row.get("description"),
+                "due_date": str(row.get("due_date")),
+                "last_edited_by": row.get("last_edited_by"),
+                "last_edited_by_name": row.get("last_edited_by_name"),
+                "last_edited_at": row.get("last_edited_at"),
                 "author_nick": author_nick,
                 "author_name": author_name,
                 "role": u_info.get("role", "student")
@@ -155,36 +204,62 @@ def mark_task_done(task_id: int, user_id: int) -> bool:
         logger.error(f"Error in Supabase mark_task_done: {e}")
         return False
 
-def update_task(task_id: int, subject: str, description: str, due_date: str, user_id: Optional[int] = None) -> bool:
+def update_task(task_id: int, subject: str, description: str, due_date: str, user_id: Optional[int] = None, editor_name: Optional[str] = None) -> tuple[bool, str]:
     client = get_supabase_client()
     if not client:
-        return False
+        return False, "Database client unavailable"
+
+    task = get_task_by_id(task_id)
+    if not task:
+        return False, "Задание не найдено"
+
+    # Проверка авторства: только автор может изменять задание
+    task_author = task.get("user_id")
+    if user_id and task_author and int(task_author) != int(user_id):
+        author_nick = task.get("author_nick") or f"ID {task_author}"
+        return False, f"Изменять задание может только автор, который его опубликовал ({author_nick})"
+
+    import datetime
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    clean_editor_name = editor_name or task.get("author_name") or task.get("author_nick") or "Редактор"
 
     try:
-        query = client.table("tasks").update({
+        payload = {
             "subject": subject,
             "description": description,
-            "due_date": due_date
-        }).eq("id", task_id)
-        if user_id:
-            query = query.eq("user_id", user_id)
-        res = query.execute()
-        # If no row was updated because user_id did not match, try without user_id
-        if not res.data and user_id:
+            "due_date": due_date,
+            "last_edited_by": user_id,
+            "last_edited_by_name": clean_editor_name,
+            "last_edited_at": now_str
+        }
+        try:
+            client.table("tasks").update(payload).eq("id", task_id).execute()
+        except Exception:
+            # Fallback if audit columns aren't in Supabase schema cache yet
             client.table("tasks").update({
                 "subject": subject,
                 "description": description,
                 "due_date": due_date
             }).eq("id", task_id).execute()
-        return True
+        return True, "Задание успешно обновлено"
     except Exception as e:
         logger.error(f"Error in Supabase update_task: {e}")
-        return False
+        return False, str(e)
 
-def delete_task(task_id: int, user_id: Optional[int] = None) -> bool:
+def delete_task(task_id: int, user_id: Optional[int] = None) -> tuple[bool, str]:
     client = get_supabase_client()
     if not client:
-        return False
+        return False, "Database client unavailable"
+
+    task = get_task_by_id(task_id)
+    if not task:
+        return True, "Задание уже удалено"
+
+    # Проверка авторства: только автор может удалять задание
+    task_author = task.get("user_id")
+    if user_id and task_author and int(task_author) != int(user_id):
+        author_nick = task.get("author_nick") or f"ID {task_author}"
+        return False, f"Удалять задание может только автор, который его опубликовал ({author_nick})"
 
     try:
         # Сначала очищаем связанные записи
@@ -194,16 +269,11 @@ def delete_task(task_id: int, user_id: Optional[int] = None) -> bool:
         except Exception as sub_err:
             logger.warning(f"Cleanup sub-tables warning: {sub_err}")
 
-        query = client.table("tasks").delete().eq("id", task_id)
-        if user_id:
-            query = query.eq("user_id", user_id)
-        res = query.execute()
-        if not res.data and user_id:
-            client.table("tasks").delete().eq("id", task_id).execute()
-        return True
+        client.table("tasks").delete().eq("id", task_id).execute()
+        return True, "Задание удалено"
     except Exception as e:
         logger.error(f"Error in Supabase delete_task: {e}")
-        return False
+        return False, str(e)
 
 def delete_material(material_id: int) -> bool:
     client = get_supabase_client()

@@ -267,14 +267,15 @@ class TaskUpdate(BaseModel):
     subject: str = Field(..., max_length=50)
     description: str = Field(..., max_length=1500)
     due_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
+    editor_name: Optional[str] = None
 
 @app.put('/api/tasks/{task_id}')
 @app.post('/api/tasks/{task_id}/edit')
 def edit_task(task_id: int, data: TaskUpdate):
-    success = update_task(task_id, data.subject, data.description, data.due_date, data.user_id)
+    success, msg = update_task(task_id, data.subject, data.description, data.due_date, data.user_id, data.editor_name)
     if not success:
-        raise HTTPException(status_code=500, detail="Failed to update task")
-    return {"status": "ok", "task_id": task_id}
+        raise HTTPException(status_code=403, detail=msg)
+    return {"status": "ok", "task_id": task_id, "message": msg}
 
 class TaskDelete(BaseModel):
     user_id: int
@@ -283,8 +284,10 @@ class TaskDelete(BaseModel):
 @app.post('/api/tasks/{task_id}/delete')
 def remove_task(task_id: int, user_id: Optional[int] = None, data: Optional[TaskDelete] = None):
     effective_user_id = user_id or (data.user_id if data else None)
-    delete_task(task_id, effective_user_id)
-    return {"status": "ok"}
+    success, msg = delete_task(task_id, effective_user_id)
+    if not success:
+        raise HTTPException(status_code=403, detail=msg)
+    return {"status": "ok", "message": msg}
 
 @app.delete('/api/materials/{material_id}')
 @app.post('/api/materials/{material_id}/delete')

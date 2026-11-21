@@ -44,7 +44,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.7.0"
+APP_VERSION = "2.8.0"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -1320,7 +1320,10 @@ async def handle_delete(message: Message, command: CommandObject):
         return
 
     task_id = int(command.args)
-    delete_task(task_id, message.from_user.id)
+    success, msg = delete_task(task_id, message.from_user.id)
+    if not success:
+        await message.answer(f"❌ {msg}")
+        return
     await message.answer(f"🗑️ Задание #{task_id} удалено.")
 
 @dp.message(Command("delete_all"))

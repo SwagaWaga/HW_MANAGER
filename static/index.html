@@ -885,6 +885,39 @@
     </div>
   </section>
 
+  <!-- ВИЗУАЛЬНЫЙ КАЛЕНДАРЬ ЗАГРУЖЕННОСТИ (WORKLOAD CALENDAR RIBBON) -->
+  <section id="workload-section" class="mb-3.5 glossy-card rounded-[22px] p-3 border border-amber-400/25 bg-gradient-to-b from-amber-500/10 via-slate-900/40 to-transparent">
+    <div class="flex items-center justify-between mb-2.5 px-1">
+      <div class="flex items-center gap-1.5">
+        <div class="w-6 h-6 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="w-3.5 h-3.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </div>
+        <span class="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Загруженность</span>
+      </div>
+      <button type="button" onclick="openWorkloadMonthModal()" class="text-[11px] font-bold text-amber-500 dark:text-amber-400 hover:text-amber-300 flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-400/15 hover:bg-amber-400/25 transition active:scale-95">
+        <span>Весь месяц</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3 h-3"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+
+    <!-- Горизонтальная лента дней недели (14 дней с цветными индикаторами) -->
+    <div id="workload-ribbon" class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar select-none">
+      <!-- Populated dynamically by renderWorkloadRibbon() -->
+    </div>
+
+    <!-- Баннер активной выбранной даты -->
+    <div id="workload-active-banner" class="hidden mt-2 pt-2 border-t border-slate-200/60 dark:border-white/10 flex items-center justify-between px-1">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0"></span>
+        <span id="workload-active-date-text" class="text-xs font-bold text-slate-900 dark:text-white truncate">Выбран день</span>
+      </div>
+      <button type="button" onclick="clearWorkloadDateFilter()" class="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline px-2.5 py-0.5 rounded-lg bg-amber-400/15 shrink-0 flex items-center gap-1 active:scale-95">
+        <span>Сбросить</span>
+        <span>✕</span>
+      </button>
+    </div>
+  </section>
+
   <!-- ГОРИЗОНТАЛЬНЫЕ ПИЛЛЫ-РАЗДЕЛЫ (ЕДИНЫЙ ФИЛЬТР ЗАДАНИЙ) -->
   <nav class="flex space-x-2 mb-4 overflow-x-auto pb-1 no-scrollbar select-none">
     <button onclick="setFilter('pending')" id="tab-pending" class="py-2.5 px-4 text-xs font-black rounded-full bg-amber-400 text-slate-950 shadow-md transition shrink-0 flex items-center gap-1.5 active:scale-95">
@@ -1127,9 +1160,46 @@
     </div>
   </div>
 
-  <!-- ===== МОДАЛЬНОЕ ОКНО НАСТРОЕК (SETTINGS) ===== -->
+  <!-- ===== МОДАЛЬНОЕ ОКНО КАЛЕНДАРЯ НА МЕСЯЦ ===== -->
+  <div id="workload-calendar-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeWorkloadMonthModal()">
+    <div class="bg-white dark:bg-[#0d1b2a] text-slate-900 dark:text-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[92vh]">
+      <!-- Заголовок и переключение месяцев -->
+      <div class="flex items-center justify-between mb-3 pb-3 border-b border-slate-200 dark:border-white/10 shrink-0">
+        <button type="button" onclick="changeWorkloadMonth(-1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-amber-400/20 active:scale-95 flex items-center justify-center font-bold text-base transition">‹</button>
+        <div class="text-center">
+          <h3 id="workload-month-title" class="text-sm font-black text-slate-900 dark:text-white">Ноябрь 2026</h3>
+          <p class="text-[10px] text-slate-400 font-medium">Теплокарта загруженности</p>
+        </div>
+        <div class="flex items-center gap-1">
+          <button type="button" onclick="changeWorkloadMonth(1)" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 hover:bg-amber-400/20 active:scale-95 flex items-center justify-center font-bold text-base transition">›</button>
+          <button type="button" onclick="closeWorkloadMonthModal()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 text-slate-400 hover:text-slate-700 dark:hover:text-white flex items-center justify-center text-sm font-bold ml-1">✕</button>
+        </div>
+      </div>
+
+      <!-- Дни недели (Пн Вт Ср Чт Пт Сб Вс) -->
+      <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+        <span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span class="text-amber-500/80">Сб</span><span class="text-amber-500/80">Вс</span>
+      </div>
+
+      <!-- Сетка дней месяца -->
+      <div id="workload-month-grid" class="grid grid-cols-7 gap-1.5 flex-1 overflow-y-auto pr-0.5">
+        <!-- populated dynamically by renderWorkloadMonthCalendar() -->
+      </div>
+
+      <!-- Легенда нагрузки -->
+      <div class="mt-3 pt-2.5 border-t border-slate-200/80 dark:border-white/10 flex items-center justify-around text-[10px] text-slate-500 dark:text-slate-400 shrink-0">
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-400/40"></span> 0</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400"></span> 1-2</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span> 3-4</span>
+        <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> 5+</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== МОДАЛЬНОЕ ОКНО НАСТРОЕК (SETTINGS CONTROL CENTER) ===== -->
   <div id="notif-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeNotifModal()">
     <div class="bg-white dark:bg-[#0d1b2a] text-slate-900 dark:text-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[90vh]">
+      
       <!-- Заголовок -->
       <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 dark:border-white/10 shrink-0">
         <div class="flex items-center gap-2.5">
@@ -1141,258 +1211,370 @@
           </div>
           <div>
             <h2 class="text-base font-black">Настройки</h2>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400">Уведомления, фильтры Д/З и оформление</p>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Уведомления, оформление и профиль</p>
           </div>
         </div>
         <button onclick="closeNotifModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">✕</button>
       </div>
 
-      <!-- Скроллируемая область настроек -->
-      <div class="overflow-y-auto pr-1 space-y-4 mb-3 flex-1">
-        <!-- БЛОК 1: КОГДА НАПОМИНАТЬ (ВРЕМЯ) -->
-        <div>
-          <div class="flex items-center justify-between mb-2 px-1">
-            <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">⏰ Когда напоминать</span>
-            <span class="text-[10px] text-slate-400 font-medium">Базовое + Своё</span>
+      <!-- Вкладки настроек (3 удобных таба) -->
+      <div class="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-white/5 rounded-2xl mb-3 shrink-0 border border-slate-200/60 dark:border-white/5">
+        <button type="button" id="settings-btn-notifs" onclick="switchSettingsTab('notifs')" class="flex-1 py-1.5 text-xs font-black rounded-xl bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 flex items-center justify-center gap-1">
+          <span>🔔</span>
+          <span>Напоминания</span>
+        </button>
+        <button type="button" id="settings-btn-appearance" onclick="switchSettingsTab('appearance')" class="flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1">
+          <span>🎨</span>
+          <span>Вид</span>
+        </button>
+        <button type="button" id="settings-btn-profile" onclick="switchSettingsTab('profile')" class="flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1">
+          <span>👤</span>
+          <span>Профиль</span>
+        </button>
+      </div>
+
+      <!-- Скроллируемая область вкладок -->
+      <div class="overflow-y-auto pr-1 flex-1">
+        
+        <!-- ================= ВКЛАДКА 1: НАПОМИНАНИЯ ================= -->
+        <div id="settings-pane-notifs" class="space-y-4">
+          <!-- Когда напоминать -->
+          <div>
+            <div class="flex items-center justify-between mb-2 px-1">
+              <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">⏰ Когда напоминать</span>
+              <span class="text-[10px] text-slate-400 font-medium">Базовое + Своё</span>
+            </div>
+
+            <!-- Базовые часы -->
+            <div class="space-y-2 mb-3">
+              <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1">Базовое время (стандартные часы)</div>
+
+              <!-- 08:00 -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">08:00 · Утреннее</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Перед уроками</span>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="notif-toggle-08" onchange="toggleNotifPref('08')" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
+              </div>
+
+              <!-- 16:00 -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">16:00 · Дневное</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">После окончания школы</span>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="notif-toggle-16" onchange="toggleNotifPref('16')" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
+              </div>
+
+              <!-- 18:00 -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">18:00 · Вечернее</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Главный чек-лист на завтра</span>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="notif-toggle-18" onchange="toggleNotifPref('18')" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
+              </div>
+
+              <!-- Недельный дайджест -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Недельный дайджест</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Все Д/З на неделю (вс 18:00)</span>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="notif-toggle-weekly" onchange="toggleNotifPref('weekly')" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- Своё пользовательское время -->
+            <div class="p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/25 dark:border-amber-400/25 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-8 h-8 rounded-xl bg-amber-400/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Своё время напоминаний</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-300">Добавьте любые часы (07:00, 19:30 и др.)</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Список добавленных своих времён -->
+              <div id="custom-times-list" class="flex flex-wrap gap-1.5 py-1 min-h-[30px] items-center">
+                <!-- populated by JS -->
+              </div>
+
+              <!-- Форма добавления нового времени -->
+              <div class="flex items-center gap-2 pt-2 border-t border-amber-500/20 dark:border-white/10 flex-wrap">
+                <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800/90 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-xs">
+                  <span class="text-[10.5px] text-slate-400 font-medium">Время:</span>
+                  <input type="time" id="new-custom-time-input" value="07:00" class="bg-transparent text-slate-900 dark:text-white text-xs font-black outline-none cursor-pointer">
+                </div>
+                <button type="button" onclick="addCustomTimeFromInput()" class="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black active:scale-95 transition flex items-center gap-1 shadow-xs">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>+ Добавить</span>
+                </button>
+                <div class="flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar flex-1 min-w-[130px]">
+                  <button type="button" onclick="quickAddCustomTime('07:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 07:00</button>
+                  <button type="button" onclick="quickAddCustomTime('15:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 15:00</button>
+                  <button type="button" onclick="quickAddCustomTime('19:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 19:00</button>
+                  <button type="button" onclick="quickAddCustomTime('20:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 20:00</button>
+                  <button type="button" onclick="quickAddCustomTime('21:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 21:00</button>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Базовые напоминания -->
-          <div class="space-y-2 mb-3">
-            <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1">Базовое время (готовые часы)</div>
-
-            <!-- 08:00 -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-                </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">08:00 · Утреннее</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Перед уроками</span>
-                </div>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="notif-toggle-08" onchange="toggleNotifPref('08')" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
+          <!-- Какие Д/З напоминать (фильтр дедлайнов) -->
+          <div>
+            <div class="flex items-center gap-1.5 mb-2 px-1">
+              <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">📋 Какие Д/З напоминать</span>
             </div>
-
-            <!-- 16:00 -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            <div class="space-y-2">
+              <!-- На сегодня -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">На сегодня</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Задания со сроком сегодня</span>
+                  </div>
                 </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">16:00 · Дневное</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">После окончания школы</span>
-                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="notif-toggle-today" onchange="toggleNotifPref('today')" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="notif-toggle-16" onchange="toggleNotifPref('16')" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
-            </div>
 
-            <!-- 18:00 -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              <!-- На завтра -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">На завтра</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Задания со сроком на завтра</span>
+                  </div>
                 </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">18:00 · Вечернее</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Главный чек-лист на завтра</span>
-                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="notif-toggle-tomorrow" onchange="toggleNotifPref('tomorrow')" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="notif-toggle-18" onchange="toggleNotifPref('18')" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
-            </div>
 
-            <!-- Недельный дайджест -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <!-- На послезавтра (за 2 дня) -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">На послезавтра</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Дедлайн через 2 дня</span>
+                  </div>
                 </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Недельный дайджест</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Все Д/З на неделю (вс 18:00)</span>
-                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="notif-toggle-2days" onchange="toggleNotifPref('2days')" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="notif-toggle-weekly" onchange="toggleNotifPref('weekly')" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
+
+              <!-- Просроченные (долги) -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Просроченные</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Несданные долги</span>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="notif-toggle-overdue" onchange="toggleNotifPref('overdue')" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
+              </div>
             </div>
           </div>
+        </div>
 
-          <!-- СВОЁ ПОЛЬЗОВАТЕЛЬСКОЕ ВРЕМЯ НАПОМИНАНИЯ -->
-          <div class="p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-400/10 border border-amber-500/25 dark:border-amber-400/25 space-y-2.5">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2.5">
-                <div class="w-8 h-8 rounded-xl bg-amber-400/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Своё время напоминаний</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-300">Добавьте любые часы (например: 07:00, 19:30)</span>
-                </div>
-              </div>
+        <!-- ================= ВКЛАДКА 2: ОФОРМЛЕНИЕ И ВИД ================= -->
+        <div id="settings-pane-appearance" class="hidden space-y-4">
+          <!-- Тема оформления -->
+          <div>
+            <div class="flex items-center justify-between mb-2 px-1">
+              <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">🎨 Тема интерфейса</span>
             </div>
-
-            <!-- Список добавленных своих времён -->
-            <div id="custom-times-list" class="flex flex-wrap gap-1.5 py-1 min-h-[30px] items-center">
-              <!-- populated by JS -->
-            </div>
-
-            <!-- Форма добавления нового времени -->
-            <div class="flex items-center gap-2 pt-2 border-t border-amber-500/20 dark:border-white/10 flex-wrap">
-              <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800/90 px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-white/10 shadow-xs">
-                <span class="text-[10.5px] text-slate-400 font-medium">Время:</span>
-                <input type="time" id="new-custom-time-input" value="07:00" class="bg-transparent text-slate-900 dark:text-white text-xs font-black outline-none cursor-pointer">
-              </div>
-              <button type="button" onclick="addCustomTimeFromInput()" class="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black active:scale-95 transition flex items-center gap-1 shadow-xs">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>+ Добавить</span>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" onclick="applyTheme('dark'); localStorage.setItem('school_theme', 'dark'); soundFx.playTap();" class="p-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-900 text-white flex items-center justify-center gap-2 text-xs font-bold active:scale-95 transition shadow-sm">
+                <span>🌙</span>
+                <span>Тёмная</span>
               </button>
-              <div class="flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar flex-1 min-w-[130px]">
-                <button type="button" onclick="quickAddCustomTime('07:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 07:00</button>
-                <button type="button" onclick="quickAddCustomTime('15:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 15:00</button>
-                <button type="button" onclick="quickAddCustomTime('19:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 19:00</button>
-                <button type="button" onclick="quickAddCustomTime('20:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 20:00</button>
-                <button type="button" onclick="quickAddCustomTime('21:00')" class="px-2 py-1 rounded-lg text-[10px] font-bold bg-white/70 dark:bg-white/10 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 shrink-0 border border-slate-200/60 dark:border-white/5">+ 21:00</button>
+              <button type="button" onclick="applyTheme('light'); localStorage.setItem('school_theme', 'light'); soundFx.playTap();" class="p-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-white text-slate-900 flex items-center justify-center gap-2 text-xs font-bold active:scale-95 transition shadow-sm">
+                <span>☀️</span>
+                <span>Светлая</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Эффекты и звуки -->
+          <div>
+            <div class="flex items-center gap-1.5 mb-2 px-1">
+              <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">✨ Интерактивность</span>
+            </div>
+            <div class="space-y-2">
+              <!-- Осенний листопад -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Осенний листопад</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Плавные листья на фоне (без лагов)</span>
+                  </div>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="leaves-toggle" onchange="toggleAutumnLeavesSetting()" class="sr-only peer" checked>
+                  <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                </label>
+              </div>
+
+              <!-- Звуки интерфейса -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Звуки интерфейса</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Приятные клики и отклики</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button type="button" onclick="testSoundEffect()" class="px-2 py-1 rounded-lg bg-amber-400/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold active:scale-95 transition" title="Проверить звук">Тест 🎵</button>
+                  <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="sound-toggle" onchange="toggleSoundSetting()" class="sr-only peer" checked>
+                    <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                  </label>
+                </div>
+              </div>
+
+              <!-- Виброотклик -->
+              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+                <div class="flex items-center gap-2.5">
+                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                  </div>
+                  <div>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Вибро-отклик</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Тактильная отдача Telegram</span>
+                  </div>
+                </div>
+                <button type="button" onclick="testHapticFeedback()" class="px-2 py-1 rounded-lg bg-amber-400/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold active:scale-95 transition" title="Проверить вибрацию">Тест 📳</button>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- БЛОК 2: КАКИЕ Д/З НАПОМИНАТЬ (ФИЛЬТР ДЕДЛАЙНОВ) -->
-        <div>
-          <div class="flex items-center gap-1.5 mb-2 px-1">
-            <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">📋 Какие Д/З напоминать</span>
+        <!-- ================= ВКЛАДКА 3: ПРОФИЛЬ И СИСТЕМА ================= -->
+        <div id="settings-pane-profile" class="hidden space-y-4">
+          <!-- Карточка пользователя -->
+          <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/25 flex items-center gap-3">
+            <div id="settings-profile-avatar" class="w-12 h-12 rounded-full overflow-hidden shrink-0 flex items-center justify-center ring-2 ring-amber-400/40 shadow-md bg-amber-400/20 text-amber-500">
+              <!-- Avatar populated by JS -->
+            </div>
+            <div class="min-w-0 flex-1">
+              <h3 id="settings-profile-name" class="text-sm font-black text-slate-900 dark:text-white truncate">Ученик</h3>
+              <p id="settings-profile-nick" class="text-xs text-amber-600 dark:text-amber-400 font-mono truncate">@ник</p>
+              <div class="flex items-center gap-2 mt-1">
+                <span class="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-slate-950/10 dark:bg-white/10 text-slate-700 dark:text-slate-300">10-А класс</span>
+                <span id="settings-profile-id" class="text-[9.5px] font-mono text-slate-400">ID: ...</span>
+              </div>
+            </div>
           </div>
+
+          <!-- Действия с данными -->
           <div class="space-y-2">
-            <!-- На сегодня -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-red-500/20 text-red-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
-                </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">На сегодня</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Задания со сроком сегодня</span>
-                </div>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="notif-toggle-today" onchange="toggleNotifPref('today')" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
-            </div>
+            <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1">Синхронизация и кэш</div>
 
-            <!-- На завтра -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+            <button type="button" onclick="refreshAllAppData()" class="w-full p-3 rounded-2xl bg-slate-50 dark:bg-white/5 hover:bg-amber-400/15 border border-slate-200/80 dark:border-white/10 flex items-center justify-between transition active:scale-95 group">
               <div class="flex items-center gap-2.5">
                 <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
                 </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">На завтра</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Задания со сроком на завтра</span>
+                <div class="text-left">
+                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Обновить данные и кэш</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Перезагрузить Д/З, расписание и лидеров</span>
                 </div>
               </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="notif-toggle-tomorrow" onchange="toggleNotifPref('tomorrow')" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
-            </div>
+              <span class="text-xs text-amber-500 font-bold">🔄</span>
+            </button>
+          </div>
 
-            <!-- На послезавтра (за 2 дня) -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">На послезавтра</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Дедлайн через 2 дня</span>
-                </div>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="notif-toggle-2days" onchange="toggleNotifPref('2days')" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
+          <!-- Системная информация -->
+          <div class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-1.5 text-[11px]">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500 dark:text-slate-400">Статус сети</span>
+              <span class="font-bold text-emerald-500 flex items-center gap-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Онлайн</span>
+              </span>
             </div>
-
-            <!-- Просроченные (долги) -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Просроченные</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Несданные долги</span>
-                </div>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="notif-toggle-overdue" onchange="toggleNotifPref('overdue')" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
+              <span class="font-mono font-bold text-amber-500">v2.8.0</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500 dark:text-slate-400">Класс</span>
+              <span class="font-medium text-slate-700 dark:text-slate-300">10-А Инженерный</span>
             </div>
           </div>
         </div>
 
-        <!-- БЛОК 3: ОФОРМЛЕНИЕ И ЭФФЕКТЫ -->
-        <div>
-          <div class="flex items-center gap-1.5 mb-2 px-1">
-            <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">🎨 Оформление и эффекты</span>
-          </div>
-          <div class="space-y-2">
-            <!-- Осенний листопад -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
-                </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Осенний листопад</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Плавные листья на фоне</span>
-                </div>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="leaves-toggle" onchange="toggleAutumnLeavesSetting()" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
-            </div>
-
-            <!-- Звуки интерфейса -->
-            <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                </div>
-                <div>
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Звуки интерфейса</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Тактильный аудио-отклик кликов</span>
-                </div>
-              </div>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="sound-toggle" onchange="toggleSoundSetting()" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
-            </div>
-          </div>
-        </div>
       </div>
 
-      <div class="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-700 dark:text-amber-300 text-center shrink-0">
-        💡 Настройки также можно изменить в чате с ботом командой <b class="font-mono">/settings</b>
+      <!-- Нижняя плашка -->
+      <div class="mt-3 pt-2.5 border-t border-slate-200/80 dark:border-white/10 text-[11px] text-amber-700 dark:text-amber-300 text-center shrink-0">
+        💡 Настройки также доступны в боте командой <b class="font-mono">/settings</b>
       </div>
-    </div>
-  </div>
     </div>
   </div>
 
@@ -1694,14 +1876,14 @@
   </div>
 
   <!-- Интерактивный просмотрщик фото в стиле Telegram -->
-  <div id="photo-modal" class="fixed inset-0 bg-black/95 backdrop-blur-xl hidden flex-col justify-between p-2.5 sm:p-4 select-none overflow-hidden" style="z-index: 100;" onclick="closePhotoViewer()">
+  <div id="photo-modal" class="fixed inset-0 bg-black/95 backdrop-blur-2xl hidden flex-col justify-between p-2.5 sm:p-4 select-none overflow-hidden transition-all duration-300 opacity-0" style="z-index: 100;" onclick="closePhotoViewer()">
     
     <!-- ВЕРХНЯЯ ЧАСТЬ: Сегментированные полоски страниц и шапка в стиле Telegram -->
-    <div class="w-full max-w-4xl mx-auto flex flex-col z-20 shrink-0" onclick="event.stopPropagation()">
+    <div id="photo-top-bar" class="w-full max-w-4xl mx-auto flex flex-col z-20 shrink-0 transition-opacity duration-200" onclick="event.stopPropagation()">
       <!-- Telegram-style сегментированные полоски страниц (как в Stories / медиа-альбомах Telegram) -->
       <div id="photo-story-indicators" class="w-full flex items-center gap-1.5 pt-1 pb-2 px-1"></div>
 
-      <!-- Верхняя панель: Закрыть (слева), Заголовок "4 из 5" (по центру), Поворот (справа) -->
+      <!-- Верхняя панель: Закрыть (слева), Заголовок "4 из 5" (по центру), Скачать и Поворот (справа) -->
       <div class="flex items-center justify-between px-1 py-1">
         <!-- Кнопка Закрыть -->
         <button onclick="closePhotoViewer()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition backdrop-blur-md border border-white/10 shadow-lg shrink-0" title="Закрыть (Esc)">
@@ -1717,27 +1899,39 @@
           </div>
         </div>
 
-        <!-- Кнопка быстрого поворота вправо (симметрично и удобно под пальцем) -->
-        <button onclick="rotatePhoto(90)" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition backdrop-blur-md border border-white/10 shadow-lg shrink-0" title="Повернуть фото (на 90°)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="23 4 23 10 17 10"></polyline>
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
-          </svg>
-        </button>
+        <!-- Кнопки Скачать и быстрого поворота в стиле Telegram -->
+        <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Кнопка Скачать -->
+          <button onclick="downloadCurrentPhoto()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition backdrop-blur-md border border-white/10 shadow-lg shrink-0" title="Скачать фото">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </button>
+
+          <!-- Кнопка быстрого поворота вправо (симметрично и удобно под пальцем) -->
+          <button onclick="rotatePhoto(90)" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition backdrop-blur-md border border-white/10 shadow-lg shrink-0" title="Повернуть фото (на 90°)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
     <!-- ЦЕНТР: Видовое окно фотографии с поддержкой Pinch-to-zoom, перетаскивания мышью и свайпов -->
-    <div id="photo-viewport" class="flex-1 w-full max-w-5xl lg:max-w-6xl mx-auto flex items-center justify-center overflow-hidden my-1 relative select-none cursor-grab" style="touch-action: none;" onclick="event.stopPropagation()">
+    <div id="photo-viewport" class="flex-1 w-full max-w-5xl lg:max-w-6xl mx-auto flex items-center justify-center overflow-hidden my-1 relative select-none cursor-grab" style="touch-action: none;" onclick="togglePhotoControls(event)">
       <!-- Кнопки перелистывания страниц (для десктопа и планшета) -->
-      <button id="photo-nav-prev" onclick="prevPhoto()" class="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/15 active:scale-90 transition z-30 shadow-2xl select-none" title="Предыдущая страница (←)">‹</button>
-      <button id="photo-nav-next" onclick="nextPhoto()" class="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/15 active:scale-90 transition z-30 shadow-2xl select-none" title="Следующая страница (→)">›</button>
+      <button id="photo-nav-prev" onclick="event.stopPropagation(); prevPhoto();" class="hidden sm:flex absolute left-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/15 active:scale-90 transition z-30 shadow-2xl select-none" title="Предыдущая страница (←)">‹</button>
+      <button id="photo-nav-next" onclick="event.stopPropagation(); nextPhoto();" class="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white items-center justify-center text-2xl font-bold backdrop-blur-md border border-white/15 active:scale-90 transition z-30 shadow-2xl select-none" title="Следующая страница (→)">›</button>
 
       <img id="modal-image-preview" src="" alt="Страница учебника" class="max-w-full max-h-[70vh] sm:max-h-[76vh] rounded-2xl object-contain shadow-2xl transition-transform duration-200 select-none pointer-events-auto" draggable="false" style="touch-action: none;" />
     </div>
 
     <!-- НИЖНЯЯ ПАНЕЛЬ: Telegram-style миниатюры альбома + управление масштабом и поворотом -->
-    <div class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center gap-2 pb-2 z-10 shrink-0" onclick="event.stopPropagation()">
+    <div id="photo-bottom-bar" class="w-full max-w-4xl mx-auto flex flex-col items-center justify-center gap-2 pb-2 z-10 shrink-0 transition-opacity duration-200" onclick="event.stopPropagation()">
       <!-- Telegram-style лента миниатюр страниц (для быстрого перехода между фото) -->
       <div id="photo-bottom-thumbnails" class="w-full flex items-center justify-center gap-2 py-1 overflow-x-auto no-scrollbar px-2"></div>
 
@@ -2927,6 +3121,7 @@
     function setFilter(filter) {
       soundFx.playTab();
       currentFilter = filter;
+      selectedWorkloadDate = null;
       const tabs = ['pending', 'today', 'tomorrow', 'overdue'];
       
       tabs.forEach(f => {
@@ -2940,7 +3135,219 @@
         }
       });
 
+      renderWorkloadRibbon();
       renderTasks();
+    }
+
+    // ========================================================
+    // 📅 ВИЗУАЛЬНЫЙ КАЛЕНДАРЬ ЗАГРУЖЕННОСТИ (WORKLOAD CALENDAR)
+    // ========================================================
+    let selectedWorkloadDate = null;
+    let workloadCalendarDate = new Date();
+
+    function renderWorkloadRibbon() {
+      const ribbon = document.getElementById('workload-ribbon');
+      if (!ribbon) return;
+
+      const now = new Date();
+      const todayStr = getISODate(0);
+
+      // Начинаем с понедельника текущей недели
+      const dayOfWeek = now.getDay();
+      const diffToMon = (dayOfWeek === 0 ? -6 : 1) - dayOfWeek;
+      const startMon = new Date(now);
+      startMon.setDate(now.getDate() + diffToMon);
+      startMon.setHours(0, 0, 0, 0);
+
+      const days = [];
+      const dayNamesShort = ['ВС', 'ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ'];
+
+      // 14 дней (текущая + следующая неделя)
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(startMon);
+        d.setDate(startMon.getDate() + i);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const dayNum = String(d.getDate()).padStart(2, '0');
+        const dateStr = `${y}-${m}-${dayNum}`;
+        const shortDay = dayNamesShort[d.getDay()];
+
+        const count = allTasks.filter(t => (t.due_date || '').trim() === dateStr).length;
+        const isToday = (dateStr === todayStr);
+        const isSelected = (selectedWorkloadDate === dateStr);
+
+        days.push({ dateStr, d, dayNum: d.getDate(), shortDay, count, isToday, isSelected });
+      }
+
+      ribbon.innerHTML = days.map(item => {
+        let badgeBg = 'bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400';
+        let dotColor = 'bg-slate-400';
+        let loadText = '0';
+        if (item.count >= 5) {
+          badgeBg = 'bg-rose-500/20 text-rose-500 font-bold';
+          dotColor = 'bg-rose-500';
+          loadText = `${item.count}`;
+        } else if (item.count >= 3) {
+          badgeBg = 'bg-amber-400/20 text-amber-500 font-bold';
+          dotColor = 'bg-amber-400';
+          loadText = `${item.count}`;
+        } else if (item.count >= 1) {
+          badgeBg = 'bg-emerald-500/20 text-emerald-500 font-bold';
+          dotColor = 'bg-emerald-500';
+          loadText = `${item.count}`;
+        }
+
+        const activeClass = item.isSelected 
+          ? 'bg-amber-400 text-slate-950 font-black shadow-md ring-2 ring-amber-400/60 scale-102' 
+          : (item.isToday 
+              ? 'bg-amber-400/10 border-2 border-amber-400/70 text-slate-900 dark:text-white' 
+              : 'bg-white/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10');
+
+        return `
+          <button type="button" onclick="selectWorkloadDate('${item.dateStr}')" 
+            class="flex flex-col items-center justify-between p-2 rounded-2xl min-w-[54px] h-[72px] shrink-0 transition-all duration-200 active:scale-95 ${activeClass}"
+            title="${item.dateStr}: ${item.count} заданий">
+            <span class="text-[10px] uppercase font-bold tracking-tight opacity-75">${item.shortDay}</span>
+            <span class="text-base font-black leading-none my-0.5">${item.dayNum}</span>
+            <div class="flex items-center gap-1 px-1.5 py-0.5 rounded-full ${item.isSelected ? 'bg-slate-950/20 text-slate-950' : badgeBg} text-[9px] leading-none">
+              <span class="w-1.5 h-1.5 rounded-full ${item.isSelected ? 'bg-slate-950' : dotColor} shrink-0"></span>
+              <span>${loadText}</span>
+            </div>
+          </button>
+        `;
+      }).join('');
+
+      updateWorkloadBanner();
+    }
+
+    function selectWorkloadDate(dateStr) {
+      soundFx.playTap();
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      if (selectedWorkloadDate === dateStr) {
+        selectedWorkloadDate = null;
+      } else {
+        selectedWorkloadDate = dateStr;
+      }
+      renderWorkloadRibbon();
+      renderTasks();
+    }
+
+    function clearWorkloadDateFilter() {
+      soundFx.playTap();
+      selectedWorkloadDate = null;
+      renderWorkloadRibbon();
+      renderTasks();
+    }
+
+    function updateWorkloadBanner() {
+      const banner = document.getElementById('workload-active-banner');
+      const text = document.getElementById('workload-active-date-text');
+      if (!banner || !text) return;
+
+      if (!selectedWorkloadDate) {
+        banner.classList.add('hidden');
+        return;
+      }
+
+      const d = new Date(selectedWorkloadDate + 'T00:00:00');
+      const count = allTasks.filter(t => (t.due_date || '').trim() === selectedWorkloadDate).length;
+      const formattedDate = d.toLocaleDateString('ru-RU', { weekday: 'short', month: 'short', day: 'numeric' });
+      const plural = formatPlural(count, 'задание', 'задания', 'заданий');
+      
+      text.innerText = `Выбрана дата: ${formattedDate} (${count > 0 ? plural : 'нет заданий'})`;
+      banner.classList.remove('hidden');
+    }
+
+    function openWorkloadMonthModal() {
+      soundFx.playOpen();
+      const modal = document.getElementById('workload-calendar-modal');
+      if (!modal) return;
+      workloadCalendarDate = new Date();
+      renderWorkloadMonthCalendar();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    function closeWorkloadMonthModal() {
+      soundFx.playClose();
+      const modal = document.getElementById('workload-calendar-modal');
+      if (!modal) return;
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    function changeWorkloadMonth(delta) {
+      soundFx.playTab();
+      workloadCalendarDate.setMonth(workloadCalendarDate.getMonth() + delta);
+      renderWorkloadMonthCalendar();
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+    }
+
+    function renderWorkloadMonthCalendar() {
+      const title = document.getElementById('workload-month-title');
+      const grid = document.getElementById('workload-month-grid');
+      if (!grid) return;
+
+      const year = workloadCalendarDate.getFullYear();
+      const month = workloadCalendarDate.getMonth();
+
+      if (title) {
+        title.innerText = workloadCalendarDate.toLocaleDateString('ru-RU', { month: 'long', year: 'numeric' });
+      }
+
+      const firstDayIndex = (new Date(year, month, 1).getDay() + 6) % 7;
+      const totalDays = new Date(year, month + 1, 0).getDate();
+      const todayStr = getISODate(0);
+
+      let cells = [];
+
+      for (let i = 0; i < firstDayIndex; i++) {
+        cells.push(`<div class="h-10 rounded-xl opacity-0 pointer-events-none"></div>`);
+      }
+
+      for (let day = 1; day <= totalDays; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const count = allTasks.filter(t => (t.due_date || '').trim() === dateStr).length;
+        const isToday = (dateStr === todayStr);
+        const isSelected = (selectedWorkloadDate === dateStr);
+
+        let loadClass = 'bg-slate-100 dark:bg-white/5 text-slate-700 dark:text-slate-300';
+        if (count >= 5) {
+          loadClass = 'bg-rose-500/20 text-rose-500 font-black border border-rose-500/40';
+        } else if (count >= 3) {
+          loadClass = 'bg-amber-400/20 text-amber-500 font-bold border border-amber-400/40';
+        } else if (count >= 1) {
+          loadClass = 'bg-emerald-500/20 text-emerald-500 font-bold border border-emerald-500/40';
+        }
+
+        if (isSelected) {
+          loadClass = 'bg-amber-400 text-slate-950 font-black shadow-md ring-2 ring-amber-400/60';
+        } else if (isToday) {
+          loadClass += ' ring-2 ring-amber-400/80';
+        }
+
+        cells.push(`
+          <button type="button" onclick="selectMonthCalendarDate('${dateStr}')" 
+            class="h-11 rounded-xl flex flex-col items-center justify-center p-1 text-xs transition active:scale-90 ${loadClass}">
+            <span class="leading-none">${day}</span>
+            ${count > 0 ? `<span class="text-[9px] leading-tight font-black">${count}</span>` : `<span class="text-[9px] opacity-30 leading-tight">·</span>`}
+          </button>
+        `);
+      }
+
+      grid.innerHTML = cells.join('');
+    }
+
+    function selectMonthCalendarDate(dateStr) {
+      closeWorkloadMonthModal();
+      selectWorkloadDate(dateStr);
+    }
+
+    function showAuthorOnlyNotice(authorNick) {
+      soundFx.playTap();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+      showToast(`🔒 Изменять задание может только автор (${authorNick})`, 'warning');
     }
 
     // ========================================================
@@ -2997,7 +3404,9 @@
       const tomorrowStr = getISODate(1);
 
       let filtered = allTasks;
-      if (currentFilter === 'today') {
+      if (selectedWorkloadDate) {
+        filtered = allTasks.filter(t => (t.due_date || '').trim() === selectedWorkloadDate);
+      } else if (currentFilter === 'today') {
         filtered = allTasks.filter(t => (t.due_date || '').trim() === todayStr);
       } else if (currentFilter === 'tomorrow') {
         filtered = allTasks.filter(t => (t.due_date || '').trim() === tomorrowStr);
@@ -3009,7 +3418,12 @@
         let emptyTitle = "Всё сделано!";
         let emptySubtitle = "В этом разделе нет заданий. Отдыхай!";
         
-        if (currentFilter === 'tomorrow') {
+        if (selectedWorkloadDate) {
+          const d = new Date(selectedWorkloadDate + 'T00:00:00');
+          const dateTitle = d.toLocaleDateString('ru-RU', { weekday: 'short', month: 'short', day: 'numeric' });
+          emptyTitle = `На ${dateTitle} нет заданий!`;
+          emptySubtitle = "На этот день ничего не задано или всё уже выполнено. Можно отдыхать!";
+        } else if (currentFilter === 'tomorrow') {
           emptyTitle = "На завтра ничего не задано!";
           emptySubtitle = "Все уроки на завтра сделаны или ещё не записаны. Отличный повод отдохнуть!";
         } else if (currentFilter === 'today') {
@@ -3043,6 +3457,8 @@
         const authorAvatarHTML = renderAvatarElement(t.user_id, 'w-6 h-6 text-[10px]');
         const authorNickText = (t.author_name && t.author_name.trim()) ? t.author_name : (t.author_nick || getAuthorNick(t.user_id));
         const isMeAuthor = (t.user_id && t.user_id == userId);
+        const canEdit = isMeAuthor || !t.user_id || (userRole === 'admin');
+        const hasBeenEdited = Boolean(t.last_edited_by_name);
 
         const isDescDuplicate = safeDesc.trim().toLowerCase() === safeSubject.trim().toLowerCase();
 
@@ -3115,7 +3531,7 @@
 
             <!-- Нижняя панель карточки: Автор + Изм. (слева) и Кнопка "Сдать" (справа) -->
             <div class="flex items-center justify-between gap-2 mt-2 pt-2.5 border-t border-slate-100 dark:border-white/[0.05] flex-wrap">
-              <!-- Левая группа: Аватар автора + Кнопка редактирования -->
+              <!-- Левая группа: Аватар автора + Кнопка редактирования + Бейдж истории правок -->
               <div class="flex items-center gap-1.5 shrink-0 flex-wrap">
                 <div class="inline-flex items-center gap-1.5 pl-0.5 pr-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/[0.08] shrink-0" title="Опубликовал ${escapeHtml(authorNickText)}">
                   ${authorAvatarHTML}
@@ -3124,11 +3540,26 @@
                   </span>
                 </div>
 
-                <!-- Кнопка "Изм." (Редактирование задания) -->
-                <button onclick="openEditModal(${t.id})" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] hover:bg-amber-500/15 text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 border border-slate-200/80 dark:border-white/[0.08] hover:border-amber-500/30 transition-all active:scale-95 text-[11px] font-medium" title="Редактировать задание">
-                  <span class="w-3 h-3 text-amber-500 dark:text-amber-400">${ICONS.pencil}</span>
-                  <span>Изм.</span>
-                </button>
+                <!-- Кнопка "Изм." (Редактирование доступно только автору) -->
+                ${canEdit ? `
+                  <button onclick="openEditModal(${t.id})" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] hover:bg-amber-500/15 text-slate-500 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-300 border border-slate-200/80 dark:border-white/[0.08] hover:border-amber-500/30 transition-all active:scale-95 text-[11px] font-medium" title="Редактировать задание">
+                    <span class="w-3 h-3 text-amber-500 dark:text-amber-400">${ICONS.pencil}</span>
+                    <span>Изм.</span>
+                  </button>
+                ` : `
+                  <button onclick="showAuthorOnlyNotice('${escapeHtml(authorNickText)}')" class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100/40 dark:bg-white/[0.02] text-slate-400 dark:text-slate-500 border border-slate-200/50 dark:border-white/[0.04] text-[10.5px] font-medium cursor-not-allowed opacity-80" title="Только ${escapeHtml(authorNickText)} может изменять">
+                    <svg class="w-3 h-3 text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <span>Автор</span>
+                  </button>
+                `}
+
+                <!-- Бейдж: кто и когда вносил изменения -->
+                ${hasBeenEdited ? `
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 text-[10px] font-medium" title="Изменено: ${escapeHtml(t.last_edited_by_name)}${t.last_edited_at ? ` · ${t.last_edited_at}` : ''}">
+                    <svg class="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    <span class="truncate max-w-[105px]">Изм: ${escapeHtml(t.last_edited_by_name)}</span>
+                  </span>
+                ` : ''}
               </div>
 
               <!-- Кнопка "Сдать" -->
@@ -3612,6 +4043,14 @@
         return;
       }
 
+      const isMeAuthor = (task.user_id && task.user_id == userId);
+      const canEdit = isMeAuthor || !task.user_id || (userRole === 'admin');
+      if (!canEdit) {
+        const authorNickText = (task.author_name && task.author_name.trim()) ? task.author_name : (task.author_nick || getAuthorNick(task.user_id));
+        showAuthorOnlyNotice(authorNickText);
+        return;
+      }
+
       editTaskId = taskId;
       editDeletedMaterialIds = [];
       editSelectedPhotos = [];
@@ -3686,33 +4125,32 @@
 
       try {
         // 1. Обновляем основные поля задания (PUT /api/tasks/{id} с fallback POST /edit)
+        const updatePayload = {
+          user_id: userId,
+          subject: subject,
+          description: desc,
+          due_date: dueDate,
+          editor_name: userName || userNick || 'Ученик'
+        };
+
         let updateRes = await fetch(`/api/tasks/${editTaskId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            user_id: userId,
-            subject: subject,
-            description: desc,
-            due_date: dueDate
-          })
+          body: JSON.stringify(updatePayload)
         });
 
-        if (!updateRes.ok) {
+        if (!updateRes.ok && updateRes.status !== 403) {
           // Fallback на POST /api/tasks/{id}/edit для совместимости с любыми прокси
           updateRes = await fetch(`/api/tasks/${editTaskId}/edit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: userId,
-              subject: subject,
-              description: desc,
-              due_date: dueDate
-            })
+            body: JSON.stringify(updatePayload)
           });
         }
 
         if (!updateRes.ok) {
-          throw new Error('Не удалось сохранить изменения задания');
+          const errData = await updateRes.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.message || 'Не удалось сохранить изменения задания');
         }
 
         // 2. Удаляем помеченные пользователем старые фото
@@ -3786,7 +4224,7 @@
           body: JSON.stringify({ user_id: userId })
         });
 
-        if (!delRes.ok) {
+        if (!delRes.ok && delRes.status !== 403) {
           // Fallback на POST /api/tasks/{id}/delete
           delRes = await fetch(`/api/tasks/${editTaskId}/delete`, {
             method: 'POST',
@@ -3796,7 +4234,8 @@
         }
 
         if (!delRes.ok) {
-          throw new Error('Не удалось удалить задание на сервере');
+          const errData = await delRes.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.message || 'Не удалось удалить задание на сервере');
         }
 
         closeEditModal();
@@ -3882,6 +4321,22 @@
       const modal = document.getElementById('photo-modal');
       modal.classList.remove('hidden');
       modal.classList.add('flex');
+      requestAnimationFrame(() => {
+        modal.classList.remove('opacity-0');
+        modal.classList.add('opacity-100');
+      });
+
+      const topBar = document.getElementById('photo-top-bar');
+      const bottomBar = document.getElementById('photo-bottom-bar');
+      if (topBar) {
+        topBar.style.opacity = '1';
+        topBar.style.pointerEvents = 'auto';
+      }
+      if (bottomBar) {
+        bottomBar.style.opacity = '1';
+        bottomBar.style.pointerEvents = 'auto';
+      }
+      photoControlsVisible = true;
     }
 
     let currentRotation = 0;
@@ -4023,23 +4478,78 @@
       if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
     }
 
+    let photoControlsVisible = true;
+
+    function togglePhotoControls(event) {
+      if (currentZoom > 1.05 || isDragging) return;
+      photoControlsVisible = !photoControlsVisible;
+      const topBar = document.getElementById('photo-top-bar');
+      const bottomBar = document.getElementById('photo-bottom-bar');
+      if (topBar) {
+        topBar.style.opacity = photoControlsVisible ? '1' : '0';
+        topBar.style.pointerEvents = photoControlsVisible ? 'auto' : 'none';
+      }
+      if (bottomBar) {
+        bottomBar.style.opacity = photoControlsVisible ? '1' : '0';
+        bottomBar.style.pointerEvents = photoControlsVisible ? 'auto' : 'none';
+      }
+    }
+
+    function downloadCurrentPhoto() {
+      if (!currentGallery || currentGallery.length === 0) return;
+      const current = currentGallery[currentGalleryIndex];
+      if (!current || !current.url) return;
+      soundFx.playSuccess();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+
+      try {
+        const a = document.createElement('a');
+        a.href = current.url;
+        a.download = `hw_photo_page_${currentGalleryIndex + 1}.jpg`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast('✓ Фото открыто для сохранения', 'success');
+      } catch (err) {
+        window.open(current.url, '_blank');
+      }
+    }
+
     function closePhotoViewer() {
       soundFx.playClose();
       const modal = document.getElementById('photo-modal');
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-      document.getElementById('modal-image-preview').src = '';
-      const storyContainer = document.getElementById('photo-story-indicators');
-      if (storyContainer) storyContainer.innerHTML = '';
-      const thumbsContainer = document.getElementById('photo-bottom-thumbnails');
-      if (thumbsContainer) thumbsContainer.innerHTML = '';
-      currentRotation = 0;
-      currentZoom = 1;
-      panX = 0;
-      panY = 0;
-      updateCursor();
-      currentGallery = [];
-      currentGalleryIndex = 0;
+      if (!modal) return;
+      modal.classList.remove('opacity-100');
+      modal.classList.add('opacity-0');
+
+      const img = document.getElementById('modal-image-preview');
+      if (img) {
+        img.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)';
+        img.style.transform = 'scale(0.96)';
+      }
+
+      setTimeout(() => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.style.backgroundColor = '';
+        if (img) {
+          img.src = '';
+          img.style.transform = '';
+          img.style.transition = '';
+        }
+        const storyContainer = document.getElementById('photo-story-indicators');
+        if (storyContainer) storyContainer.innerHTML = '';
+        const thumbsContainer = document.getElementById('photo-bottom-thumbnails');
+        if (thumbsContainer) thumbsContainer.innerHTML = '';
+        currentRotation = 0;
+        currentZoom = 1;
+        panX = 0;
+        panY = 0;
+        updateCursor();
+        currentGallery = [];
+        currentGalleryIndex = 0;
+      }, 200);
     }
 
     function rotatePhoto(deg) {
@@ -4289,6 +4799,8 @@
         zoomAtPoint(e.clientX, e.clientY, factor);
       }, { passive: false });
 
+      let isSwipeDismissing = false;
+
       // ----------------------------------------------------
       // 3. СЕНСОРНОЕ УПРАВЛЕНИЕ НА СМАРТФОНАХ (TOUCH)
       // ----------------------------------------------------
@@ -4299,6 +4811,7 @@
         if (e.touches.length === 2) {
           isPinching = true;
           isPanning = false;
+          isSwipeDismissing = false;
           startPinchDistance = getTouchDistance(e.touches[0], e.touches[1]);
           startPinchZoom = currentZoom;
           startPanX = panX;
@@ -4309,6 +4822,7 @@
           img.style.transition = 'none';
         } else if (e.touches.length === 1) {
           isPinching = false;
+          isSwipeDismissing = false;
           touchStartX = e.touches[0].clientX;
           touchStartY = e.touches[0].clientY;
           startPanX = panX;
@@ -4346,7 +4860,7 @@
             panY = startPanY + (mid.y - startMidY);
             clampPan();
             applyPhotoTransform();
-      updateCursor();
+            updateCursor();
           }
         } else if (isPanning && e.touches.length === 1 && currentZoom > 1.05) {
           e.preventDefault();
@@ -4356,7 +4870,21 @@
           panY = startPanY + deltaY;
           clampPan();
           applyPhotoTransform();
-      updateCursor();
+          updateCursor();
+        } else if (e.touches.length === 1 && currentZoom <= 1.05 && !isPinching) {
+          const deltaY = e.touches[0].clientY - touchStartY;
+          const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
+          if (deltaY > 15 && deltaY > deltaX * 1.1) {
+            isSwipeDismissing = true;
+            e.preventDefault();
+            const modal = document.getElementById('photo-modal');
+            const dragProgress = Math.min(deltaY / 400, 1);
+            img.style.transition = 'none';
+            img.style.transform = `translate3d(0, ${deltaY}px, 0) scale(${Math.max(0.8, 1 - dragProgress * 0.15)}) rotate(${currentRotation}deg)`;
+            if (modal) {
+              modal.style.backgroundColor = `rgba(0, 0, 0, ${Math.max(0.3, 0.95 - dragProgress * 0.65)})`;
+            }
+          }
         }
       }, { passive: false });
 
@@ -4375,14 +4903,36 @@
           }
           clampPan();
           applyPhotoTransform();
-      updateCursor();
+          updateCursor();
         }
 
         if (isPanning && e.touches.length === 0) {
           isPanning = false;
           clampPan();
           applyPhotoTransform();
-      updateCursor();
+          updateCursor();
+        }
+
+        if (isSwipeDismissing) {
+          const diffY = e.changedTouches[0].clientY - touchStartY;
+          const modal = document.getElementById('photo-modal');
+          isSwipeDismissing = false;
+          if (diffY > 90) {
+            img.style.transition = 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1), opacity 0.22s ease-out';
+            img.style.transform = 'translate3d(0, 100vh, 0) scale(0.7)';
+            img.style.opacity = '0';
+            setTimeout(() => {
+              closePhotoViewer();
+              if (modal) modal.style.backgroundColor = '';
+              img.style.opacity = '1';
+            }, 200);
+            return;
+          } else {
+            img.style.transition = 'transform 0.25s cubic-bezier(0.2, 0.9, 0.3, 1)';
+            applyPhotoTransform();
+            if (modal) modal.style.backgroundColor = '';
+            return;
+          }
         }
 
         // Перелистывание страниц свайпом при масштабе 1x
@@ -4507,6 +5057,7 @@
         allTasks = await res.json();
         updateProgressBar();
         renderTasks();
+        renderWorkloadRibbon();
         loadLeaderboard();
       } catch (err) {
         console.error("Error in loadTasks:", err);
@@ -5705,6 +6256,70 @@
       }
     }
 
+    function switchSettingsTab(tabName) {
+      soundFx.playTab();
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      const tabs = ['notifs', 'appearance', 'profile'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`settings-btn-${t}`);
+        const pane = document.getElementById(`settings-pane-${t}`);
+        if (t === tabName) {
+          if (btn) {
+            btn.className = 'flex-1 py-1.5 text-xs font-black rounded-xl bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 flex items-center justify-center gap-1';
+          }
+          if (pane) pane.classList.remove('hidden');
+        } else {
+          if (btn) {
+            btn.className = 'flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1';
+          }
+          if (pane) pane.classList.add('hidden');
+        }
+      });
+    }
+
+    function populateSettingsProfile() {
+      const avatarEl = document.getElementById('settings-profile-avatar');
+      if (avatarEl) avatarEl.innerHTML = renderAvatarElement(userId, 'w-12 h-12 text-sm');
+
+      const nameEl = document.getElementById('settings-profile-name');
+      if (nameEl) nameEl.innerText = userName;
+
+      const nickEl = document.getElementById('settings-profile-nick');
+      if (nickEl) nickEl.innerText = userNick;
+
+      const idEl = document.getElementById('settings-profile-id');
+      if (idEl) idEl.innerText = `ID: ${userId}`;
+    }
+
+    async function refreshAllAppData() {
+      soundFx.playTap();
+      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      showToast('🔄 Обновление данных...', 'info');
+      try {
+        await Promise.all([
+          loadTasks(),
+          loadLeaderboard()
+        ]);
+        showToast('✓ Данные успешно обновлены!', 'success');
+      } catch (err) {
+        showToast('Ошибка при обновлении', 'warning');
+      }
+    }
+
+    function testSoundEffect() {
+      soundFx.playSuccess();
+      showToast('🎵 Звук интерфейса активен', 'info');
+    }
+
+    function testHapticFeedback() {
+      if (tg?.HapticFeedback) {
+        tg.HapticFeedback.notificationOccurred('success');
+        showToast('📳 Вибро-отклик сработал!', 'info');
+      } else {
+        showToast('ℹ️ Вибро-отклик доступен в приложении Telegram', 'info');
+      }
+    }
+
     function openSettingsModal() {
       openNotifModal();
     }
@@ -5718,6 +6333,7 @@
       const modal = document.getElementById('notif-modal');
       if (!modal) return;
       loadNotifPrefs();
+      populateSettingsProfile();
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');

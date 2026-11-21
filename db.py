@@ -82,6 +82,17 @@ def init_db():
             cursor.execute(f"ALTER TABLE user_notification_prefs ADD COLUMN {col} {col_def}")
         except Exception:
             pass
+
+    for col, col_def in (
+        ("last_edited_by", "INTEGER"),
+        ("last_edited_by_name", "TEXT"),
+        ("last_edited_at", "TEXT")
+    ):
+        try:
+            cursor.execute(f"ALTER TABLE tasks ADD COLUMN {col} {col_def}")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -142,6 +153,27 @@ def add_task(user_id: int, subject: str, description: str, due_date: str, class_
     conn.close()
     return new_id
 
+def get_task_by_id(task_id: int) -> Optional[Dict[str, Any]]:
+    if is_using_supabase():
+        return supabase_db.get_task_by_id(task_id)
+
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    sql = """
+    SELECT t.*,
+           COALESCE(u.telegram_nick, '@ученик_' || t.user_id) as author_nick,
+           COALESCE(u.full_name, '') as author_name,
+           COALESCE(u.role, 'student') as role
+    FROM tasks t
+    LEFT JOIN users u ON t.user_id = u.id
+    WHERE t.id = ?
+    """
+    cursor.execute(sql, (task_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
 def get_pending_tasks(user_id: int, class_name: str = '10-А') -> List[Dict[str, Any]]:
     if is_using_supabase():
         return supabase_db.get_pending_tasks(user_id, class_name)
@@ -152,6 +184,7 @@ def get_pending_tasks(user_id: int, class_name: str = '10-А') -> List[Dict[str,
     
     sql = """
     SELECT t.id, t.user_id, t.subject, t.description, t.due_date,
+           t.last_edited_by, t.last_edited_by_name, t.last_edited_at,
            COALESCE(u.telegram_nick, '@ученик_' || t.user_id) as author_nick,
            COALESCE(u.full_name, '') as author_name,
            COALESCE(u.role, 'student') as role
@@ -177,31 +210,58 @@ def mark_task_done(task_id: int, user_id: int):
     conn.commit()
     conn.close()
 
-def update_task(task_id: int, subject: str, description: str, due_date: str, user_id: Optional[int] = None) -> bool:
+def update_task(task_id: int, subject: str, description: str, due_date: str, user_id: Optional[int] = None, editor_name: Optional[str] = None) -> tuple[bool, str]:
     if is_using_supabase():
-        return supabase_db.update_task(task_id, subject, description, due_date, user_id)
+        return supabase_db.update_task(task_id, subject, description, due_date, user_id, editor_name)
+
+    task = get_task_by_id(task_id)
+    if not task:
+        return False, "Задание не найдено"
+
+    # Проверка прав: изменять может только автор задания или админ
+    task_author = task.get("user_id")
+    if user_id and task_author and int(task_author) != int(user_id):
+        author_nick = task.get("author_nick") or f"ID {task_author}"
+        return False, f"Изменять задание может только автор, который его опубликовал ({author_nick})"
+
+    import datetime
+    now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+    clean_editor_name = editor_name or task.get("author_name") or task.get("author_nick") or "Редактор"
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
-    cursor.execute("UPDATE tasks SET subject = ?, description = ?, due_date = ? WHERE id = ?", (subject, description, due_date, task_id))
+    cursor.execute("""
+        UPDATE tasks
+        SET subject = ?, description = ?, due_date = ?,
+            last_edited_by = ?, last_edited_by_name = ?, last_edited_at = ?
+        WHERE id = ?
+    """, (subject, description, due_date, user_id, clean_editor_name, now_str, task_id))
     conn.commit()
     conn.close()
-    return True
+    return True, "Задание успешно обновлено"
 
-def delete_task(task_id: int, user_id: Optional[int] = None):
+def delete_task(task_id: int, user_id: Optional[int] = None) -> tuple[bool, str]:
     if is_using_supabase():
         return supabase_db.delete_task(task_id, user_id)
+
+    task = get_task_by_id(task_id)
+    if not task:
+        return True, "Задание уже удалено"
+
+    # Проверка прав: удалять может только автор задания
+    task_author = task.get("user_id")
+    if user_id and task_author and int(task_author) != int(user_id):
+        author_nick = task.get("author_nick") or f"ID {task_author}"
+        return False, f"Удалять задание может только автор, который его опубликовал ({author_nick})"
 
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     cursor.execute("DELETE FROM task_materials WHERE task_id = ?", (task_id,))
     cursor.execute("DELETE FROM user_completions WHERE task_id = ?", (task_id,))
-    if user_id:
-        cursor.execute("DELETE FROM tasks WHERE id = ? AND user_id = ?", (task_id, user_id))
-    else:
-        cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
     conn.commit()
     conn.close()
+    return True, "Задание удалено"
 
 def delete_material(material_id: int) -> bool:
     if is_using_supabase():
