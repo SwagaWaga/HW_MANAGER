@@ -60,22 +60,16 @@ if not tunnel_url:
 
 print("OBTAINED TUNNEL URL:", tunnel_url)
 
-# 5. Update bot.py
-bot_py_path = os.path.join(base_dir, "bot.py")
-with open(bot_py_path, "r", encoding="utf-8") as f:
-    bot_code = f.read()
-
-bot_code = re.sub(r'https://[a-zA-Z0-9\.\-]+trycloudflare\.com', tunnel_url, bot_code)
-
-with open(bot_py_path, "w", encoding="utf-8") as f:
-    f.write(bot_code)
-print("bot.py updated with:", tunnel_url)
+# 5. Prepare Bot environment with live tunnel URL
+bot_env = os.environ.copy()
+bot_env["WEB_APP_URL"] = tunnel_url
 
 # 6. Launch Telegram Bot
 print("Starting Telegram Bot...")
 bot_proc = subprocess.Popen(
     [venv_python, "bot.py"],
     cwd=base_dir,
+    env=bot_env,
     creationflags=DETACHED,
     stdout=open(os.path.join(base_dir, "bot.log"), "w", encoding="utf-8"),
     stderr=subprocess.STDOUT

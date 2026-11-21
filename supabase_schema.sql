@@ -43,6 +43,21 @@ CREATE TABLE IF NOT EXISTS public.task_materials (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 5. Таблица персональных настроек уведомлений учеников
+CREATE TABLE IF NOT EXISTS public.user_notification_prefs (
+    user_id BIGINT PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
+    notify_08 BOOLEAN DEFAULT TRUE,
+    notify_16 BOOLEAN DEFAULT TRUE,
+    notify_18 BOOLEAN DEFAULT TRUE,
+    notify_2days BOOLEAN DEFAULT TRUE,
+    notify_weekly BOOLEAN DEFAULT TRUE,
+    notify_today BOOLEAN DEFAULT TRUE,
+    notify_tomorrow BOOLEAN DEFAULT TRUE,
+    notify_overdue BOOLEAN DEFAULT TRUE,
+    notify_custom BOOLEAN DEFAULT TRUE,
+    custom_time TEXT DEFAULT ''
+);
+
 -- Индексы для ускорения выборок
 CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON public.tasks(due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_class ON public.tasks(class_name);
@@ -54,6 +69,7 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_materials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_notification_prefs ENABLE ROW LEVEL SECURITY;
 
 -- Публичные политики для анонимного и сервисного доступа через API
 CREATE POLICY "Allow select on users" ON public.users FOR SELECT USING (true);
@@ -62,3 +78,4 @@ CREATE POLICY "Allow insert/update on users" ON public.users FOR ALL USING (true
 CREATE POLICY "Allow all on tasks" ON public.tasks FOR ALL USING (true);
 CREATE POLICY "Allow all on completions" ON public.user_completions FOR ALL USING (true);
 CREATE POLICY "Allow all on materials" ON public.task_materials FOR ALL USING (true);
+CREATE POLICY "Allow all on prefs" ON public.user_notification_prefs FOR ALL USING (true);

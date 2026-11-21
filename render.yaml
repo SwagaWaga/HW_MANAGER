@@ -14,3 +14,9 @@ services:
         sync: false
       - key: SUPABASE_KEY
         sync: false
+      - key: GLOBAL_SUPABASE_URL
+        sync: false
+      - key: GLOBAL_SUPABASE_KEY
+        sync: false
+      - key: ADMIN_SECRET_KEY
+        sync: false

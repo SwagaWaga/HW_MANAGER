@@ -102,7 +102,10 @@ def route():
 
 @app.get("/test-backpack")
 def test_backpack():
-    return FileResponse("scratch/test_backpack_real.html")
+    test_path = "scratch/test_backpack_real.html"
+    if os.path.exists(test_path):
+        return FileResponse(test_path)
+    raise HTTPException(status_code=404, detail="Test page not found")
 
 @app.get("/api/status")
 @app.get("/health")
@@ -179,14 +182,18 @@ def download_material(material_id: int, request: Request):
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Failed to decode image data: {e}")
         else:
-            clean_path = file_id.lstrip("/")
-            if os.path.exists(clean_path):
+            # Защита от path traversal: проверяем, что путь лежит строго внутри директории uploads/
+            norm_path = os.path.normpath(file_id.lstrip("/\\"))
+            if not (norm_path.startswith("uploads" + os.sep) or norm_path.startswith("uploads/")):
+                norm_path = os.path.join("uploads", os.path.basename(norm_path))
+
+            if os.path.exists(norm_path) and os.path.isfile(norm_path):
                 try:
-                    with open(clean_path, "rb") as f:
+                    with open(norm_path, "rb") as f:
                         content = f.read()
-                    if clean_path.endswith(".png"):
+                    if norm_path.endswith(".png"):
                         media_type = "image/png"
-                    elif clean_path.endswith(".webp"):
+                    elif norm_path.endswith(".webp"):
                         media_type = "image/webp"
                 except Exception as e:
                     raise HTTPException(status_code=500, detail=f"Failed to read file: {e}")
@@ -312,6 +319,11 @@ class UserSync(BaseModel):
 @app.post('/api/user/sync')
 def sync_user(data: UserSync):
     upsert_user(data.user_id, telegram_nick=data.telegram_nick, full_name=data.full_name)
+    try:
+        from global_users_service import sync_global_user
+        sync_global_user(data.user_id, full_name=data.full_name)
+    except Exception:
+        pass
     return {"status": "ok"}
 
 @app.post("/api/upload")
@@ -438,12 +450,22 @@ def api_get_leaderboard(class_name: str = "10-А", refresh: bool = False):
 
 @app.post("/api/tasks/cleanup")
 @app.get("/api/tasks/cleanup")
-def api_cleanup_old_tasks(days: int = 30):
-    """Ручной и автоматический эндпоинт для очистки заданий старше указанного количества дней."""
-    deleted_count = cleanup_old_tasks(days=days)
+def api_cleanup_old_tasks(request: Request, days: int = 30, token: Optional[str] = None):
+    """
+    Защищенный эндпоинт для автоочистки заданий.
+    Предотвращает случайное или злоумышленное удаление актуальных заданий (days >= 14).
+    """
+    admin_secret = os.getenv("ADMIN_SECRET_KEY")
+    if admin_secret:
+        provided_token = token or request.headers.get("x-admin-token")
+        if provided_token != admin_secret:
+            raise HTTPException(status_code=403, detail="Unauthorized: valid admin token required")
+
+    safe_days = max(14, int(days))
+    deleted_count = cleanup_old_tasks(days=safe_days)
     return {
         "status": "ok",
         "deleted_tasks": deleted_count,
-        "days_threshold": days,
-        "message": f"Очищено {deleted_count} заданий старше {days} дней"
+        "days_threshold": safe_days,
+        "message": f"Очищено {deleted_count} заданий старше {safe_days} дней"
     }

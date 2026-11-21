@@ -105,7 +105,7 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
     if is_using_supabase():
         return supabase_db.upsert_user(user_id, telegram_nick, full_name, role, class_name)
     
-    conn = sqlite3.connect(DB_NAME)
+    conn = sqlite3.connect(DB_NAME, timeout=15.0)
     cursor = conn.cursor()
     cursor.execute("""
     INSERT INTO users (id, telegram_nick, full_name, role, class_name)
@@ -118,6 +118,12 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
     """, (user_id, telegram_nick, full_name, role, class_name))
     conn.commit()
     conn.close()
+
+    try:
+        from global_users_service import sync_global_user
+        sync_global_user(user_id, full_name=full_name)
+    except Exception:
+        pass
 
 def get_all_users(class_name: str = '10-А') -> List[Dict[str, Any]]:
     if is_using_supabase():

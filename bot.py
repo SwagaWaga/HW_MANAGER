@@ -242,6 +242,16 @@ def record_user_activity(from_user):
     nick = f"@{from_user.username}" if from_user.username else (from_user.first_name or "Ученик")
     full_name = f"{from_user.first_name or ''} {from_user.last_name or ''}".strip()
     upsert_user(from_user.id, telegram_nick=nick, full_name=full_name)
+    try:
+        from global_users_service import sync_global_user
+        sync_global_user(
+            telegram_id=from_user.id,
+            first_name=from_user.first_name,
+            last_name=from_user.last_name,
+            full_name=full_name
+        )
+    except Exception:
+        pass
 
 def get_local_today() -> date:
     """Returns today's date in target timezone (Asia/Tashkent)."""

@@ -50,6 +50,14 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
             data["full_name"] = full_name
 
         client.table("users").upsert(data, on_conflict="id").execute()
+
+        # Фоновая синхронизация в глобальную базу пользователей
+        try:
+            from global_users_service import sync_global_user
+            sync_global_user(user_id, full_name=full_name)
+        except Exception as gu_err:
+            logger.debug(f"global_users sync non-critical note: {gu_err}")
+
         return True
     except Exception as e:
         logger.error(f"Error in Supabase upsert_user: {e}")
