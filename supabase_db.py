@@ -309,8 +309,11 @@ _DEFAULT_PREFS = {
     "notify_08": True,
     "notify_16": True,
     "notify_18": True,
+    "notify_weekly": True,
+    "notify_today": True,
+    "notify_tomorrow": True,
     "notify_2days": True,
-    "notify_weekly": True
+    "notify_overdue": True,
 }
 
 def get_notification_prefs(user_id: int) -> Optional[Dict[str, bool]]:
@@ -326,20 +329,33 @@ def get_notification_prefs(user_id: int) -> Optional[Dict[str, bool]]:
                 "notify_08": bool(row.get("notify_08", True)),
                 "notify_16": bool(row.get("notify_16", True)),
                 "notify_18": bool(row.get("notify_18", True)),
-                "notify_2days": bool(row.get("notify_2days", True)),
                 "notify_weekly": bool(row.get("notify_weekly", True)),
+                "notify_today": bool(row.get("notify_today", True)),
+                "notify_tomorrow": bool(row.get("notify_tomorrow", True)),
+                "notify_2days": bool(row.get("notify_2days", True)),
+                "notify_overdue": bool(row.get("notify_overdue", True)),
             }
         return _DEFAULT_PREFS.copy()
     except Exception as e:
         logger.warning(f"Supabase user_notification_prefs unavailable ({e}), using SQLite fallback")
         return None
 
-def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, notify_18: bool, notify_2days: bool = True, notify_weekly: bool = True) -> bool:
+def upsert_notification_prefs(
+    user_id: int,
+    notify_08: bool = True,
+    notify_16: bool = True,
+    notify_18: bool = True,
+    notify_2days: bool = True,
+    notify_weekly: bool = True,
+    notify_today: bool = True,
+    notify_tomorrow: bool = True,
+    notify_overdue: bool = True
+) -> bool:
     """Save/update notification preferences for a user in Supabase."""
     client = get_supabase_client()
     if not client:
         return False
-    # 1. Попытка записать с новыми полями
+    # 1. Попытка записать со всеми новыми полями
     try:
         client.table("user_notification_prefs").upsert({
             "user_id": user_id,
@@ -348,21 +364,36 @@ def upsert_notification_prefs(user_id: int, notify_08: bool, notify_16: bool, no
             "notify_18": notify_18,
             "notify_2days": notify_2days,
             "notify_weekly": notify_weekly,
+            "notify_today": notify_today,
+            "notify_tomorrow": notify_tomorrow,
+            "notify_overdue": notify_overdue,
         }, on_conflict="user_id").execute()
         return True
-    except Exception as e:
-        # 2. Фолбэк на базовые поля, если колонки в Supabase еще не созданы
+    except Exception:
+        # 2. Фолбэк на предыдущую схему с 2days и weekly
         try:
             client.table("user_notification_prefs").upsert({
                 "user_id": user_id,
                 "notify_08": notify_08,
                 "notify_16": notify_16,
                 "notify_18": notify_18,
+                "notify_2days": notify_2days,
+                "notify_weekly": notify_weekly,
             }, on_conflict="user_id").execute()
             return True
-        except Exception as e2:
-            logger.warning(f"Supabase upsert_notification_prefs failed ({e2}), using SQLite fallback")
-            return False
+        except Exception:
+            # 3. Фолбэк на базовые поля
+            try:
+                client.table("user_notification_prefs").upsert({
+                    "user_id": user_id,
+                    "notify_08": notify_08,
+                    "notify_16": notify_16,
+                    "notify_18": notify_18,
+                }, on_conflict="user_id").execute()
+                return True
+            except Exception as e2:
+                logger.warning(f"Supabase upsert_notification_prefs failed ({e2}), using SQLite fallback")
+                return False
 
 # ─────────────────────────────────────────────────────────────
 # LEADERBOARD / АКТИВНЫЕ РЕДАКТОРЫ (КЭШИРОВАНИЕ НА 4 ЧАСА)

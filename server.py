@@ -392,8 +392,11 @@ class NotifPrefsRequest(BaseModel):
     notify_08: bool = True
     notify_16: bool = True
     notify_18: bool = True
-    notify_2days: bool = True
     notify_weekly: bool = True
+    notify_today: bool = True
+    notify_tomorrow: bool = True
+    notify_2days: bool = True
+    notify_overdue: bool = True
 
 @app.get("/api/notifications/prefs")
 def get_user_notification_prefs(user_id: int):
@@ -403,18 +406,24 @@ def get_user_notification_prefs(user_id: int):
 def update_user_notification_prefs(payload: NotifPrefsRequest):
     success = upsert_notification_prefs(
         payload.user_id,
-        payload.notify_08,
-        payload.notify_16,
-        payload.notify_18,
-        payload.notify_2days,
-        payload.notify_weekly
+        notify_08=payload.notify_08,
+        notify_16=payload.notify_16,
+        notify_18=payload.notify_18,
+        notify_2days=payload.notify_2days,
+        notify_weekly=payload.notify_weekly,
+        notify_today=payload.notify_today,
+        notify_tomorrow=payload.notify_tomorrow,
+        notify_overdue=payload.notify_overdue
     )
     return {"status": "ok" if success else "error", "prefs": {
         "notify_08": payload.notify_08,
         "notify_16": payload.notify_16,
         "notify_18": payload.notify_18,
+        "notify_weekly": payload.notify_weekly,
+        "notify_today": payload.notify_today,
+        "notify_tomorrow": payload.notify_tomorrow,
         "notify_2days": payload.notify_2days,
-        "notify_weekly": payload.notify_weekly
+        "notify_overdue": payload.notify_overdue
     }}
 
 @app.get("/api/leaderboard")

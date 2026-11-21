@@ -42,7 +42,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.4.0"
+APP_VERSION = "2.5.0"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -276,7 +276,10 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
     in_2_days_prep = RU_WEEKDAYS.get(in_2_days.weekday(), "через 2 дня")
 
     prefs = get_notification_prefs(user_id)
+    include_today = prefs.get('notify_today', True)
+    include_tomorrow = prefs.get('notify_tomorrow', True)
     include_2days = prefs.get('notify_2days', True)
+    include_overdue = prefs.get('notify_overdue', True)
 
     def format_task_list(tasks):
         lines = []
@@ -289,12 +292,16 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
 
     if target_hour <= 10:
         # --- 08:00 Morning Reminder ---
-        has_tasks = bool(today_tasks or tomorrow_tasks or (include_2days and in_2_days_tasks) or overdue_tasks)
+        active_today = today_tasks if include_today else []
+        active_tomorrow = tomorrow_tasks if include_tomorrow else []
+        active_2days = in_2_days_tasks if include_2days else []
+        active_overdue = overdue_tasks if include_overdue else []
+        has_tasks = bool(active_today or active_tomorrow or active_2days or active_overdue)
         if not has_tasks:
             text = (
                 f"☀️ <b>Доброе утро!</b>\n\n"
                 f"📅 <i>{today_nom}, {today_label}</i>\n\n"
-                f"🎉 На сегодня и ближайшие дни нет невыполненных заданий!\n"
+                f"🎉 По выбранным настройкам нет невыполненных заданий!\n"
                 f"Отличного и продуктивного учебного дня! 🚀"
             )
             return text, False
@@ -304,24 +311,24 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
             f"📅 <b>{today_nom}, {today_label}</b>",
             ""
         ]
-        if today_tasks:
-            lines.append(f"🔴 <b>Сдать сегодня ({len(today_tasks)}):</b>")
-            lines.extend(format_task_list(today_tasks))
+        if active_today:
+            lines.append(f"🔴 <b>Сдать сегодня ({len(active_today)}):</b>")
+            lines.extend(format_task_list(active_today))
             lines.append("")
 
-        if tomorrow_tasks:
-            lines.append(f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>")
-            lines.extend(format_task_list(tomorrow_tasks))
+        if active_tomorrow:
+            lines.append(f"📚 <b>Задания на завтра ({len(active_tomorrow)}):</b>")
+            lines.extend(format_task_list(active_tomorrow))
             lines.append("")
 
-        if include_2days and in_2_days_tasks:
-            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(in_2_days_tasks)}):</b>")
-            lines.extend(format_task_list(in_2_days_tasks))
+        if active_2days:
+            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(active_2days)}):</b>")
+            lines.extend(format_task_list(active_2days))
             lines.append("")
 
-        if overdue_tasks:
-            lines.append(f"⚠️ <b>Просроченные задания ({len(overdue_tasks)}):</b>")
-            lines.extend(format_task_list(overdue_tasks))
+        if active_overdue:
+            lines.append(f"⚠️ <b>Просроченные задания ({len(active_overdue)}):</b>")
+            lines.extend(format_task_list(active_overdue))
             lines.append("")
 
         lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал, посмотреть страницы учебников или отметить сделанным 👇")
@@ -329,12 +336,16 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
 
     elif target_hour <= 16:
         # --- 16:00 Afternoon / After-school Reminder ---
-        has_tasks = bool(tomorrow_tasks or today_tasks or (include_2days and in_2_days_tasks) or overdue_tasks)
+        active_today = today_tasks if include_today else []
+        active_tomorrow = tomorrow_tasks if include_tomorrow else []
+        active_2days = in_2_days_tasks if include_2days else []
+        active_overdue = overdue_tasks if include_overdue else []
+        has_tasks = bool(active_tomorrow or active_2days or active_today or active_overdue)
         if not has_tasks:
             text = (
                 f"🎒 <b>Дневное напоминание о ДЗ</b>\n\n"
                 f"📅 <i>{tomorrow_nom}, {tomorrow_label} (завтра)</i>\n\n"
-                f"🎉 На завтра и ближайшие дни нет невыполненных заданий!\n"
+                f"🎉 По выбранным настройкам нет невыполненных заданий!\n"
                 f"Все уроки готовы, можно отдыхать или заняться своими делами ☕"
             )
             return text, False
@@ -344,24 +355,24 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
             f"📅 <b>{tomorrow_nom}, {tomorrow_label} (завтра)</b>",
             ""
         ]
-        if tomorrow_tasks:
-            lines.append(f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>")
-            lines.extend(format_task_list(tomorrow_tasks))
+        if active_tomorrow:
+            lines.append(f"📚 <b>Задания на завтра ({len(active_tomorrow)}):</b>")
+            lines.extend(format_task_list(active_tomorrow))
             lines.append("")
 
-        if include_2days and in_2_days_tasks:
-            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(in_2_days_tasks)}):</b>")
-            lines.extend(format_task_list(in_2_days_tasks))
+        if active_2days:
+            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(active_2days)}):</b>")
+            lines.extend(format_task_list(active_2days))
             lines.append("")
 
-        if today_tasks:
-            lines.append(f"⏳ <b>Осталось сдать на сегодня ({len(today_tasks)}):</b>")
-            lines.extend(format_task_list(today_tasks))
+        if active_today:
+            lines.append(f"⏳ <b>Осталось сдать на сегодня ({len(active_today)}):</b>")
+            lines.extend(format_task_list(active_today))
             lines.append("")
 
-        if overdue_tasks:
-            lines.append(f"⚠️ <b>Просроченные долги ({len(overdue_tasks)}):</b>")
-            lines.extend(format_task_list(overdue_tasks))
+        if active_overdue:
+            lines.append(f"⚠️ <b>Просроченные долги ({len(active_overdue)}):</b>")
+            lines.extend(format_task_list(active_overdue))
             lines.append("")
 
         lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал, сверить фото заданий и отметить сделанным 👇")
@@ -369,13 +380,16 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
 
     else:
         # --- 18:00 Evening Reminder ---
-        remaining = today_tasks + overdue_tasks
-        has_tasks = bool(tomorrow_tasks or remaining or (include_2days and in_2_days_tasks))
+        active_today = today_tasks if include_today else []
+        active_tomorrow = tomorrow_tasks if include_tomorrow else []
+        active_2days = in_2_days_tasks if include_2days else []
+        active_overdue = overdue_tasks if include_overdue else []
+        has_tasks = bool(active_tomorrow or active_2days or active_today or active_overdue)
         if not has_tasks:
             text = (
                 f"🌆 <b>Вечерний чек-лист ДЗ</b>\n\n"
                 f"📅 <i>{tomorrow_nom}, {tomorrow_label} (завтра)</i>\n\n"
-                f"🎉 На завтра и ближайшие дни нет невыполненных заданий!\n"
+                f"🎉 По выбранным настройкам нет невыполненных заданий!\n"
                 f"Все уроки сделаны, приятного вечера и хорошего отдыха ✨"
             )
             return text, False
@@ -385,19 +399,24 @@ def build_reminder_notification(user_id: int, hour: Optional[int] = None) -> tup
             f"📅 <b>{tomorrow_nom}, {tomorrow_label}</b>",
             ""
         ]
-        if tomorrow_tasks:
-            lines.append(f"📚 <b>Задания на завтра ({len(tomorrow_tasks)}):</b>")
-            lines.extend(format_task_list(tomorrow_tasks))
+        if active_tomorrow:
+            lines.append(f"📚 <b>Задания на завтра ({len(active_tomorrow)}):</b>")
+            lines.extend(format_task_list(active_tomorrow))
             lines.append("")
 
-        if include_2days and in_2_days_tasks:
-            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(in_2_days_tasks)}):</b>")
-            lines.extend(format_task_list(in_2_days_tasks))
+        if active_2days:
+            lines.append(f"⏳ <b>Дедлайн через 2 дня ({in_2_days_prep}, {in_2_days_label}) ({len(active_2days)}):</b>")
+            lines.extend(format_task_list(active_2days))
             lines.append("")
 
-        if remaining:
-            lines.append(f"⚠️ <b>Не сданные сегодня или ранее ({len(remaining)}):</b>")
-            lines.extend(format_task_list(remaining))
+        if active_today:
+            lines.append(f"⏳ <b>Осталось сдать сегодня ({len(active_today)}):</b>")
+            lines.extend(format_task_list(active_today))
+            lines.append("")
+
+        if active_overdue:
+            lines.append(f"⚠️ <b>Не сданные ранее долги ({len(active_overdue)}):</b>")
+            lines.extend(format_task_list(active_overdue))
             lines.append("")
 
         lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал, просмотреть прикреплённые фото или отметить сделанным 👇")
@@ -590,14 +609,18 @@ def build_settings_text(prefs: dict) -> str:
     def st(enabled: bool) -> str:
         return "ВКЛ ✅" if enabled else "ВЫКЛ ❌"
     return (
-        "⚙️ <b>Настройки уведомлений</b>\n\n"
-        "Выбери, какие напоминания о домашних заданиях получать:\n\n"
+        "⚙️ <b>Настройки личных напоминаний</b>\n\n"
+        "⏰ <b>КОГДА НАПОМИНАТЬ (Время):</b>\n"
         f"☀️ <b>08:00</b> — Утреннее перед уроками   [{st(prefs.get('notify_08', True))}]\n"
         f"🎒 <b>16:00</b> — Дневное после уроков       [{st(prefs.get('notify_16', True))}]\n"
-        f"🌆 <b>18:00</b> — Вечерний чек-лист        [{st(prefs.get('notify_18', True))}]\n"
-        f"⏳ <b>За 2 дня</b> — Предупреждение о дедлайне [{st(prefs.get('notify_2days', True))}]\n"
+        f"🌆 <b>18:00</b> — Главное вечернее         [{st(prefs.get('notify_18', True))}]\n"
         f"🗓️ <b>Неделя</b> — Дайджест на вс. 18:00   [{st(prefs.get('notify_weekly', True))}]\n\n"
-        "<i>Нажми на нужное время или тип, чтобы включить/выключить.</i>"
+        "📋 <b>КАКИЕ Д/З НАПОМИНАТЬ (Фильтр):</b>\n"
+        f"📌 <b>На сегодня</b> — Сдать сегодня        [{st(prefs.get('notify_today', True))}]\n"
+        f"📚 <b>На завтра</b> — Сдать завтра         [{st(prefs.get('notify_tomorrow', True))}]\n"
+        f"⏳ <b>На послезавтра</b> — За 2 дня до сдачи [{st(prefs.get('notify_2days', True))}]\n"
+        f"⚠️ <b>Просроченные</b> — Долги и дедлайны  [{st(prefs.get('notify_overdue', True))}]\n\n"
+        "<i>Нажми на нужную кнопку ниже, чтобы включить или отключить.</i>"
     )
 
 def build_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
@@ -605,11 +628,22 @@ def build_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
         on = prefs.get(key, True)
         return f"{emoji} {time} {'✅' if on else '❌'}"
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=label("notify_08", "☀️", "08:00 Утреннее"), callback_data="toggle_notif:08")],
-        [InlineKeyboardButton(text=label("notify_16", "🎒", "16:00 Дневное"), callback_data="toggle_notif:16")],
-        [InlineKeyboardButton(text=label("notify_18", "🌆", "18:00 Вечернее"), callback_data="toggle_notif:18")],
-        [InlineKeyboardButton(text=label("notify_2days", "⏳", "За 2 дня до сдачи"), callback_data="toggle_notif:2days")],
-        [InlineKeyboardButton(text=label("notify_weekly", "🗓️", "Недельный дайджест (вс)"), callback_data="toggle_notif:weekly")],
+        [
+            InlineKeyboardButton(text=label("notify_08", "☀️", "08:00"), callback_data="toggle_notif:08"),
+            InlineKeyboardButton(text=label("notify_16", "🎒", "16:00"), callback_data="toggle_notif:16"),
+            InlineKeyboardButton(text=label("notify_18", "🌆", "18:00"), callback_data="toggle_notif:18")
+        ],
+        [
+            InlineKeyboardButton(text=label("notify_weekly", "🗓️", "Недельный дайджест (вс)"), callback_data="toggle_notif:weekly")
+        ],
+        [
+            InlineKeyboardButton(text=label("notify_today", "📌", "На сегодня"), callback_data="toggle_notif:today"),
+            InlineKeyboardButton(text=label("notify_tomorrow", "📚", "На завтра"), callback_data="toggle_notif:tomorrow")
+        ],
+        [
+            InlineKeyboardButton(text=label("notify_2days", "⏳", "На послезавтра"), callback_data="toggle_notif:2days"),
+            InlineKeyboardButton(text=label("notify_overdue", "⚠️", "Просроченные"), callback_data="toggle_notif:overdue")
+        ],
     ])
 
 @dp.message(Command("settings", "уведомления", "notif"))
@@ -651,18 +685,21 @@ def format_leaderboard_text(leaders: List[Dict[str, Any]]) -> str:
 async def handle_done_callback(callback: CallbackQuery):
     # ── Toggle notification preference ──────────────────────
     if callback.data.startswith("toggle_notif:"):
-        hour = callback.data.split(":")[1]  # "08", "16", "18", "2days", "weekly"
+        hour = callback.data.split(":")[1]  # "08", "16", "18", "2days", "weekly", "today", "tomorrow", "overdue"
         uid = callback.from_user.id
         prefs = get_notification_prefs(uid)
         key = f"notify_{hour}"
         prefs[key] = not prefs.get(key, True)
         upsert_notification_prefs(
-            uid,
-            prefs.get("notify_08", True),
-            prefs.get("notify_16", True),
-            prefs.get("notify_18", True),
-            prefs.get("notify_2days", True),
-            prefs.get("notify_weekly", True)
+            user_id=uid,
+            notify_08=prefs.get("notify_08", True),
+            notify_16=prefs.get("notify_16", True),
+            notify_18=prefs.get("notify_18", True),
+            notify_2days=prefs.get("notify_2days", True),
+            notify_weekly=prefs.get("notify_weekly", True),
+            notify_today=prefs.get("notify_today", True),
+            notify_tomorrow=prefs.get("notify_tomorrow", True),
+            notify_overdue=prefs.get("notify_overdue", True),
         )
         await callback.answer("✅ Сохранено!")
         # Edit message to reflect new state
