@@ -42,7 +42,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.5.0"
+APP_VERSION = "2.6.0"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -483,6 +483,64 @@ async def send_evening_reminder():
     """Backward-compatible wrapper calling send_scheduled_reminder for 18:00."""
     await send_scheduled_reminder(target_hour=18)
 
+async def check_and_send_minutely_reminders():
+    """
+    Called every minute by background scheduler.
+    Dispatches:
+    1. Base default reminders at 08:00, 16:00, 18:00 for students with notify_08, notify_16, notify_18 enabled.
+    2. Any custom time (e.g. 19:30, 20:00) chosen by students with notify_custom enabled.
+    """
+    if not bot:
+        return
+    now_local = datetime.now(TARGET_TZ)
+    cur_time_str = now_local.strftime("%H:%M")
+    cur_hour = now_local.hour
+    cur_min = now_local.minute
+
+    users = get_all_users()
+    if not users:
+        users = [{"id": 5783100321}]
+
+    sent_users = set()
+
+    for u in users:
+        uid = u.get("id")
+        if not uid or uid in sent_users:
+            continue
+        try:
+            prefs = get_notification_prefs(uid)
+            should_send = False
+
+            # 1. Base default presets at minute 0:
+            if cur_min == 0:
+                if cur_hour == 8 and prefs.get("notify_08", True):
+                    should_send = True
+                elif cur_hour == 16 and prefs.get("notify_16", True):
+                    should_send = True
+                elif cur_hour == 18 and prefs.get("notify_18", True):
+                    should_send = True
+
+            # 2. Custom time chosen by user:
+            if not should_send and prefs.get("notify_custom", False):
+                user_custom_str = str(prefs.get("custom_time", "19:00")).strip()
+                custom_times = [t.strip() for t in user_custom_str.split(",") if t.strip()]
+                if cur_time_str in custom_times:
+                    should_send = True
+
+            if should_send:
+                text, has_tasks = build_reminder_notification(uid, hour=cur_hour)
+                if has_tasks:
+                    await bot.send_message(
+                        chat_id=uid,
+                        text=text,
+                        parse_mode="HTML",
+                        reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал")
+                    )
+                    sent_users.add(uid)
+                    await asyncio.sleep(0.05)
+        except Exception as err:
+            logger.warning(f"Error checking reminder for user {uid} at {cur_time_str}: {err}")
+
 def build_weekly_notification(user_id: int, start_date: Optional[date] = None, end_date: Optional[date] = None) -> tuple[str, bool]:
     """
     Builds a weekly summary of all upcoming homework assignments
@@ -605,16 +663,25 @@ async def send_weekly_reminder():
 # NOTIFICATION SETTINGS HELPERS
 # ─────────────────────────────────────────────────────────────
 
-def build_settings_text(prefs: dict) -> str:
+def build_settings_text(prefs) -> str:
+    if isinstance(prefs, int):
+        prefs = get_notification_prefs(prefs)
+    elif not isinstance(prefs, dict):
+        prefs = {}
     def st(enabled: bool) -> str:
         return "ВКЛ ✅" if enabled else "ВЫКЛ ❌"
+    custom_t = str(prefs.get('custom_time', '19:00') or '19:00')
+    custom_on = bool(prefs.get('notify_custom', False))
     return (
         "⚙️ <b>Настройки личных напоминаний</b>\n\n"
-        "⏰ <b>КОГДА НАПОМИНАТЬ (Время):</b>\n"
+        "⏰ <b>КОГДА НАПОМИНАТЬ (Базовое время):</b>\n"
         f"☀️ <b>08:00</b> — Утреннее перед уроками   [{st(prefs.get('notify_08', True))}]\n"
         f"🎒 <b>16:00</b> — Дневное после уроков       [{st(prefs.get('notify_16', True))}]\n"
         f"🌆 <b>18:00</b> — Главное вечернее         [{st(prefs.get('notify_18', True))}]\n"
         f"🗓️ <b>Неделя</b> — Дайджест на вс. 18:00   [{st(prefs.get('notify_weekly', True))}]\n\n"
+        "🕒 <b>СВОЁ ВРЕМЯ НАПОМИНАНИЯ:</b>\n"
+        f"🔔 <b>{custom_t}</b> — Личное время [{st(custom_on)}]\n"
+        f"<i>(Чтобы сменить время: <code>/time {custom_t}</code>)</i>\n\n"
         "📋 <b>КАКИЕ Д/З НАПОМИНАТЬ (Фильтр):</b>\n"
         f"📌 <b>На сегодня</b> — Сдать сегодня        [{st(prefs.get('notify_today', True))}]\n"
         f"📚 <b>На завтра</b> — Сдать завтра         [{st(prefs.get('notify_tomorrow', True))}]\n"
@@ -623,10 +690,16 @@ def build_settings_text(prefs: dict) -> str:
         "<i>Нажми на нужную кнопку ниже, чтобы включить или отключить.</i>"
     )
 
-def build_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
+def build_settings_keyboard(prefs) -> InlineKeyboardMarkup:
+    if isinstance(prefs, int):
+        prefs = get_notification_prefs(prefs)
+    elif not isinstance(prefs, dict):
+        prefs = {}
     def label(key: str, emoji: str, time: str) -> str:
         on = prefs.get(key, True)
         return f"{emoji} {time} {'✅' if on else '❌'}"
+    custom_t = str(prefs.get('custom_time', '19:00') or '19:00')
+    custom_on = bool(prefs.get('notify_custom', False))
     return InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text=label("notify_08", "☀️", "08:00"), callback_data="toggle_notif:08"),
@@ -634,7 +707,8 @@ def build_settings_keyboard(prefs: dict) -> InlineKeyboardMarkup:
             InlineKeyboardButton(text=label("notify_18", "🌆", "18:00"), callback_data="toggle_notif:18")
         ],
         [
-            InlineKeyboardButton(text=label("notify_weekly", "🗓️", "Недельный дайджест (вс)"), callback_data="toggle_notif:weekly")
+            InlineKeyboardButton(text=f"🕒 Своё время: {custom_t} {'✅' if custom_on else '❌'}", callback_data="toggle_notif:custom"),
+            InlineKeyboardButton(text=label("notify_weekly", "🗓️", "Дайджест (вс)"), callback_data="toggle_notif:weekly")
         ],
         [
             InlineKeyboardButton(text=label("notify_today", "📌", "На сегодня"), callback_data="toggle_notif:today"),
@@ -653,6 +727,53 @@ async def handle_settings(message: Message):
     await message.answer(
         build_settings_text(prefs),
         parse_mode="HTML",
+        reply_markup=build_settings_keyboard(prefs)
+    )
+
+@dp.message(Command("time", "время"))
+async def handle_set_time(message: Message, command: CommandObject = None):
+    record_user_activity(message.from_user)
+    arg = command.args.strip() if command and command.args else ""
+    if not arg:
+        uid = message.from_user.id
+        prefs = get_notification_prefs(uid)
+        cur_t = prefs.get("custom_time", "19:00")
+        await message.answer(
+            "🕒 <b>Установка своего времени напоминания</b>\n\n"
+            f"Текущее своё время: <b>{cur_t}</b>\n\n"
+            "Чтобы изменить его, укажи время в формате <b>ЧЧ:ММ</b>, например:\n"
+            "• <code>/time 19:30</code>\n"
+            "• <code>/time 20:00</code>\n"
+            "• <code>/time 07:45</code>\n\n"
+            "Либо выбери его в ДЗ Портале в окне <b>⚙️ Настройки</b>."
+        )
+        return
+    match = re.match(r"^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$", arg)
+    if not match:
+        await message.answer("❌ Неверный формат времени. Пожалуйста, укажи в формате <b>ЧЧ:ММ</b> (например, <code>/time 19:30</code>).")
+        return
+    h, m = int(match.group(1)), int(match.group(2))
+    clean_time = f"{h:02d}:{m:02d}"
+    uid = message.from_user.id
+    prefs = get_notification_prefs(uid)
+    prefs["custom_time"] = clean_time
+    prefs["notify_custom"] = True
+    upsert_notification_prefs(
+        user_id=uid,
+        notify_08=prefs.get("notify_08", True),
+        notify_16=prefs.get("notify_16", True),
+        notify_18=prefs.get("notify_18", True),
+        notify_2days=prefs.get("notify_2days", True),
+        notify_weekly=prefs.get("notify_weekly", True),
+        notify_today=prefs.get("notify_today", True),
+        notify_tomorrow=prefs.get("notify_tomorrow", True),
+        notify_overdue=prefs.get("notify_overdue", True),
+        notify_custom=True,
+        custom_time=clean_time
+    )
+    await message.answer(
+        f"✅ Своё время напоминания установлено на <b>{clean_time}</b> и включено!\n\n"
+        f"Бот будет напоминать о домашних заданиях каждый день в <b>{clean_time}</b>.",
         reply_markup=build_settings_keyboard(prefs)
     )
 
@@ -685,11 +806,11 @@ def format_leaderboard_text(leaders: List[Dict[str, Any]]) -> str:
 async def handle_done_callback(callback: CallbackQuery):
     # ── Toggle notification preference ──────────────────────
     if callback.data.startswith("toggle_notif:"):
-        hour = callback.data.split(":")[1]  # "08", "16", "18", "2days", "weekly", "today", "tomorrow", "overdue"
+        hour = callback.data.split(":")[1]  # "08", "16", "18", "2days", "weekly", "today", "tomorrow", "overdue", "custom"
         uid = callback.from_user.id
         prefs = get_notification_prefs(uid)
         key = f"notify_{hour}"
-        prefs[key] = not prefs.get(key, True)
+        prefs[key] = not prefs.get(key, (False if hour == "custom" else True))
         upsert_notification_prefs(
             user_id=uid,
             notify_08=prefs.get("notify_08", True),
@@ -700,6 +821,8 @@ async def handle_done_callback(callback: CallbackQuery):
             notify_today=prefs.get("notify_today", True),
             notify_tomorrow=prefs.get("notify_tomorrow", True),
             notify_overdue=prefs.get("notify_overdue", True),
+            notify_custom=prefs.get("notify_custom", False),
+            custom_time=prefs.get("custom_time", "19:00"),
         )
         await callback.answer("✅ Сохранено!")
         # Edit message to reflect new state
@@ -1108,16 +1231,16 @@ async def main():
     except Exception as e:
         logger.warning(f"Could not sync bot profile on startup: {e}")
 
-    # 1. Start background reminder scheduler (every day at 08:00, 16:00, 18:00 in Asia/Tashkent)
+    # 1. Start background reminder scheduler (checks every minute in Asia/Tashkent)
     scheduler = AsyncIOScheduler(timezone=TARGET_TZ)
-    # Напоминания в 08:00, 16:00, 18:00 (включая дедлайны за 2 дня до сдачи)
-    scheduler.add_job(send_scheduled_reminder, 'cron', hour='8,16,18', minute=0)
+    # Поминутная проверка базовых (08:00, 16:00, 18:00) и пользовательских времён напоминаний
+    scheduler.add_job(check_and_send_minutely_reminders, 'cron', minute='*', misfire_grace_time=60)
     # Недельный дайджест со всеми ДЗ на предстоящую неделю каждое воскресенье в 18:00
     scheduler.add_job(send_weekly_reminder, 'cron', day_of_week='sun', hour=18, minute=0)
     # Ежедневная автоочистка заданий старше 30 дней в 03:30 ночи
     scheduler.add_job(lambda: cleanup_old_tasks(days=30), 'cron', hour=3, minute=30)
     scheduler.start()
-    logger.info(f"⏰ Background scheduler started (reminders at 08:00, 16:00, 18:00; weekly on Sun 18:00; cleanup at 03:30 in {TARGET_TZ})")
+    logger.info(f"⏰ Background scheduler started (minutely check for custom and base times; weekly on Sun 18:00; cleanup at 03:30 in {TARGET_TZ})")
 
     # Разовая проверка устаревших заданий при старте
     try:

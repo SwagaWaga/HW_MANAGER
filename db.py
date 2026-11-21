@@ -64,12 +64,22 @@ def init_db():
         notify_weekly INTEGER DEFAULT 1,
         notify_today INTEGER DEFAULT 1,
         notify_tomorrow INTEGER DEFAULT 1,
-        notify_overdue INTEGER DEFAULT 1
+        notify_overdue INTEGER DEFAULT 1,
+        notify_custom INTEGER DEFAULT 0,
+        custom_time TEXT DEFAULT '19:00'
     )
     """)
-    for col in ("notify_2days", "notify_weekly", "notify_today", "notify_tomorrow", "notify_overdue"):
+    for col, col_def in (
+        ("notify_2days", "INTEGER DEFAULT 1"),
+        ("notify_weekly", "INTEGER DEFAULT 1"),
+        ("notify_today", "INTEGER DEFAULT 1"),
+        ("notify_tomorrow", "INTEGER DEFAULT 1"),
+        ("notify_overdue", "INTEGER DEFAULT 1"),
+        ("notify_custom", "INTEGER DEFAULT 0"),
+        ("custom_time", "TEXT DEFAULT '19:00'")
+    ):
         try:
-            cursor.execute(f"ALTER TABLE user_notification_prefs ADD COLUMN {col} INTEGER DEFAULT 1")
+            cursor.execute(f"ALTER TABLE user_notification_prefs ADD COLUMN {col} {col_def}")
         except Exception:
             pass
     conn.commit()
@@ -312,9 +322,11 @@ _DEFAULT_PREFS = {
     "notify_tomorrow": True,
     "notify_2days": True,
     "notify_overdue": True,
+    "notify_custom": False,
+    "custom_time": "19:00",
 }
 
-def get_notification_prefs(user_id: int) -> Dict[str, bool]:
+def get_notification_prefs(user_id: int) -> Dict[str, Any]:
     if is_using_supabase():
         prefs = supabase_db.get_notification_prefs(user_id)
         if prefs is not None:
@@ -337,6 +349,8 @@ def get_notification_prefs(user_id: int) -> Dict[str, bool]:
                 "notify_tomorrow": bool(row["notify_tomorrow"]) if "notify_tomorrow" in keys else True,
                 "notify_2days": bool(row["notify_2days"]) if "notify_2days" in keys else True,
                 "notify_overdue": bool(row["notify_overdue"]) if "notify_overdue" in keys else True,
+                "notify_custom": bool(row["notify_custom"]) if "notify_custom" in keys else False,
+                "custom_time": str(row["custom_time"]) if "custom_time" in keys and row["custom_time"] else "19:00",
             }
     except Exception:
         if conn:
@@ -355,13 +369,15 @@ def upsert_notification_prefs(
     notify_weekly: bool = True,
     notify_today: bool = True,
     notify_tomorrow: bool = True,
-    notify_overdue: bool = True
+    notify_overdue: bool = True,
+    notify_custom: bool = False,
+    custom_time: str = "19:00"
 ) -> bool:
     saved = False
     if is_using_supabase():
         saved = supabase_db.upsert_notification_prefs(
             user_id, notify_08, notify_16, notify_18, notify_2days, notify_weekly,
-            notify_today, notify_tomorrow, notify_overdue
+            notify_today, notify_tomorrow, notify_overdue, notify_custom, custom_time
         )
     if not saved:
         conn = sqlite3.connect(DB_NAME)
@@ -370,9 +386,9 @@ def upsert_notification_prefs(
             cursor.execute("""
                 INSERT INTO user_notification_prefs (
                     user_id, notify_08, notify_16, notify_18, notify_2days, notify_weekly,
-                    notify_today, notify_tomorrow, notify_overdue
+                    notify_today, notify_tomorrow, notify_overdue, notify_custom, custom_time
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id) DO UPDATE SET
                     notify_08 = excluded.notify_08,
                     notify_16 = excluded.notify_16,
@@ -381,26 +397,40 @@ def upsert_notification_prefs(
                     notify_weekly = excluded.notify_weekly,
                     notify_today = excluded.notify_today,
                     notify_tomorrow = excluded.notify_tomorrow,
-                    notify_overdue = excluded.notify_overdue
+                    notify_overdue = excluded.notify_overdue,
+                    notify_custom = excluded.notify_custom,
+                    custom_time = excluded.custom_time
             """, (
                 user_id,
                 int(notify_08), int(notify_16), int(notify_18),
                 int(notify_2days), int(notify_weekly),
-                int(notify_today), int(notify_tomorrow), int(notify_overdue)
+                int(notify_today), int(notify_tomorrow), int(notify_overdue),
+                int(notify_custom), str(custom_time or "19:00")
             ))
             conn.commit()
         except Exception:
             try:
                 cursor.execute("""
-                    INSERT INTO user_notification_prefs (user_id, notify_08, notify_16, notify_18, notify_2days, notify_weekly)
-                    VALUES (?, ?, ?, ?, ?, ?)
+                    INSERT INTO user_notification_prefs (
+                        user_id, notify_08, notify_16, notify_18, notify_2days, notify_weekly,
+                        notify_today, notify_tomorrow, notify_overdue
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(user_id) DO UPDATE SET
                         notify_08 = excluded.notify_08,
                         notify_16 = excluded.notify_16,
                         notify_18 = excluded.notify_18,
                         notify_2days = excluded.notify_2days,
-                        notify_weekly = excluded.notify_weekly
-                """, (user_id, int(notify_08), int(notify_16), int(notify_18), int(notify_2days), int(notify_weekly)))
+                        notify_weekly = excluded.notify_weekly,
+                        notify_today = excluded.notify_today,
+                        notify_tomorrow = excluded.notify_tomorrow,
+                        notify_overdue = excluded.notify_overdue
+                """, (
+                    user_id,
+                    int(notify_08), int(notify_16), int(notify_18),
+                    int(notify_2days), int(notify_weekly),
+                    int(notify_today), int(notify_tomorrow), int(notify_overdue)
+                ))
                 conn.commit()
             except Exception:
                 pass

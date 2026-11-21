@@ -314,9 +314,11 @@ _DEFAULT_PREFS = {
     "notify_tomorrow": True,
     "notify_2days": True,
     "notify_overdue": True,
+    "notify_custom": False,
+    "custom_time": "19:00",
 }
 
-def get_notification_prefs(user_id: int) -> Optional[Dict[str, bool]]:
+def get_notification_prefs(user_id: int) -> Optional[Dict[str, Any]]:
     """Return notification preferences for a user from Supabase. Returns None if table/connection fails."""
     client = get_supabase_client()
     if not client:
@@ -334,6 +336,8 @@ def get_notification_prefs(user_id: int) -> Optional[Dict[str, bool]]:
                 "notify_tomorrow": bool(row.get("notify_tomorrow", True)),
                 "notify_2days": bool(row.get("notify_2days", True)),
                 "notify_overdue": bool(row.get("notify_overdue", True)),
+                "notify_custom": bool(row.get("notify_custom", False)),
+                "custom_time": str(row.get("custom_time", "19:00") or "19:00"),
             }
         return _DEFAULT_PREFS.copy()
     except Exception as e:
@@ -349,13 +353,15 @@ def upsert_notification_prefs(
     notify_weekly: bool = True,
     notify_today: bool = True,
     notify_tomorrow: bool = True,
-    notify_overdue: bool = True
+    notify_overdue: bool = True,
+    notify_custom: bool = False,
+    custom_time: str = "19:00"
 ) -> bool:
     """Save/update notification preferences for a user in Supabase."""
     client = get_supabase_client()
     if not client:
         return False
-    # 1. Попытка записать со всеми новыми полями
+    # 1. Попытка записать со всеми новыми полями включая custom_time
     try:
         client.table("user_notification_prefs").upsert({
             "user_id": user_id,
@@ -367,10 +373,12 @@ def upsert_notification_prefs(
             "notify_today": notify_today,
             "notify_tomorrow": notify_tomorrow,
             "notify_overdue": notify_overdue,
+            "notify_custom": notify_custom,
+            "custom_time": custom_time,
         }, on_conflict="user_id").execute()
         return True
     except Exception:
-        # 2. Фолбэк на предыдущую схему с 2days и weekly
+        # 2. Фолбэк без custom_time
         try:
             client.table("user_notification_prefs").upsert({
                 "user_id": user_id,
@@ -379,21 +387,35 @@ def upsert_notification_prefs(
                 "notify_18": notify_18,
                 "notify_2days": notify_2days,
                 "notify_weekly": notify_weekly,
+                "notify_today": notify_today,
+                "notify_tomorrow": notify_tomorrow,
+                "notify_overdue": notify_overdue,
             }, on_conflict="user_id").execute()
             return True
         except Exception:
-            # 3. Фолбэк на базовые поля
+            # 3. Фолбэк на базовую схему
             try:
                 client.table("user_notification_prefs").upsert({
                     "user_id": user_id,
                     "notify_08": notify_08,
                     "notify_16": notify_16,
                     "notify_18": notify_18,
+                    "notify_2days": notify_2days,
+                    "notify_weekly": notify_weekly,
                 }, on_conflict="user_id").execute()
                 return True
-            except Exception as e2:
-                logger.warning(f"Supabase upsert_notification_prefs failed ({e2}), using SQLite fallback")
-                return False
+            except Exception:
+                try:
+                    client.table("user_notification_prefs").upsert({
+                        "user_id": user_id,
+                        "notify_08": notify_08,
+                        "notify_16": notify_16,
+                        "notify_18": notify_18,
+                    }, on_conflict="user_id").execute()
+                    return True
+                except Exception as e2:
+                    logger.warning(f"Supabase upsert_notification_prefs failed ({e2}), using SQLite fallback")
+                    return False
 
 # ─────────────────────────────────────────────────────────────
 # LEADERBOARD / АКТИВНЫЕ РЕДАКТОРЫ (КЭШИРОВАНИЕ НА 4 ЧАСА)
