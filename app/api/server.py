@@ -56,12 +56,16 @@ logger = logging.getLogger("server")
 
 app = FastAPI()
 
-if not os.path.exists("uploads"):
-    os.makedirs("uploads", exist_ok=True)
+_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+_uploads_dir = os.path.join(_root_dir, "uploads")
+_static_dir = os.path.join(_root_dir, "static")
+_index_file = os.path.join(_static_dir, "index.html")
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
+os.makedirs(_uploads_dir, exist_ok=True)
+if os.path.exists(_uploads_dir):
+    app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+if os.path.exists(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
 # ─────────────────────────────────────────────────────────────
 # ФОНОВАЯ АВТОМАТИЧЕСКАЯ ОЧИСТКА ЗАДАНИЙ СТАРШЕ 30 ДНЕЙ
@@ -115,7 +119,7 @@ def optimize_image_bytes(image_bytes: bytes, max_dim: int = 1600, quality: int =
 @app.get("/")
 def route():
     return FileResponse(
-        "static/index.html",
+        _index_file if os.path.exists(_index_file) else "static/index.html",
         headers={
             "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
             "Pragma": "no-cache",
