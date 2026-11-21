@@ -24,7 +24,9 @@ from db import (
     get_notification_prefs,
     upsert_notification_prefs,
     get_leaderboard,
-    cleanup_old_tasks
+    cleanup_old_tasks,
+    normalize_time_str,
+    parse_custom_times
 )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -42,7 +44,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.6.0"
+APP_VERSION = "2.7.0"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -520,11 +522,12 @@ async def check_and_send_minutely_reminders():
                 elif cur_hour == 18 and prefs.get("notify_18", True):
                     should_send = True
 
-            # 2. Custom time chosen by user:
-            if not should_send and prefs.get("notify_custom", False):
-                user_custom_str = str(prefs.get("custom_time", "19:00")).strip()
-                custom_times = [t.strip() for t in user_custom_str.split(",") if t.strip()]
-                if cur_time_str in custom_times:
+            # 2. Custom times added by user (e.g. 07:00, 19:30):
+            if not should_send and prefs.get("notify_custom", True):
+                c_times = prefs.get("custom_times")
+                if not c_times and prefs.get("custom_time"):
+                    c_times = parse_custom_times(prefs.get("custom_time"))
+                if c_times and cur_time_str in c_times:
                     should_send = True
 
             if should_send:
@@ -670,25 +673,41 @@ def build_settings_text(prefs) -> str:
         prefs = {}
     def st(enabled: bool) -> str:
         return "ВКЛ ✅" if enabled else "ВЫКЛ ❌"
-    custom_t = str(prefs.get('custom_time', '19:00') or '19:00')
-    custom_on = bool(prefs.get('notify_custom', False))
-    return (
-        "⚙️ <b>Настройки личных напоминаний</b>\n\n"
-        "⏰ <b>КОГДА НАПОМИНАТЬ (Базовое время):</b>\n"
-        f"☀️ <b>08:00</b> — Утреннее перед уроками   [{st(prefs.get('notify_08', True))}]\n"
-        f"🎒 <b>16:00</b> — Дневное после уроков       [{st(prefs.get('notify_16', True))}]\n"
-        f"🌆 <b>18:00</b> — Главное вечернее         [{st(prefs.get('notify_18', True))}]\n"
-        f"🗓️ <b>Неделя</b> — Дайджест на вс. 18:00   [{st(prefs.get('notify_weekly', True))}]\n\n"
-        "🕒 <b>СВОЁ ВРЕМЯ НАПОМИНАНИЯ:</b>\n"
-        f"🔔 <b>{custom_t}</b> — Личное время [{st(custom_on)}]\n"
-        f"<i>(Чтобы сменить время: <code>/time {custom_t}</code>)</i>\n\n"
-        "📋 <b>КАКИЕ Д/З НАПОМИНАТЬ (Фильтр):</b>\n"
-        f"📌 <b>На сегодня</b> — Сдать сегодня        [{st(prefs.get('notify_today', True))}]\n"
-        f"📚 <b>На завтра</b> — Сдать завтра         [{st(prefs.get('notify_tomorrow', True))}]\n"
-        f"⏳ <b>На послезавтра</b> — За 2 дня до сдачи [{st(prefs.get('notify_2days', True))}]\n"
-        f"⚠️ <b>Просроченные</b> — Долги и дедлайны  [{st(prefs.get('notify_overdue', True))}]\n\n"
-        "<i>Нажми на нужную кнопку ниже, чтобы включить или отключить.</i>"
-    )
+
+    c_times = prefs.get('custom_times')
+    if not c_times and prefs.get('custom_time'):
+        c_times = parse_custom_times(prefs.get('custom_time'))
+    if not c_times:
+        c_times = []
+
+    lines = [
+        "⚙️ <b>Настройки личных напоминаний</b>\n",
+        "⏰ <b>СТАНДАРТНОЕ ВРЕМЯ (Базовые часы):</b>",
+        f"☀️ <b>08:00</b> — Утреннее перед уроками   [{st(prefs.get('notify_08', True))}]",
+        f"🎒 <b>16:00</b> — Дневное после уроков       [{st(prefs.get('notify_16', True))}]",
+        f"🌆 <b>18:00</b> — Главное вечернее         [{st(prefs.get('notify_18', True))}]",
+        f"🗓️ <b>Неделя</b> — Дайджест на вс. 18:00   [{st(prefs.get('notify_weekly', True))}]\n",
+        "🕒 <b>СВОЁ ВРЕМЯ (Добавленные часы):</b>"
+    ]
+    if c_times:
+        for ct in c_times:
+            lines.append(f"🔔 <b>{ct}</b> — Личное время [ВКЛ ✅]")
+    else:
+        lines.append("<i>Пока нет добавленных часов. Вы можете добавить любое время (например 07:00 или 19:30).</i>")
+
+    lines.append("\n<i>(Добавить время: <code>/addtime 07:00</code> или кнопкой ниже)</i>")
+    if c_times:
+        lines.append("<i>(Удалить своё время: нажмите кнопку с ✕ ниже или <code>/deltime 07:00</code>)</i>")
+    lines.append("")
+
+    lines.append("📋 <b>КАКИЕ Д/З НАПОМИНАТЬ (Фильтр):</b>")
+    lines.append(f"📌 <b>На сегодня</b> — Сдать сегодня        [{st(prefs.get('notify_today', True))}]")
+    lines.append(f"📚 <b>На завтра</b> — Сдать завтра         [{st(prefs.get('notify_tomorrow', True))}]")
+    lines.append(f"⏳ <b>На послезавтра</b> — За 2 дня до сдачи [{st(prefs.get('notify_2days', True))}]")
+    lines.append(f"⚠️ <b>Просроченные</b> — Долги и дедлайны  [{st(prefs.get('notify_overdue', True))}]\n")
+    lines.append("<i>Нажми на нужную кнопку ниже, чтобы включить или отключить.</i>")
+
+    return "\n".join(lines)
 
 def build_settings_keyboard(prefs) -> InlineKeyboardMarkup:
     if isinstance(prefs, int):
@@ -698,27 +717,43 @@ def build_settings_keyboard(prefs) -> InlineKeyboardMarkup:
     def label(key: str, emoji: str, time: str) -> str:
         on = prefs.get(key, True)
         return f"{emoji} {time} {'✅' if on else '❌'}"
-    custom_t = str(prefs.get('custom_time', '19:00') or '19:00')
-    custom_on = bool(prefs.get('notify_custom', False))
-    return InlineKeyboardMarkup(inline_keyboard=[
+
+    c_times = prefs.get('custom_times')
+    if not c_times and prefs.get('custom_time'):
+        c_times = parse_custom_times(prefs.get('custom_time'))
+    if not c_times:
+        c_times = []
+
+    rows = [
         [
             InlineKeyboardButton(text=label("notify_08", "☀️", "08:00"), callback_data="toggle_notif:08"),
             InlineKeyboardButton(text=label("notify_16", "🎒", "16:00"), callback_data="toggle_notif:16"),
             InlineKeyboardButton(text=label("notify_18", "🌆", "18:00"), callback_data="toggle_notif:18")
-        ],
-        [
-            InlineKeyboardButton(text=f"🕒 Своё время: {custom_t} {'✅' if custom_on else '❌'}", callback_data="toggle_notif:custom"),
-            InlineKeyboardButton(text=label("notify_weekly", "🗓️", "Дайджест (вс)"), callback_data="toggle_notif:weekly")
-        ],
-        [
-            InlineKeyboardButton(text=label("notify_today", "📌", "На сегодня"), callback_data="toggle_notif:today"),
-            InlineKeyboardButton(text=label("notify_tomorrow", "📚", "На завтра"), callback_data="toggle_notif:tomorrow")
-        ],
-        [
-            InlineKeyboardButton(text=label("notify_2days", "⏳", "На послезавтра"), callback_data="toggle_notif:2days"),
-            InlineKeyboardButton(text=label("notify_overdue", "⚠️", "Просроченные"), callback_data="toggle_notif:overdue")
-        ],
+        ]
+    ]
+
+    # Ряд для удаляемых своих времён (по 2 в ряд)
+    if c_times:
+        time_buttons = [InlineKeyboardButton(text=f"🔔 {ct} ✕", callback_data=f"del_time:{ct}") for ct in c_times]
+        for i in range(0, len(time_buttons), 2):
+            rows.append(time_buttons[i:i+2])
+
+    rows.append([
+        InlineKeyboardButton(text="➕ Добавить своё время", callback_data="add_time_menu"),
+        InlineKeyboardButton(text=label("notify_weekly", "🗓️", "Дайджест (вс)"), callback_data="toggle_notif:weekly")
     ])
+
+    rows.append([
+        InlineKeyboardButton(text=label("notify_today", "📌", "На сегодня"), callback_data="toggle_notif:today"),
+        InlineKeyboardButton(text=label("notify_tomorrow", "📚", "На завтра"), callback_data="toggle_notif:tomorrow")
+    ])
+
+    rows.append([
+        InlineKeyboardButton(text=label("notify_2days", "⏳", "На послезавтра"), callback_data="toggle_notif:2days"),
+        InlineKeyboardButton(text=label("notify_overdue", "⚠️", "Просроченные"), callback_data="toggle_notif:overdue")
+    ])
+
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 @dp.message(Command("settings", "уведомления", "notif"))
 async def handle_settings(message: Message):
@@ -730,34 +765,25 @@ async def handle_settings(message: Message):
         reply_markup=build_settings_keyboard(prefs)
     )
 
-@dp.message(Command("time", "время"))
-async def handle_set_time(message: Message, command: CommandObject = None):
+@dp.message(Command("addtime", "добавить"))
+async def handle_add_time(message: Message, command: CommandObject = None):
     record_user_activity(message.from_user)
     arg = command.args.strip() if command and command.args else ""
-    if not arg:
-        uid = message.from_user.id
-        prefs = get_notification_prefs(uid)
-        cur_t = prefs.get("custom_time", "19:00")
+    norm = normalize_time_str(arg)
+    if not norm:
         await message.answer(
-            "🕒 <b>Установка своего времени напоминания</b>\n\n"
-            f"Текущее своё время: <b>{cur_t}</b>\n\n"
-            "Чтобы изменить его, укажи время в формате <b>ЧЧ:ММ</b>, например:\n"
-            "• <code>/time 19:30</code>\n"
-            "• <code>/time 20:00</code>\n"
-            "• <code>/time 07:45</code>\n\n"
-            "Либо выбери его в ДЗ Портале в окне <b>⚙️ Настройки</b>."
+            "❌ Укажите корректное время в формате <b>ЧЧ:ММ</b> или час, например:\n"
+            "• <code>/addtime 07:00</code>\n"
+            "• <code>/addtime 7</code>\n"
+            "• <code>/addtime 19:30</code>"
         )
         return
-    match = re.match(r"^([0-1]?[0-9]|2[0-3]):([0-5][0-9])$", arg)
-    if not match:
-        await message.answer("❌ Неверный формат времени. Пожалуйста, укажи в формате <b>ЧЧ:ММ</b> (например, <code>/time 19:30</code>).")
-        return
-    h, m = int(match.group(1)), int(match.group(2))
-    clean_time = f"{h:02d}:{m:02d}"
     uid = message.from_user.id
     prefs = get_notification_prefs(uid)
-    prefs["custom_time"] = clean_time
-    prefs["notify_custom"] = True
+    c_times = list(prefs.get("custom_times", []))
+    if norm not in c_times:
+        c_times.append(norm)
+    c_times.sort()
     upsert_notification_prefs(
         user_id=uid,
         notify_08=prefs.get("notify_08", True),
@@ -769,13 +795,61 @@ async def handle_set_time(message: Message, command: CommandObject = None):
         notify_tomorrow=prefs.get("notify_tomorrow", True),
         notify_overdue=prefs.get("notify_overdue", True),
         notify_custom=True,
-        custom_time=clean_time
+        custom_times=c_times
     )
+    updated = get_notification_prefs(uid)
     await message.answer(
-        f"✅ Своё время напоминания установлено на <b>{clean_time}</b> и включено!\n\n"
-        f"Бот будет напоминать о домашних заданиях каждый день в <b>{clean_time}</b>.",
-        reply_markup=build_settings_keyboard(prefs)
+        f"✅ Время <b>{norm}</b> успешно добавлено в ваше расписание напоминаний!\n\n"
+        f"Бот будет напоминать о заданиях в это время.",
+        reply_markup=build_settings_keyboard(updated)
     )
+
+@dp.message(Command("deltime", "удалить"))
+async def handle_del_time(message: Message, command: CommandObject = None):
+    record_user_activity(message.from_user)
+    arg = command.args.strip() if command and command.args else ""
+    norm = normalize_time_str(arg)
+    if not norm:
+        await message.answer(
+            "❌ Укажите время для удаления (например, <code>/deltime 07:00</code>)."
+        )
+        return
+    uid = message.from_user.id
+    prefs = get_notification_prefs(uid)
+    c_times = [t for t in prefs.get("custom_times", []) if t != norm]
+    upsert_notification_prefs(
+        user_id=uid,
+        notify_08=prefs.get("notify_08", True),
+        notify_16=prefs.get("notify_16", True),
+        notify_18=prefs.get("notify_18", True),
+        notify_2days=prefs.get("notify_2days", True),
+        notify_weekly=prefs.get("notify_weekly", True),
+        notify_today=prefs.get("notify_today", True),
+        notify_tomorrow=prefs.get("notify_tomorrow", True),
+        notify_overdue=prefs.get("notify_overdue", True),
+        notify_custom=bool(c_times),
+        custom_times=c_times
+    )
+    updated = get_notification_prefs(uid)
+    await message.answer(
+        f"🗑️ Время <b>{norm}</b> удалено из вашего расписания.",
+        reply_markup=build_settings_keyboard(updated)
+    )
+
+@dp.message(Command("time", "время", "times"))
+async def handle_set_time(message: Message, command: CommandObject = None):
+    record_user_activity(message.from_user)
+    arg = command.args.strip() if command and command.args else ""
+    if not arg:
+        uid = message.from_user.id
+        prefs = get_notification_prefs(uid)
+        await message.answer(
+            build_settings_text(prefs),
+            parse_mode="HTML",
+            reply_markup=build_settings_keyboard(prefs)
+        )
+        return
+    await handle_add_time(message, command)
 
 def format_leaderboard_text(leaders: List[Dict[str, Any]]) -> str:
     if not leaders:
@@ -804,13 +878,12 @@ def format_leaderboard_text(leaders: List[Dict[str, Any]]) -> str:
 
 @dp.callback_query()
 async def handle_done_callback(callback: CallbackQuery):
-    # ── Toggle notification preference ──────────────────────
-    if callback.data.startswith("toggle_notif:"):
-        hour = callback.data.split(":")[1]  # "08", "16", "18", "2days", "weekly", "today", "tomorrow", "overdue", "custom"
+    # ── Delete a custom notification time ───────────────────
+    if callback.data.startswith("del_time:"):
+        time_to_del = callback.data.split(":", 1)[1]
         uid = callback.from_user.id
         prefs = get_notification_prefs(uid)
-        key = f"notify_{hour}"
-        prefs[key] = not prefs.get(key, (False if hour == "custom" else True))
+        c_times = [t for t in prefs.get("custom_times", []) if t != time_to_del]
         upsert_notification_prefs(
             user_id=uid,
             notify_08=prefs.get("notify_08", True),
@@ -821,15 +894,116 @@ async def handle_done_callback(callback: CallbackQuery):
             notify_today=prefs.get("notify_today", True),
             notify_tomorrow=prefs.get("notify_tomorrow", True),
             notify_overdue=prefs.get("notify_overdue", True),
-            notify_custom=prefs.get("notify_custom", False),
-            custom_time=prefs.get("custom_time", "19:00"),
+            notify_custom=bool(c_times),
+            custom_times=c_times
         )
-        await callback.answer("✅ Сохранено!")
-        # Edit message to reflect new state
+        await callback.answer(f"🗑️ Время {time_to_del} удалено!")
+        updated = get_notification_prefs(uid)
+        await callback.message.edit_text(
+            build_settings_text(updated),
+            parse_mode="HTML",
+            reply_markup=build_settings_keyboard(updated)
+        )
+        return
+
+    # ── Interactive Add Time Menu ───────────────────────────
+    if callback.data == "add_time_menu":
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="+ 07:00", callback_data="add_quick_time:07:00"),
+                InlineKeyboardButton(text="+ 15:00", callback_data="add_quick_time:15:00"),
+                InlineKeyboardButton(text="+ 19:00", callback_data="add_quick_time:19:00"),
+            ],
+            [
+                InlineKeyboardButton(text="+ 20:00", callback_data="add_quick_time:20:00"),
+                InlineKeyboardButton(text="+ 21:00", callback_data="add_quick_time:21:00"),
+                InlineKeyboardButton(text="+ 22:00", callback_data="add_quick_time:22:00"),
+            ],
+            [
+                InlineKeyboardButton(text="🔙 Назад в настройки", callback_data="back_to_settings")
+            ]
+        ])
+        await callback.answer()
+        await callback.message.edit_text(
+            "🕒 <b>Добавление своего времени напоминания</b>\n\n"
+            "Нажмите на нужное время ниже, либо отправьте команду в чат:\n"
+            "• <code>/addtime 07:00</code>\n"
+            "• <code>/addtime 19:30</code>\n"
+            "• <code>/addtime 7</code>\n\n"
+            "Также вы можете добавлять любое время в ДЗ Портале в окне <b>⚙️ Настройки</b>.",
+            parse_mode="HTML",
+            reply_markup=kb
+        )
+        return
+
+    if callback.data.startswith("add_quick_time:"):
+        t_add = callback.data.split(":", 1)[1]
+        uid = callback.from_user.id
+        prefs = get_notification_prefs(uid)
+        c_times = list(prefs.get("custom_times", []))
+        if t_add not in c_times:
+            c_times.append(t_add)
+        c_times.sort()
+        upsert_notification_prefs(
+            user_id=uid,
+            notify_08=prefs.get("notify_08", True),
+            notify_16=prefs.get("notify_16", True),
+            notify_18=prefs.get("notify_18", True),
+            notify_2days=prefs.get("notify_2days", True),
+            notify_weekly=prefs.get("notify_weekly", True),
+            notify_today=prefs.get("notify_today", True),
+            notify_tomorrow=prefs.get("notify_tomorrow", True),
+            notify_overdue=prefs.get("notify_overdue", True),
+            notify_custom=True,
+            custom_times=c_times
+        )
+        await callback.answer(f"✅ Добавлено {t_add}!")
+        updated = get_notification_prefs(uid)
+        await callback.message.edit_text(
+            build_settings_text(updated),
+            parse_mode="HTML",
+            reply_markup=build_settings_keyboard(updated)
+        )
+        return
+
+    if callback.data == "back_to_settings":
+        uid = callback.from_user.id
+        prefs = get_notification_prefs(uid)
+        await callback.answer()
         await callback.message.edit_text(
             build_settings_text(prefs),
             parse_mode="HTML",
             reply_markup=build_settings_keyboard(prefs)
+        )
+        return
+
+    # ── Toggle notification preference ──────────────────────
+    if callback.data.startswith("toggle_notif:"):
+        hour = callback.data.split(":")[1]  # "08", "16", "18", "2days", "weekly", "today", "tomorrow", "overdue"
+        uid = callback.from_user.id
+        prefs = get_notification_prefs(uid)
+        key = f"notify_{hour}"
+        prefs[key] = not prefs.get(key, True)
+        upsert_notification_prefs(
+            user_id=uid,
+            notify_08=prefs.get("notify_08", True),
+            notify_16=prefs.get("notify_16", True),
+            notify_18=prefs.get("notify_18", True),
+            notify_2days=prefs.get("notify_2days", True),
+            notify_weekly=prefs.get("notify_weekly", True),
+            notify_today=prefs.get("notify_today", True),
+            notify_tomorrow=prefs.get("notify_tomorrow", True),
+            notify_overdue=prefs.get("notify_overdue", True),
+            notify_custom=prefs.get("notify_custom", True),
+            custom_time=prefs.get("custom_time", ""),
+            custom_times=prefs.get("custom_times", [])
+        )
+        await callback.answer("✅ Сохранено!")
+        updated = get_notification_prefs(uid)
+        await callback.message.edit_text(
+            build_settings_text(updated),
+            parse_mode="HTML",
+            reply_markup=build_settings_keyboard(updated)
         )
         return
 

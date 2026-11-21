@@ -305,6 +305,40 @@ def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
 # Table: user_notification_prefs (user_id BIGINT PK, notify_08 BOOL, notify_16 BOOL, notify_18 BOOL)
 # ─────────────────────────────────────────────────────────────
 
+def normalize_time_str(val: Any) -> Optional[str]:
+    """Приводит строку времени к стандартному формату HH:MM."""
+    if val is None:
+        return None
+    s = str(val).strip().replace(".", ":")
+    if not s:
+        return None
+    if ":" in s:
+        parts = s.split(":")
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            h, m = int(parts[0]), int(parts[1])
+            if 0 <= h <= 23 and 0 <= m <= 59:
+                return f"{h:02d}:{m:02d}"
+    elif s.isdigit():
+        h = int(s)
+        if 0 <= h <= 23:
+            return f"{h:02d}:00"
+    return None
+
+def parse_custom_times(custom_time_raw: Any) -> List[str]:
+    """Парсит строку или список произвольных времён в отсортированный уникальный список ['07:00', '19:30']."""
+    if not custom_time_raw:
+        return []
+    if isinstance(custom_time_raw, list):
+        raw_items = custom_time_raw
+    else:
+        raw_items = str(custom_time_raw).split(",")
+    res: List[str] = []
+    for item in raw_items:
+        norm = normalize_time_str(item)
+        if norm and norm not in res:
+            res.append(norm)
+    return sorted(res)
+
 _DEFAULT_PREFS = {
     "notify_08": True,
     "notify_16": True,
@@ -314,8 +348,9 @@ _DEFAULT_PREFS = {
     "notify_tomorrow": True,
     "notify_2days": True,
     "notify_overdue": True,
-    "notify_custom": False,
-    "custom_time": "19:00",
+    "notify_custom": True,
+    "custom_time": "",
+    "custom_times": [],
 }
 
 def get_notification_prefs(user_id: int) -> Optional[Dict[str, Any]]:
@@ -327,6 +362,8 @@ def get_notification_prefs(user_id: int) -> Optional[Dict[str, Any]]:
         res = client.table("user_notification_prefs").select("*").eq("user_id", user_id).limit(1).execute()
         if res.data and len(res.data) > 0:
             row = res.data[0]
+            raw_custom = str(row.get("custom_time", "") or "")
+            c_times = parse_custom_times(raw_custom)
             return {
                 "notify_08": bool(row.get("notify_08", True)),
                 "notify_16": bool(row.get("notify_16", True)),
@@ -336,8 +373,9 @@ def get_notification_prefs(user_id: int) -> Optional[Dict[str, Any]]:
                 "notify_tomorrow": bool(row.get("notify_tomorrow", True)),
                 "notify_2days": bool(row.get("notify_2days", True)),
                 "notify_overdue": bool(row.get("notify_overdue", True)),
-                "notify_custom": bool(row.get("notify_custom", False)),
-                "custom_time": str(row.get("custom_time", "19:00") or "19:00"),
+                "notify_custom": bool(row.get("notify_custom", False)) if "notify_custom" in row else bool(c_times),
+                "custom_time": ", ".join(c_times),
+                "custom_times": c_times,
             }
         return _DEFAULT_PREFS.copy()
     except Exception as e:
@@ -354,13 +392,22 @@ def upsert_notification_prefs(
     notify_today: bool = True,
     notify_tomorrow: bool = True,
     notify_overdue: bool = True,
-    notify_custom: bool = False,
-    custom_time: str = "19:00"
+    notify_custom: bool = True,
+    custom_time: Any = "",
+    custom_times: Optional[List[str]] = None
 ) -> bool:
     """Save/update notification preferences for a user in Supabase."""
     client = get_supabase_client()
     if not client:
         return False
+
+    if custom_times is not None:
+        c_times = parse_custom_times(custom_times)
+    else:
+        c_times = parse_custom_times(custom_time)
+    formatted_custom = ", ".join(c_times)
+    has_custom = notify_custom if c_times else False
+
     # 1. Попытка записать со всеми новыми полями включая custom_time
     try:
         client.table("user_notification_prefs").upsert({
@@ -373,8 +420,8 @@ def upsert_notification_prefs(
             "notify_today": notify_today,
             "notify_tomorrow": notify_tomorrow,
             "notify_overdue": notify_overdue,
-            "notify_custom": notify_custom,
-            "custom_time": custom_time,
+            "notify_custom": has_custom,
+            "custom_time": formatted_custom,
         }, on_conflict="user_id").execute()
         return True
     except Exception:

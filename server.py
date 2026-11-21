@@ -397,8 +397,9 @@ class NotifPrefsRequest(BaseModel):
     notify_tomorrow: bool = True
     notify_2days: bool = True
     notify_overdue: bool = True
-    notify_custom: bool = False
-    custom_time: str = "19:00"
+    notify_custom: bool = True
+    custom_time: Optional[str] = ""
+    custom_times: Optional[List[str]] = None
 
 @app.get("/api/notifications/prefs")
 def get_user_notification_prefs(user_id: int):
@@ -417,20 +418,11 @@ def update_user_notification_prefs(payload: NotifPrefsRequest):
         notify_tomorrow=payload.notify_tomorrow,
         notify_overdue=payload.notify_overdue,
         notify_custom=payload.notify_custom,
-        custom_time=payload.custom_time or "19:00"
+        custom_time=payload.custom_time or "",
+        custom_times=payload.custom_times
     )
-    return {"status": "ok" if success else "error", "prefs": {
-        "notify_08": payload.notify_08,
-        "notify_16": payload.notify_16,
-        "notify_18": payload.notify_18,
-        "notify_weekly": payload.notify_weekly,
-        "notify_today": payload.notify_today,
-        "notify_tomorrow": payload.notify_tomorrow,
-        "notify_2days": payload.notify_2days,
-        "notify_overdue": payload.notify_overdue,
-        "notify_custom": payload.notify_custom,
-        "custom_time": payload.custom_time or "19:00"
-    }}
+    prefs = get_notification_prefs(payload.user_id)
+    return {"status": "ok" if success else "error", "prefs": prefs}
 
 @app.get("/api/leaderboard")
 def api_get_leaderboard(class_name: str = "10-А", refresh: bool = False):

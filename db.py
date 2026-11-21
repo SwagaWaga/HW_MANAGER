@@ -313,6 +313,40 @@ def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
 # USER NOTIFICATION PREFERENCES (SQLite fallback)
 # ─────────────────────────────────────────────────────────────
 
+def normalize_time_str(val: Any) -> Optional[str]:
+    """Приводит строку времени к стандартному формату HH:MM (например: '7' -> '07:00', '18:30' -> '18:30')."""
+    if val is None:
+        return None
+    s = str(val).strip().replace(".", ":")
+    if not s:
+        return None
+    if ":" in s:
+        parts = s.split(":")
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].isdigit():
+            h, m = int(parts[0]), int(parts[1])
+            if 0 <= h <= 23 and 0 <= m <= 59:
+                return f"{h:02d}:{m:02d}"
+    elif s.isdigit():
+        h = int(s)
+        if 0 <= h <= 23:
+            return f"{h:02d}:00"
+    return None
+
+def parse_custom_times(custom_time_raw: Any) -> List[str]:
+    """Парсит строку или список произвольных времён в отсортированный уникальный список ['07:00', '19:30']."""
+    if not custom_time_raw:
+        return []
+    if isinstance(custom_time_raw, list):
+        raw_items = custom_time_raw
+    else:
+        raw_items = str(custom_time_raw).split(",")
+    res: List[str] = []
+    for item in raw_items:
+        norm = normalize_time_str(item)
+        if norm and norm not in res:
+            res.append(norm)
+    return sorted(res)
+
 _DEFAULT_PREFS = {
     "notify_08": True,
     "notify_16": True,
@@ -322,8 +356,9 @@ _DEFAULT_PREFS = {
     "notify_tomorrow": True,
     "notify_2days": True,
     "notify_overdue": True,
-    "notify_custom": False,
-    "custom_time": "19:00",
+    "notify_custom": True,
+    "custom_time": "",
+    "custom_times": [],
 }
 
 def get_notification_prefs(user_id: int) -> Dict[str, Any]:
@@ -340,6 +375,8 @@ def get_notification_prefs(user_id: int) -> Dict[str, Any]:
         conn.close()
         if row:
             keys = row.keys()
+            raw_custom = str(row["custom_time"] or "") if "custom_time" in keys else ""
+            c_times = parse_custom_times(raw_custom)
             return {
                 "notify_08": bool(row["notify_08"]) if "notify_08" in keys else True,
                 "notify_16": bool(row["notify_16"]) if "notify_16" in keys else True,
@@ -349,8 +386,9 @@ def get_notification_prefs(user_id: int) -> Dict[str, Any]:
                 "notify_tomorrow": bool(row["notify_tomorrow"]) if "notify_tomorrow" in keys else True,
                 "notify_2days": bool(row["notify_2days"]) if "notify_2days" in keys else True,
                 "notify_overdue": bool(row["notify_overdue"]) if "notify_overdue" in keys else True,
-                "notify_custom": bool(row["notify_custom"]) if "notify_custom" in keys else False,
-                "custom_time": str(row["custom_time"]) if "custom_time" in keys and row["custom_time"] else "19:00",
+                "notify_custom": bool(row["notify_custom"]) if "notify_custom" in keys else bool(c_times),
+                "custom_time": ", ".join(c_times),
+                "custom_times": c_times,
             }
     except Exception:
         if conn:
@@ -370,14 +408,22 @@ def upsert_notification_prefs(
     notify_today: bool = True,
     notify_tomorrow: bool = True,
     notify_overdue: bool = True,
-    notify_custom: bool = False,
-    custom_time: str = "19:00"
+    notify_custom: bool = True,
+    custom_time: Any = "",
+    custom_times: Optional[List[str]] = None
 ) -> bool:
+    if custom_times is not None:
+        c_times = parse_custom_times(custom_times)
+    else:
+        c_times = parse_custom_times(custom_time)
+    formatted_custom = ", ".join(c_times)
+    has_custom = notify_custom if c_times else False
+
     saved = False
     if is_using_supabase():
         saved = supabase_db.upsert_notification_prefs(
             user_id, notify_08, notify_16, notify_18, notify_2days, notify_weekly,
-            notify_today, notify_tomorrow, notify_overdue, notify_custom, custom_time
+            notify_today, notify_tomorrow, notify_overdue, has_custom, formatted_custom, c_times
         )
     if not saved:
         conn = sqlite3.connect(DB_NAME)
@@ -405,7 +451,7 @@ def upsert_notification_prefs(
                 int(notify_08), int(notify_16), int(notify_18),
                 int(notify_2days), int(notify_weekly),
                 int(notify_today), int(notify_tomorrow), int(notify_overdue),
-                int(notify_custom), str(custom_time or "19:00")
+                int(has_custom), str(formatted_custom)
             ))
             conn.commit()
         except Exception:
@@ -434,7 +480,8 @@ def upsert_notification_prefs(
                 conn.commit()
             except Exception:
                 pass
-        conn.close()
+        finally:
+            conn.close()
     return True
 
 # ─────────────────────────────────────────────────────────────
