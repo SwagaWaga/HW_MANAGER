@@ -1,46 +1,9 @@
-from datetime import date, timedelta  
+"""Backward-compatible proxy module for app.services.parser."""
+import sys
+import os
 
-def parse_homework(text: str) -> dict | None:
-    separators = [":", "—", "-"]
-    today = date.today().isoformat()                    
-    tomorrow = (date.today() + timedelta(days=1)).isoformat()
-    
-    for sep in separators:
-        if sep in text:
-            subject, description = text.split(sep, 1)
-            subject = subject.strip()
-            description = description.strip()
-            raw_subject = subject.strip()
-            lower_subject = raw_subject.lower()
+_root = os.path.dirname(os.path.abspath(__file__))
+if _root not in sys.path:
+    sys.path.insert(0, _root)
 
-            if "tomorrow" in lower_subject:
-                due_date = (date.today() + timedelta(days=1)).isoformat()
-                # Remove the word 'tomorrow' from the subject and capitalize it:
-                clean_subject = lower_subject.replace("tomorrow", "").strip().title()
-            elif "today" in lower_subject:
-                due_date = date.today().isoformat()
-                clean_subject = lower_subject.replace("today", "").strip().title()
-            else:
-                # Default: if no date was mentioned, assume tomorrow!
-                due_date = (date.today() + timedelta(days=1)).isoformat()
-                clean_subject = raw_subject.title()
-            return {
-                "subject": clean_subject,
-                "description": description,
-                "due_date": due_date
-            }
-            
-    return None
-
-
-if __name__ == "__main__":
-    tests = [
-        "Math — exercises 1-5 on page 45",
-        "Physics: read chapter 4",
-        "History - study for quiz",
-        "Random hello message",
-        "Tomorrow math: exercises 10-15"
-    ]
-    for t in tests:
-        result = parse_homework(t)
-        print(f"Input: '{t}' -> Parsed: {result}")
+from app.services.parser import *
