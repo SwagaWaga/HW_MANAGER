@@ -85,7 +85,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.9.0"
+APP_VERSION = "2.9.1"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -180,7 +180,6 @@ async def sync_bot_profile():
             BotCommand(command="tomorrow", description="📚 Д/З на завтра (или /tomorrow алгебра)"),
             BotCommand(command="today", description="📅 Д/З на сегодня (или /today физика)"),
             BotCommand(command="remind_group", description="⏰ Напоминания в группе"),
-            BotCommand(command="start", description="🎒 Запустить ДЗ Портал"),
             BotCommand(command="help", description="ℹ️ Справка по командам в группе"),
         ]
         try:
@@ -1627,6 +1626,10 @@ async def handle_done_callback(callback: CallbackQuery):
 
 @dp.message(CommandStart())
 async def handle_start(message: Message):
+    # В групповых чатах команда /start отключена и игнорируется
+    if message.chat.type in ("group", "supergroup", "channel"):
+        return
+
     record_user_activity(message.from_user)
     try:
         await sync_menu_button(message.chat.id)

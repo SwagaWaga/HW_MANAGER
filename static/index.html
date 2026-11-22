@@ -41,7 +41,20 @@
       max-width: 100vw;
       -webkit-overflow-scrolling: touch;
       touch-action: pan-y;
-      background-attachment: fixed;
+      background-color: transparent;
+      color: #0f172a;
+    }
+
+    /* Выделенный аппаратный фон (GPU compositor surface для 60-120 FPS без рефлоу на ноутбуках) */
+    #app-bg {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: -1;
+      transform: translateZ(0);
+      will-change: transform;
     }
 
     /* Полное скрытие полос прокрутки на всех браузерах и ОС */
@@ -56,6 +69,10 @@
     }
 
     html.dark body {
+      color: #f1f5f9;
+    }
+
+    html.dark #app-bg {
       background-color: #071322;
       background-image: 
         radial-gradient(ellipse 90% 45% at 50% -8%, rgba(56, 189, 248, 0.14) 0%, rgba(245, 158, 11, 0.06) 35%, transparent 75%),
@@ -63,19 +80,15 @@
         radial-gradient(#192a3e 1px, transparent 1px),
         linear-gradient(to bottom, #091728, #050d18);
       background-size: 100% 100%, 100% 100%, 24px 24px, 100% 100%;
-      background-attachment: fixed;
-      color: #f1f5f9;
     }
 
-    html.light body {
+    html.light #app-bg {
       background-color: #f8fafc;
       background-image: 
         radial-gradient(ellipse 90% 45% at 50% -8%, rgba(255, 255, 255, 0.9) 0%, rgba(245, 158, 11, 0.04) 45%, transparent 80%),
         radial-gradient(#cbd5e1 1.2px, transparent 1.2px),
         linear-gradient(to bottom, #ffffff, #f1f5f9);
       background-size: 100% 100%, 26px 26px, 100% 100%;
-      background-attachment: fixed;
-      color: #0f172a;
     }
 
     /* Изоляция отрисовки карточек для исключения рефлоу всего экрана */
@@ -83,38 +96,44 @@
       contain: content;
       transform: translateZ(0);
       backface-visibility: hidden;
-      will-change: transform;
     }
 
     html.dark .glossy-card {
-      background: linear-gradient(175deg, rgba(23, 32, 48, 0.85) 0%, rgba(13, 19, 31, 0.95) 100%);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
+      background: linear-gradient(175deg, #172030 0%, #0d131f 100%);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-top: 1px solid rgba(255, 255, 255, 0.18);
       box-shadow: 
-        0 12px 32px -4px rgba(0, 0, 0, 0.45),
+        0 10px 24px -4px rgba(0, 0, 0, 0.45),
         inset 0 1px 0 0 rgba(255, 255, 255, 0.1);
       max-width: 100%;
       box-sizing: border-box;
-      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
     }
 
     html.dark .glossy-card:hover {
-      border-color: rgba(255, 255, 255, 0.15);
+      border-color: rgba(255, 255, 255, 0.16);
       box-shadow: 
-        0 16px 36px -6px rgba(0, 0, 0, 0.55),
+        0 14px 30px -4px rgba(0, 0, 0, 0.55),
         inset 0 1px 0 0 rgba(255, 255, 255, 0.15);
     }
 
     html.light .glossy-card {
       background: #ffffff;
       border: 1px solid #e2e8f0;
+      border-top: 1px solid #cbd5e1;
       box-shadow: 
-        0 6px 18px -3px rgba(15, 23, 42, 0.06),
+        0 4px 16px -2px rgba(15, 23, 42, 0.06),
         0 2px 4px -1px rgba(15, 23, 42, 0.03);
       max-width: 100%;
       box-sizing: border-box;
+      transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    html.light .glossy-card:hover {
+      border-color: #cbd5e1;
+      box-shadow: 
+        0 8px 20px -3px rgba(15, 23, 42, 0.08),
+        0 2px 6px -1px rgba(15, 23, 42, 0.04);
     }
 
     .word-break-safe {
@@ -626,8 +645,11 @@
 </head>
 <body class="p-4 pb-28 max-w-lg mx-auto select-none transition-colors duration-200">
 
-  <!-- ХОЛСТ ОСЕННИХ ЛИСТЬЕВ (АППАРАТНЫЙ CANVAS С НУЛЕВОЙ НАГРУЗКОЙ И ФИКСИРОВАННЫМИ 60 FPS) -->
-  <canvas id="autumn-leaves-canvas" class="fixed inset-0 pointer-events-none" style="z-index: 15; width: 100vw; height: 100vh;"></canvas>
+  <!-- АППАРАТНЫЙ ФОН ПРИЛОЖЕНИЯ (ВЫДЕЛЕННЫЙ GPU LAYER ДЛЯ 60-120 FPS БЕЗ РЕФЛОУ) -->
+  <div id="app-bg"></div>
+
+  <!-- ХОЛСТ ОСЕННИХ ЛИСТЬЕВ (АППАРАТНЫЙ CANVAS С НУЛЕВОЙ НАГРУЗКОЙ И ФИКСИРОВАННЫМИ 60-120 FPS) -->
+  <canvas id="autumn-leaves-canvas" class="fixed inset-0 pointer-events-none" style="z-index: 0; width: 100vw; height: 100vh;"></canvas>
 
   <!-- ======================================================== -->
   <!-- РЮКЗАК И ТЕТРАДЬ STAR: АНИМАЦИЯ ОТКРЫТИЯ (КАК НА ФОТО)    -->
@@ -1521,22 +1543,33 @@
               </div>
 
               <!-- Звуки интерфейса -->
-              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+              <div class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-2.5">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                    </div>
+                    <div>
+                      <span class="text-xs font-bold block text-slate-900 dark:text-white">Звуки интерфейса</span>
+                      <span class="text-[10px] text-slate-500 dark:text-slate-400">Приятные клики и отклики</span>
+                    </div>
                   </div>
-                  <div>
-                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Звуки интерфейса</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Приятные клики и отклики</span>
+                  <div class="flex items-center gap-2">
+                    <button type="button" onclick="testSoundEffect()" class="px-2 py-1 rounded-lg bg-amber-400/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold active:scale-95 transition" title="Проверить звук">Тест 🎵</button>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="sound-toggle" onchange="toggleSoundSetting()" class="sr-only peer" checked>
+                      <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+                    </label>
                   </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <button type="button" onclick="testSoundEffect()" class="px-2 py-1 rounded-lg bg-amber-400/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold active:scale-95 transition" title="Проверить звук">Тест 🎵</button>
-                  <label class="relative inline-flex items-center cursor-pointer">
-                    <input type="checkbox" id="sound-toggle" onchange="toggleSoundSetting()" class="sr-only peer" checked>
-                    <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-                  </label>
+
+                <!-- Регулятор громкости звуков (Loudness Slider) -->
+                <div id="sound-volume-container" class="pt-2 border-t border-slate-200/60 dark:border-white/10 flex items-center gap-3">
+                  <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 shrink-0">Громкость:</span>
+                  <input type="range" id="sound-volume-slider" min="5" max="100" value="85"
+                    oninput="onSoundVolumeChange(this.value)"
+                    class="w-full accent-amber-500 h-1.5 bg-slate-200 dark:bg-white/10 rounded-lg cursor-pointer">
+                  <span id="sound-volume-label" class="text-[11px] font-mono font-bold text-amber-500 shrink-0 w-8 text-right">85%</span>
                 </div>
               </div>
 
@@ -1603,7 +1636,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
-              <span class="font-mono font-bold text-amber-500">v2.9.0</span>
+              <span class="font-mono font-bold text-amber-500">v2.9.1</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Класс</span>
@@ -2031,9 +2064,12 @@
     class SoundFXManager {
       constructor() {
         this.ctx = null;
+        this.masterGain = null;
         this.enabled = localStorage.getItem('hw_sound_enabled') !== 'false';
+        this.volume = parseFloat(localStorage.getItem('hw_sound_volume') || '0.85');
+        if (isNaN(this.volume) || this.volume < 0 || this.volume > 1) this.volume = 0.85;
         this.lastPlayTime = 0;
-        this.throttleMs = 30;
+        this.throttleMs = 25;
       }
 
       initContext() {
@@ -2046,18 +2082,41 @@
         if (this.ctx && this.ctx.state === 'suspended') {
           this.ctx.resume().catch(() => {});
         }
+        this.ensureMasterGain();
+      }
+
+      ensureMasterGain() {
+        if (!this.ctx) return null;
+        if (!this.masterGain) {
+          try {
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+            this.masterGain.connect(this.ctx.destination);
+          } catch (e) {}
+        }
+        return this.masterGain;
+      }
+
+      setVolume(val) {
+        this.volume = Math.max(0, Math.min(1.0, parseFloat(val) || 0.85));
+        localStorage.setItem('hw_sound_volume', this.volume.toString());
+        if (this.masterGain && this.ctx) {
+          try {
+            this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+          } catch (e) {}
+        }
       }
 
       canPlay() {
-        if (!this.enabled) return false;
+        if (!this.enabled || this.volume <= 0.001) return false;
         const now = performance.now();
         if (now - this.lastPlayTime < this.throttleMs) return false;
         this.lastPlayTime = now;
         this.initContext();
-        return !!this.ctx;
+        return !!this.ctx && !!this.masterGain;
       }
 
-      // 1. Мягкий клик / тап (кнопки, ссылки, карточки, чипы)
+      // 1. Мягкий клик / тап (кнопки, ссылки, карточки, чипы) — усиленный и сочный
       playTap() {
         if (!this.canPlay()) return;
         try {
@@ -2066,17 +2125,17 @@
           const gain = this.ctx.createGain();
 
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(480, t);
-          osc.frequency.exponentialRampToValueAtTime(160, t + 0.032);
+          osc.frequency.setValueAtTime(520, t);
+          osc.frequency.exponentialRampToValueAtTime(180, t + 0.035);
 
-          gain.gain.setValueAtTime(0.07, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.032);
+          gain.gain.setValueAtTime(0.22, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
 
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.masterGain);
 
           osc.start(t);
-          osc.stop(t + 0.035);
+          osc.stop(t + 0.038);
         } catch (e) {}
       }
 
@@ -2089,17 +2148,17 @@
           const gain = this.ctx.createGain();
 
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(620, t);
-          osc.frequency.exponentialRampToValueAtTime(320, t + 0.028);
+          osc.frequency.setValueAtTime(640, t);
+          osc.frequency.exponentialRampToValueAtTime(340, t + 0.032);
 
-          gain.gain.setValueAtTime(0.065, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.028);
+          gain.gain.setValueAtTime(0.20, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.032);
 
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.masterGain);
 
           osc.start(t);
-          osc.stop(t + 0.03);
+          osc.stop(t + 0.035);
         } catch (e) {}
       }
 
@@ -2112,17 +2171,17 @@
           const gain = this.ctx.createGain();
 
           osc.type = 'triangle';
-          osc.frequency.setValueAtTime(340, t);
-          osc.frequency.exponentialRampToValueAtTime(540, t + 0.065);
+          osc.frequency.setValueAtTime(360, t);
+          osc.frequency.exponentialRampToValueAtTime(580, t + 0.07);
 
-          gain.gain.setValueAtTime(0.055, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.07);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.075);
 
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.masterGain);
 
           osc.start(t);
-          osc.stop(t + 0.075);
+          osc.stop(t + 0.08);
         } catch (e) {}
       }
 
@@ -2135,17 +2194,17 @@
           const gain = this.ctx.createGain();
 
           osc.type = 'sine';
-          osc.frequency.setValueAtTime(420, t);
-          osc.frequency.exponentialRampToValueAtTime(200, t + 0.045);
+          osc.frequency.setValueAtTime(440, t);
+          osc.frequency.exponentialRampToValueAtTime(220, t + 0.05);
 
-          gain.gain.setValueAtTime(0.055, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.048);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.052);
 
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.masterGain);
 
           osc.start(t);
-          osc.stop(t + 0.05);
+          osc.stop(t + 0.055);
         } catch (e) {}
       }
 
@@ -2159,24 +2218,24 @@
           const gain1 = this.ctx.createGain();
           osc1.type = 'sine';
           osc1.frequency.setValueAtTime(523.25, t);
-          gain1.gain.setValueAtTime(0.08, t);
-          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.11);
+          gain1.gain.setValueAtTime(0.24, t);
+          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
           osc1.connect(gain1);
-          gain1.connect(this.ctx.destination);
+          gain1.connect(this.masterGain);
           osc1.start(t);
-          osc1.stop(t + 0.12);
+          osc1.stop(t + 0.13);
 
           const osc2 = this.ctx.createOscillator();
           const gain2 = this.ctx.createGain();
           osc2.type = 'sine';
           osc2.frequency.setValueAtTime(659.25, t + 0.04);
           gain2.gain.setValueAtTime(0.001, t);
-          gain2.gain.setValueAtTime(0.09, t + 0.04);
-          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.20);
+          gain2.gain.setValueAtTime(0.26, t + 0.04);
+          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
           osc2.connect(gain2);
-          gain2.connect(this.ctx.destination);
+          gain2.connect(this.masterGain);
           osc2.start(t + 0.04);
-          osc2.stop(t + 0.21);
+          osc2.stop(t + 0.23);
         } catch (e) {}
       }
 
@@ -2189,17 +2248,17 @@
           const gain = this.ctx.createGain();
 
           osc.type = 'triangle';
-          osc.frequency.setValueAtTime(280, t);
-          osc.frequency.exponentialRampToValueAtTime(140, t + 0.07);
+          osc.frequency.setValueAtTime(300, t);
+          osc.frequency.exponentialRampToValueAtTime(150, t + 0.075);
 
-          gain.gain.setValueAtTime(0.05, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.075);
+          gain.gain.setValueAtTime(0.18, t);
+          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
 
           osc.connect(gain);
-          gain.connect(this.ctx.destination);
+          gain.connect(this.masterGain);
 
           osc.start(t);
-          osc.stop(t + 0.08);
+          osc.stop(t + 0.085);
         } catch (e) {}
       }
 
@@ -3173,9 +3232,9 @@
         if (!btn) return;
 
         if (f === filter) {
-          btn.className = 'py-2.5 px-5 text-xs font-black rounded-full bg-amber-400 text-slate-950 shadow-md transition shrink-0 flex items-center gap-1.5 active:scale-95';
+          btn.className = 'py-2.5 px-4 text-xs font-black rounded-full bg-amber-400 text-slate-950 shadow-md transition shrink-0 flex items-center gap-1.5 active:scale-95';
         } else {
-          btn.className = 'py-2.5 px-5 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95';
+          btn.className = 'py-2.5 px-4 text-xs font-semibold rounded-full bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition shrink-0 border border-slate-200/80 dark:border-white/5 flex items-center gap-1.5 active:scale-95';
         }
       });
 
@@ -3462,7 +3521,7 @@
         }
 
         if (filtered.length === 0) {
-          let emptyTitle = "Всё сделано!";
+          let emptyTitle = "Все задания выполнены!";
           let emptySubtitle = "В этом разделе нет заданий. Отдыхай!";
           
           if (selectedWorkloadDate) {
@@ -3479,6 +3538,9 @@
           } else if (currentFilter === 'overdue') {
             emptyTitle = "Долгов нет!";
             emptySubtitle = "Все хвосты закрыты вовремя. Отличная работа!";
+          } else {
+            emptyTitle = "Все уроки сделаны!";
+            emptySubtitle = "Активных домашних заданий нет. Отличная работа!";
           }
 
           container.innerHTML = `
@@ -6355,6 +6417,18 @@
     async function loadNotifPrefs() {
       const sToggle = document.getElementById('sound-toggle');
       if (sToggle) sToggle.checked = soundFx.enabled;
+
+      const volSlider = document.getElementById('sound-volume-slider');
+      const volLabel = document.getElementById('sound-volume-label');
+      const volCont = document.getElementById('sound-volume-container');
+      const curPct = Math.round(soundFx.volume * 100);
+      if (volSlider) volSlider.value = curPct;
+      if (volLabel) volLabel.innerText = `${curPct}%`;
+      if (volCont) {
+        volCont.style.opacity = soundFx.enabled ? '1' : '0.4';
+        volCont.style.pointerEvents = soundFx.enabled ? 'auto' : 'none';
+      }
+
       try {
         const res = await fetch(`/api/notifications/prefs?user_id=${userId}`);
         if (!res.ok) return;
@@ -6390,7 +6464,24 @@
       if (!toggle) return;
       const newState = soundFx.toggle(toggle.checked);
       toggle.checked = newState;
+      const volCont = document.getElementById('sound-volume-container');
+      if (volCont) {
+        volCont.style.opacity = newState ? '1' : '0.4';
+        volCont.style.pointerEvents = newState ? 'auto' : 'none';
+      }
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+    }
+
+    let soundVolDebounce = null;
+    function onSoundVolumeChange(val) {
+      const pct = parseInt(val, 10) || 85;
+      const label = document.getElementById('sound-volume-label');
+      if (label) label.innerText = `${pct}%`;
+      soundFx.setVolume(pct / 100);
+      clearTimeout(soundVolDebounce);
+      soundVolDebounce = setTimeout(() => {
+        soundFx.playTap();
+      }, 120);
     }
 
     async function toggleNotifPref(key) {
@@ -6637,12 +6728,13 @@
 
       let width = window.innerWidth;
       let height = window.innerHeight;
-      let dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // На ноутбуках и ПК (>= 768px) фиксируем DPR = 1.0, исключая 4x оверсемплинг и просадки FPS
+      let dpr = (window.innerWidth >= 768) ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
 
       function resize() {
         width = window.innerWidth;
         height = window.innerHeight;
-        dpr = Math.min(window.devicePixelRatio || 1, 2);
+        dpr = (window.innerWidth >= 768) ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
         canvas.width = Math.floor(width * dpr);
         canvas.height = Math.floor(height * dpr);
         canvas.style.width = width + 'px';
@@ -6754,9 +6846,26 @@
       let lastNow = performance.now();
       autumnLeavesRunning = true;
 
+      // Оптимизация для ноутбуков: при быстром скролле списка на ПК/ноутбуках
+      // приостанавливаем перерисовку частиц, освобождая 100% GPU потока для 120 FPS скроллинга
+      let isFastScrolling = false;
+      let scrollTimer = null;
+      window.addEventListener('scroll', () => {
+        isFastScrolling = true;
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(() => {
+          isFastScrolling = false;
+        }, 80);
+      }, { passive: true });
+
       function render(now) {
         if (!autumnLeavesRunning) return;
         autumnLeavesAnimId = requestAnimationFrame(render);
+
+        if (isFastScrolling && window.innerWidth >= 768) {
+          lastNow = now;
+          return;
+        }
 
         const delta = Math.min((now - lastNow) / 16.67, 2.5);
         lastNow = now;
