@@ -775,17 +775,38 @@ def get_all_subjects(class_name: str = "10-А") -> List[str]:
         logger.error(f"Error in Supabase get_all_subjects: {e}")
         return []
 
-def get_class_tasks_for_date(date_str: str, class_name: str = "10-А", subject: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_class_tasks_for_date(
+    date_str: str,
+    class_name: str = "10-А",
+    subject: Union[str, List[str], None] = None
+) -> List[Dict[str, Any]]:
     """Возвращает все домашние задания класса на конкретную дату с прикрепленными материалами."""
     client = get_supabase_client()
     if not client:
         return []
     try:
-        query = client.table("tasks").select("*, users!tasks_user_id_fkey(telegram_nick, full_name, role)").eq("due_date", date_str).or_(f"class_name.eq.{class_name},class_name.is.null")
-        if subject:
-            query = query.ilike("subject", f"%{subject}%")
+        query = client.table("tasks").select(
+            "*, users!tasks_user_id_fkey(telegram_nick, full_name, role)"
+        ).eq("due_date", date_str).or_(f"class_name.eq.{class_name},class_name.is.null")
+
         res = query.order("subject").order("id").execute()
         rows = res.data or []
+
+        # Фильтрация по предмету (поддерживает строку или список родственных предметов)
+        if subject:
+            if isinstance(subject, str):
+                target_subjs = [subject.strip().lower()]
+            else:
+                target_subjs = [str(s).strip().lower() for s in subject if s and str(s).strip()]
+
+            filtered_rows = []
+            for r in rows:
+                r_subj = (r.get("subject") or "").strip().lower()
+                r_desc = (r.get("description") or "").strip().lower()
+                if any(ts in r_subj or (len(ts) >= 4 and ts in r_desc) for ts in target_subjs):
+                    filtered_rows.append(r)
+            rows = filtered_rows
+
         tasks = []
         for row in rows:
             u_info = row.get("users") or {}
@@ -814,15 +835,37 @@ def get_class_tasks_for_date(date_str: str, class_name: str = "10-А", subject: 
         logger.error(f"Error in Supabase get_class_tasks_for_date: {e}")
         return []
 
-def get_upcoming_tasks_for_subject(subject_query: str, start_date_str: str, class_name: str = "10-А", limit: int = 5) -> List[Dict[str, Any]]:
-    """Возвращает ближайшие задания по предмету начиная со start_date_str."""
+def get_upcoming_tasks_for_subject(
+    subject_query: Union[str, List[str]],
+    start_date_str: str,
+    class_name: str = "10-А",
+    limit: int = 5
+) -> List[Dict[str, Any]]:
+    """Возвращает ближайшие задания по предмету (или списку предметов) начиная со start_date_str."""
     client = get_supabase_client()
     if not client:
         return []
     try:
-        query = client.table("tasks").select("*, users!tasks_user_id_fkey(telegram_nick, full_name, role)").gte("due_date", start_date_str).or_(f"class_name.eq.{class_name},class_name.is.null").ilike("subject", f"%{subject_query}%").order("due_date").order("id").limit(limit)
+        query = client.table("tasks").select(
+            "*, users!tasks_user_id_fkey(telegram_nick, full_name, role)"
+        ).gte("due_date", start_date_str).or_(f"class_name.eq.{class_name},class_name.is.null").order("due_date").order("id")
+
         res = query.execute()
         rows = res.data or []
+
+        if isinstance(subject_query, str):
+            target_subjs = [subject_query.strip().lower()]
+        else:
+            target_subjs = [str(s).strip().lower() for s in subject_query if s and str(s).strip()]
+
+        filtered_rows = []
+        for r in rows:
+            r_subj = (r.get("subject") or "").strip().lower()
+            r_desc = (r.get("description") or "").strip().lower()
+            if any(ts in r_subj or (len(ts) >= 4 and ts in r_desc) for ts in target_subjs):
+                filtered_rows.append(r)
+
+        rows = filtered_rows[:limit]
         tasks = []
         for row in rows:
             u_info = row.get("users") or {}

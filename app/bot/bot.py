@@ -3,6 +3,7 @@ import re
 import asyncio
 import logging
 import html
+import base64
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 from typing import Optional, List, Dict, Any, Tuple
@@ -466,14 +467,157 @@ def find_subject_in_text(text: str, class_name: str = "10-А") -> Optional[str]:
         pass
     return None
 
+SUBJECT_FAMILIES = {
+    "Алгебра": ["Алгебра", "Математика", "Геометрия", "Мат", "Алг", "Геом"],
+    "Математика": ["Математика", "Алгебра", "Геометрия", "Мат", "Алг", "Геом"],
+    "Геометрия": ["Геометрия", "Алгебра", "Математика", "Мат", "Алг", "Геом"],
+    "Русский язык": ["Русский язык", "Литература", "Русский и Литература", "РиЛ", "Рус"],
+    "Литература": ["Литература", "Русский язык", "Русский и Литература", "РиЛ", "Лит"],
+    "РиЛ": ["РиЛ", "Русский и Литература", "Русский язык", "Литература"],
+    "Информатика": ["Информатика", "ИВТ", "Информатика (ИВТ)", "Инф"],
+    "ИВТ": ["ИВТ", "Информатика", "Информатика (ИВТ)", "Инф"],
+    "Английский язык": ["Английский язык", "Английский", "Ая", "English"],
+    "Узбекский язык": ["Узбекский язык", "Узбекский", "Уя"],
+    "Проектная деятельность": ["Проектная деятельность", "Проект", "Пд", "ПД"],
+    "Проект": ["Проект", "Проектная деятельность", "Пд", "ПД"],
+}
+
+def get_subject_family(subject_name: str) -> List[str]:
+    """Возвращает список связанных предметов или синонимов для поиска (например, Алгебра + Математика)."""
+    if not subject_name:
+        return []
+    s_clean = subject_name.strip()
+    if s_clean in SUBJECT_FAMILIES:
+        return SUBJECT_FAMILIES[s_clean]
+    for k, v in SUBJECT_FAMILIES.items():
+        if k.lower() == s_clean.lower():
+            return v
+    return [s_clean]
+
+def resolve_material_file(m: Dict[str, Any]) -> Optional[str]:
+    """
+    Гарантированно возвращает локальный путь к файлу изображения.
+    Если файла нет на диске (например, после деплоя контейнера Render),
+    извлекает его из базы данных и кэширует в uploads/.
+    """
+    mat_id = m.get("id")
+    if mat_id:
+        for ext in (".jpg", ".png", ".jpeg", ".webp"):
+            disk_p = f"uploads/cached_{mat_id}{ext}"
+            if os.path.isfile(disk_p) and os.path.getsize(disk_p) > 0:
+                return disk_p
+
+    # Проверяем пути file_id / url
+    raw_f = m.get("file_id") or m.get("url") or ""
+    if raw_f and not raw_f.startswith("data:"):
+        clean_name = os.path.basename(raw_f)
+        candidates = [
+            raw_f,
+            os.path.join("uploads", raw_f),
+            os.path.join("uploads", clean_name),
+            os.path.join(os.getcwd(), "uploads", clean_name)
+        ]
+        for c in candidates:
+            if os.path.isfile(c) and os.path.getsize(c) > 0:
+                return c
+
+    # Если на диске нет — достаем из БД и сохраняем
+    if mat_id:
+        try:
+            from app.database.db import get_material_by_id
+            mat = get_material_by_id(mat_id)
+            if mat and mat.get("file_id"):
+                fid = mat["file_id"]
+                if fid.startswith("data:"):
+                    header, b64_str = fid.split(",", 1)
+                    data = base64.b64decode(b64_str)
+                    ext = ".png" if "png" in header else ".jpg"
+                    os.makedirs("uploads", exist_ok=True)
+                    disk_p = f"uploads/cached_{mat_id}{ext}"
+                    with open(disk_p, "wb") as f:
+                        f.write(data)
+                    return disk_p
+                elif os.path.isfile(fid):
+                    return fid
+        except Exception as e:
+            logger.warning(f"Error resolving material #{mat_id}: {e}")
+
+    return None
+
+async def send_single_task_card(
+    message: Message,
+    task: Dict[str, Any],
+    date_badge: str,
+    index: Optional[int] = None,
+    total: Optional[int] = None
+):
+    """
+    Отправляет одно домашнее задание отдельно со всеми прикрепленными фотографиями страниц.
+    - 1 фото -> фото с описанием и кнопкой портала
+    - Несколько фото -> красивый фотоальбом (media group)
+    - Без фото -> текстовая карточка с кнопкой портала
+    """
+    task_subject = str(task.get("subject", "Предмет")).strip()
+    icon = get_subject_icon(task_subject)
+    desc = str(task.get("description", "")).strip()
+    author_name = task.get("author_name") or task.get("author_nick") or "ученик"
+    materials = task.get("materials") or []
+
+    idx_str = f" [{index}/{total}]" if index and total and total > 1 else ""
+    caption_lines = [
+        f"{icon} <b>{html.escape(task_subject)}</b>{idx_str}",
+        f"{date_badge}",
+        f"\n📝 <b>Задание:</b>\n{html.escape(desc) if desc else '<i>(см. прикрепленные фото)</i>'}",
+    ]
+    if author_name:
+        caption_lines.append(f"\n👤 <i>Опубликовал: {html.escape(str(author_name))}</i>")
+
+    caption = "\n".join(caption_lines)
+
+    photo_paths = []
+    for m in materials:
+        p = resolve_material_file(m)
+        if p and p not in photo_paths:
+            photo_paths.append(p)
+
+    sent = False
+    if photo_paths:
+        try:
+            if len(photo_paths) == 1:
+                await safe_send_photo(
+                    message=message,
+                    photo_path=photo_paths[0],
+                    caption=caption,
+                    reply_markup=get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
+                )
+                sent = True
+            else:
+                media = [
+                    InputMediaPhoto(
+                        media=FSInputFile(p),
+                        caption=caption[:1024] if idx == 0 else None,
+                        parse_mode="HTML"
+                    )
+                    for idx, p in enumerate(photo_paths[:10])
+                ]
+                await message.answer_media_group(media=media)
+                sent = True
+        except Exception as err:
+            logger.warning(f"Error sending photos for task #{task.get('id')}: {err}")
+            sent = False
+
+    if not sent:
+        btn = get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
+        await safe_reply(message, caption, reply_markup=btn)
+
 async def send_subject_homework(
     message: Message,
     subject_query: str,
     target_date_str: Optional[str] = None
 ):
     """
-    Находит и отправляет домашнее задание по конкретному предмету с фотографиями страниц.
-    Если на target_date_str ничего нет, ищет ближайшее будущее задание.
+    Находит и отправляет ВСЕ домашние задания по предмету (или семье предметов)
+    каждое ОТДЕЛЬНО с фотографиями страниц.
     """
     now_local = datetime.now(TARGET_TZ)
     today = now_local.date()
@@ -485,15 +629,22 @@ async def send_subject_homework(
         target_date_str = tomorrow_str
 
     matched_subject = find_subject_in_text(subject_query) or subject_query.strip()
+    subject_family = get_subject_family(matched_subject)
 
-    # 1. Поиск задания на целевую дату
-    tasks = get_class_tasks_for_date(target_date_str, class_name="10-А", subject=matched_subject)
+    # 1. Поиск заданий на целевую дату (с учетом родственных предметов, например Алгебра + Математика)
+    tasks = get_class_tasks_for_date(target_date_str, class_name="10-А", subject=subject_family)
 
-    # 2. Если на целевую дату нет — ищем ближайшие будущие задания по предмету
+    # 2. Если на целевую дату нет — ищем ближайшие будущие задания по предмету/семье
     if not tasks:
-        upcoming = get_upcoming_tasks_for_subject(matched_subject, start_date_str=today_str, class_name="10-А", limit=1)
+        upcoming = get_upcoming_tasks_for_subject(subject_family, start_date_str=today_str, class_name="10-А", limit=5)
         if upcoming:
             tasks = upcoming
+
+    # 3. Если всё равно не найдено — ищем любые последние задания по предмету
+    if not tasks:
+        upcoming_all = get_upcoming_tasks_for_subject(subject_family, start_date_str="2026-01-01", class_name="10-А", limit=5)
+        if upcoming_all:
+            tasks = upcoming_all
 
     if not tasks:
         icon = get_subject_icon(matched_subject)
@@ -506,90 +657,42 @@ async def send_subject_homework(
         await safe_reply(message, not_found_text, reply_markup=btn)
         return
 
-    task = tasks[0]
-    task_subject = task.get("subject", matched_subject)
-    icon = get_subject_icon(task_subject)
-    desc = task.get("description", "").strip()
-    due_date = str(task.get("due_date", ""))
-    author_name = task.get("author_name") or task.get("author_nick") or "ученик"
-    materials = task.get("materials") or []
+    # Если найдено несколько заданий (например, Алгебра и Математика) — краткий заголовок
+    if len(tasks) > 1:
+        subjects_found = list(dict.fromkeys([str(t.get('subject')).strip() for t in tasks if t.get('subject')]))
+        subjs_label = " / ".join(subjects_found)
+        await safe_reply(
+            message,
+            f"📚 <b>Найдено {len(tasks)} {format_plural_ru(len(tasks), 'задание', 'задания', 'заданий')} ({html.escape(subjs_label)}):</b>\n"
+            f"<i>Отправляю каждое задание отдельно с фотографиями страниц 👇</i>"
+        )
 
-    # Формируем читаемую плашку даты
-    if due_date == today_str:
-        date_badge = "📅 <b>Сегодня</b>"
-    elif due_date == tomorrow_str:
-        tomorrow_nom = RU_WEEKDAYS_NOMINATIVE.get(tomorrow.weekday(), "Завтра")
-        tomorrow_label = f"{tomorrow.day} {RU_MONTHS[tomorrow.month]}"
-        date_badge = f"📅 <b>Завтра</b> ({tomorrow_nom}, {tomorrow_label})"
-    else:
-        try:
-            d_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
-            d_nom = RU_WEEKDAYS_NOMINATIVE.get(d_obj.weekday(), "")
-            d_label = f"{d_obj.day} {RU_MONTHS[d_obj.month]}"
-            date_badge = f"📅 <b>{due_date}</b> ({d_nom}, {d_label})"
-        except Exception:
-            date_badge = f"📅 <b>{due_date}</b>"
+    # Отправляем КАЖДОЕ задание отдельно со всеми фотографиями!
+    for idx, task in enumerate(tasks, start=1):
+        due_date = str(task.get("due_date", ""))
+        if due_date == today_str:
+            date_badge = "📅 <b>Сегодня</b>"
+        elif due_date == tomorrow_str:
+            tomorrow_nom = RU_WEEKDAYS_NOMINATIVE.get(tomorrow.weekday(), "Завтра")
+            tomorrow_label = f"{tomorrow.day} {RU_MONTHS[tomorrow.month]}"
+            date_badge = f"📅 <b>Завтра</b> ({tomorrow_nom}, {tomorrow_label})"
+        else:
+            try:
+                d_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
+                d_nom = RU_WEEKDAYS_NOMINATIVE.get(d_obj.weekday(), "")
+                d_label = f"{d_obj.day} {RU_MONTHS[d_obj.month]}"
+                date_badge = f"📅 <b>{due_date}</b> ({d_nom}, {d_label})"
+            except Exception:
+                date_badge = f"📅 <b>{due_date}</b>"
 
-    caption_lines = [
-        f"{icon} <b>Д/З по предмету: {html.escape(task_subject)}</b>",
-        f"{date_badge}",
-        f"\n📝 <b>Задание:</b>\n{html.escape(desc) if desc else '<i>(см. прикрепленные фото)</i>'}",
-    ]
-    if author_name:
-        caption_lines.append(f"\n👤 <i>Опубликовал: {html.escape(str(author_name))}</i>")
-
-    caption = "\n".join(caption_lines)
-
-    # 3. Подготовка фотоматериалов
-    photo_paths = []
-    for m in materials:
-        raw_f = m.get("file_id") or m.get("url") or ""
-        if not raw_f:
-            continue
-        candidates = [
-            raw_f,
-            os.path.join("uploads", raw_f),
-            os.path.join("uploads", os.path.basename(raw_f)),
-            os.path.join(os.getcwd(), "uploads", os.path.basename(raw_f))
-        ]
-        found_path = None
-        for c in candidates:
-            if os.path.isfile(c):
-                found_path = c
-                break
-        if found_path:
-            photo_paths.append(found_path)
-
-    # 4. Отправляем фото или форматированный текст
-    sent_with_photo = False
-    if photo_paths:
-        try:
-            if len(photo_paths) == 1:
-                await safe_send_photo(
-                    message=message,
-                    photo_path=photo_paths[0],
-                    caption=caption,
-                    reply_markup=get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
-                )
-                sent_with_photo = True
-            else:
-                media = [
-                    InputMediaPhoto(
-                        media=FSInputFile(p),
-                        caption=caption[:1024] if idx == 0 else None,
-                        parse_mode="HTML"
-                    )
-                    for idx, p in enumerate(photo_paths[:10])
-                ]
-                await message.answer_media_group(media=media)
-                sent_with_photo = True
-        except Exception as p_err:
-            logger.warning(f"Failed to send photo for task #{task.get('id')}: {p_err}")
-            sent_with_photo = False
-
-    if not sent_with_photo:
-        btn = get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
-        await safe_reply(message, caption, reply_markup=btn)
+        await send_single_task_card(
+            message=message,
+            task=task,
+            date_badge=date_badge,
+            index=idx,
+            total=len(tasks)
+        )
+        await asyncio.sleep(0.3)
 
 async def send_group_daily_reminder(group: Dict[str, Any]):
     """Отправляет вечернее напоминание с Д/З на завтра в групповой чат."""
@@ -1654,23 +1757,23 @@ async def handle_tomorrow(message: Message, command: CommandObject = None):
         await safe_reply(message, text, reply_markup=btn)
         return
 
-    lines = [
-        f"📚 <b>Домашнее задание на завтра!</b>",
-        f"📅 <b>{tomorrow_nom}, {tomorrow_label}</b> ({len(tasks)} {format_plural_ru(len(tasks), 'предмет', 'предмета', 'предметов')}):\n"
-    ]
+    count_subj = len(tasks)
+    header_text = (
+        f"📚 <b>Домашнее задание на завтра!</b>\n"
+        f"📅 <b>{tomorrow_nom}, {tomorrow_label}</b> ({count_subj} {format_plural_ru(count_subj, 'предмет', 'предмета', 'предметов')}):\n"
+        f"<i>Отправляю каждое задание отдельно с фотографиями страниц 👇</i>"
+    )
+    await safe_reply(message, header_text)
 
     for idx, t in enumerate(tasks, start=1):
-        subj = str(t.get('subject', 'Предмет')).strip()
-        icon = get_subject_icon(subj)
-        desc = str(t.get('description', '')).strip()
-        mats = t.get('materials') or []
-        mat_badge = f" [📷 {len(mats)}]" if mats else ""
-        lines.append(f"{idx}. {icon} <b>{html.escape(subj)}</b>{mat_badge}:")
-        lines.append(f"   {html.escape(desc) if desc else '<i>(см. прикрепленные фото)</i>'}\n")
-
-    lines.append("💡 <i>Чтобы увидеть фото страниц по предмету, отправьте:</i> <code>/dz алгебра</code>")
-    btn = get_portal_keyboard("🚀 Открыть задания с фото", chat_or_type=message)
-    await safe_reply(message, "\n".join(lines), reply_markup=btn)
+        await send_single_task_card(
+            message=message,
+            task=t,
+            date_badge=f"📅 <b>{tomorrow_nom}, {tomorrow_label}</b>",
+            index=idx,
+            total=count_subj
+        )
+        await asyncio.sleep(0.3)
 
 @dp.message(Command("remind_group", "group_remind"))
 async def handle_remind_group(message: Message, command: CommandObject = None):
@@ -1833,19 +1936,22 @@ async def handle_today_tasks(message: Message, command: CommandObject = None):
             reply_markup=get_portal_keyboard(chat_or_type=message)
         )
     else:
-        lines = [
-            f"📋 <b>Задания на сегодня ({weekday_nom}, {date_label}) [{len(tasks)}]:</b>\n"
-        ]
-        for idx, t in enumerate(tasks, 1):
-            icon = get_subject_icon(t.get('subject', ''))
-            subj = html.escape(str(t.get('subject', 'Предмет')).strip())
-            desc = html.escape(str(t.get('description', '')).strip())
-            mats = t.get('materials') or []
-            mat_badge = f" [📷 {len(mats)}]" if mats else ""
-            lines.append(f"{idx}. {icon} <b>{subj}</b>{mat_badge}: {desc}")
+        count_subj = len(tasks)
+        header_text = (
+            f"📋 <b>Задания на сегодня ({weekday_nom}, {date_label}) [{count_subj}]:</b>\n"
+            f"<i>Отправляю каждое задание отдельно с фотографиями страниц 👇</i>"
+        )
+        await safe_reply(message, header_text)
 
-        lines.append("\n💡 <i>Чтобы увидеть фото страниц, напишите:</i> <code>/today [предмет]</code>")
-        await safe_reply(message, "\n".join(lines), reply_markup=get_portal_keyboard(chat_or_type=message))
+        for idx, t in enumerate(tasks, start=1):
+            await send_single_task_card(
+                message=message,
+                task=t,
+                date_badge=f"📅 <b>Сегодня ({weekday_nom}, {date_label})</b>",
+                index=idx,
+                total=count_subj
+            )
+            await asyncio.sleep(0.3)
 
 @dp.message(Command("overdue"))
 async def handle_overdue(message: Message):
@@ -2141,18 +2247,22 @@ async def handle_text_fallback(message: Message):
             )
             return
 
-        lines = [f"📚 <b>Домашнее задание на {day_title} ({len(tasks)}):</b>\n"]
-        for idx, t in enumerate(tasks, 1):
-            subj = str(t.get('subject', 'Предмет')).strip()
-            icon = get_subject_icon(subj)
-            desc = str(t.get('description', '')).strip()
-            mats = t.get('materials') or []
-            mat_badge = f" [📷 {len(mats)}]" if mats else ""
-            lines.append(f"{idx}. {icon} <b>{html.escape(subj)}</b>{mat_badge}: {html.escape(desc)}")
+        header_text = (
+            f"📚 <b>Домашнее задание на {day_title}!</b> ({len(tasks)} {format_plural_ru(len(tasks), 'предмет', 'предмета', 'предметов')}):\n"
+            f"<i>Отправляю каждое задание отдельно с фотографиями страниц 👇</i>"
+        )
+        await safe_reply(message, header_text)
 
-        lines.append("\n💡 <i>Чтобы увидеть фото страниц, напишите:</i> <code>/dz [предмет]</code>")
-        btn = get_portal_keyboard("🚀 Открыть ДЗ Портал", chat_or_type=message)
-        await safe_reply(message, "\n".join(lines), reply_markup=btn)
+        date_badge_text = f"📅 <b>{day_title.capitalize()}</b>"
+        for idx, t in enumerate(tasks, start=1):
+            await send_single_task_card(
+                message=message,
+                task=t,
+                date_badge=date_badge_text,
+                index=idx,
+                total=len(tasks)
+            )
+            await asyncio.sleep(0.3)
         return
 
     # Для личного чата: общее приветствие и кнопка WebApp

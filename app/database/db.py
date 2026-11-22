@@ -834,7 +834,11 @@ def get_all_subjects(class_name: str = "10-А") -> List[str]:
         logger.error(f"Error in get_all_subjects: {e}")
         return []
 
-def get_class_tasks_for_date(date_str: str, class_name: str = "10-А", subject: Optional[str] = None) -> List[Dict[str, Any]]:
+def get_class_tasks_for_date(
+    date_str: str,
+    class_name: str = "10-А",
+    subject: Union[str, List[str], None] = None
+) -> List[Dict[str, Any]]:
     """Возвращает все домашние задания класса на конкретную дату с прикрепленными материалами."""
     if is_using_supabase():
         res = supabase_db.get_class_tasks_for_date(date_str, class_name, subject)
@@ -845,33 +849,30 @@ def get_class_tasks_for_date(date_str: str, class_name: str = "10-А", subject: 
         conn = sqlite3.connect(DB_NAME, timeout=15.0)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        if subject:
-            sql = """
-            SELECT t.*,
-                   COALESCE(u.telegram_nick, '@ученик_' || t.user_id) as author_nick,
-                   COALESCE(u.full_name, '') as author_name,
-                   COALESCE(u.role, 'student') as role
-            FROM tasks t
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.due_date = ? AND (t.class_name = ? OR t.class_name IS NULL) AND LOWER(t.subject) LIKE ?
-            ORDER BY t.subject ASC, t.id ASC
-            """
-            cursor.execute(sql, (date_str, class_name, f"%{subject.lower()}%"))
-        else:
-            sql = """
-            SELECT t.*,
-                   COALESCE(u.telegram_nick, '@ученик_' || t.user_id) as author_nick,
-                   COALESCE(u.full_name, '') as author_name,
-                   COALESCE(u.role, 'student') as role
-            FROM tasks t
-            LEFT JOIN users u ON t.user_id = u.id
-            WHERE t.due_date = ? AND (t.class_name = ? OR t.class_name IS NULL)
-            ORDER BY t.subject ASC, t.id ASC
-            """
-            cursor.execute(sql, (date_str, class_name))
+        sql = """
+        SELECT t.*,
+               COALESCE(u.telegram_nick, '@ученик_' || t.user_id) as author_nick,
+               COALESCE(u.full_name, '') as author_name,
+               COALESCE(u.role, 'student') as role
+        FROM tasks t
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE t.due_date = ? AND (t.class_name = ? OR t.class_name IS NULL)
+        ORDER BY t.subject ASC, t.id ASC
+        """
+        cursor.execute(sql, (date_str, class_name))
         rows = cursor.fetchall()
         tasks = [dict(r) for r in rows]
         conn.close()
+
+        if subject:
+            if isinstance(subject, str):
+                target_subjs = [subject.strip().lower()]
+            else:
+                target_subjs = [str(s).strip().lower() for s in subject if s and str(s).strip()]
+            tasks = [
+                t for t in tasks
+                if any(ts in (t.get("subject") or "").lower() or (len(ts) >= 4 and ts in (t.get("description") or "").lower()) for ts in target_subjs)
+            ]
 
         task_ids = [t["id"] for t in tasks]
         materials_batch = get_materials_for_tasks_batch(task_ids)
@@ -882,7 +883,12 @@ def get_class_tasks_for_date(date_str: str, class_name: str = "10-А", subject: 
         logger.error(f"Error in get_class_tasks_for_date: {e}")
         return []
 
-def get_upcoming_tasks_for_subject(subject_query: str, start_date_str: str, class_name: str = "10-А", limit: int = 5) -> List[Dict[str, Any]]:
+def get_upcoming_tasks_for_subject(
+    subject_query: Union[str, List[str]],
+    start_date_str: str,
+    class_name: str = "10-А",
+    limit: int = 5
+) -> List[Dict[str, Any]]:
     """Возвращает ближайшие задания по предмету начиная со start_date_str."""
     if is_using_supabase():
         res = supabase_db.get_upcoming_tasks_for_subject(subject_query, start_date_str, class_name, limit)
@@ -900,15 +906,25 @@ def get_upcoming_tasks_for_subject(subject_query: str, start_date_str: str, clas
                COALESCE(u.role, 'student') as role
         FROM tasks t
         LEFT JOIN users u ON t.user_id = u.id
-        WHERE t.due_date >= ? AND (t.class_name = ? OR t.class_name IS NULL) AND LOWER(t.subject) LIKE ?
+        WHERE t.due_date >= ? AND (t.class_name = ? OR t.class_name IS NULL)
         ORDER BY t.due_date ASC, t.id ASC
-        LIMIT ?
         """
-        cursor.execute(sql, (start_date_str, class_name, f"%{subject_query.lower()}%", limit))
+        cursor.execute(sql, (start_date_str, class_name))
         rows = cursor.fetchall()
         tasks = [dict(r) for r in rows]
         conn.close()
 
+        if subject_query:
+            if isinstance(subject_query, str):
+                target_subjs = [subject_query.strip().lower()]
+            else:
+                target_subjs = [str(s).strip().lower() for s in subject_query if s and str(s).strip()]
+            tasks = [
+                t for t in tasks
+                if any(ts in (t.get("subject") or "").lower() or (len(ts) >= 4 and ts in (t.get("description") or "").lower()) for ts in target_subjs)
+            ]
+
+        tasks = tasks[:limit]
         task_ids = [t["id"] for t in tasks]
         materials_batch = get_materials_for_tasks_batch(task_ids)
         for t in tasks:
