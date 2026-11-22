@@ -283,10 +283,126 @@ def get_subject_icon(subject: str) -> str:
             return icon
     return "📝"
 
-def get_portal_keyboard(button_text: str = "🚀 Открыть ДЗ Портал") -> InlineKeyboardMarkup:
+def get_portal_keyboard(button_text: str = "🚀 Открыть ДЗ Портал", chat_or_type: Any = None) -> InlineKeyboardMarkup:
+    """
+    Возвращает клавиатуру для открытия ДЗ Портала.
+    В личных чатах используется WebAppInfo (открытие Mini App прямо внутри Telegram).
+    В групповых чатах Telegram ЗАПРЕЩАЕТ WebAppInfo кнопки (ошибка BUTTON_TYPE_INVALID),
+    поэтому для групп создаётся безопасная ссылка на запуск приложения через бота.
+    """
+    is_group = False
+    if isinstance(chat_or_type, str):
+        is_group = chat_or_type in ("group", "supergroup", "channel")
+    elif hasattr(chat_or_type, "type"):
+        is_group = chat_or_type.type in ("group", "supergroup", "channel")
+    elif hasattr(chat_or_type, "chat") and hasattr(chat_or_type.chat, "type"):
+        is_group = chat_or_type.chat.type in ("group", "supergroup", "channel")
+
+    bot_user = "my_hw_manager_bot"
+    if is_group:
+        return InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text=button_text, url=f"https://t.me/{bot_user}?start=portal")
+        ]])
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text=button_text, web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL))
     ]])
+
+def sanitize_markup_for_chat(reply_markup: Optional[InlineKeyboardMarkup], chat_or_type: Any) -> Optional[InlineKeyboardMarkup]:
+    """
+    Проверяет разметку кнопок на совместимость с типом чата.
+    Telegram в группах/супергруппах/каналах строго запрещает InlineKeyboardButton(web_app=...),
+    возвращая ошибку BUTTON_TYPE_INVALID. Данная функция заменяет их на url-ссылку на бота.
+    """
+    if not reply_markup or not hasattr(reply_markup, "inline_keyboard"):
+        return reply_markup
+
+    is_group = False
+    if isinstance(chat_or_type, str):
+        is_group = chat_or_type in ("group", "supergroup", "channel")
+    elif hasattr(chat_or_type, "type"):
+        is_group = chat_or_type.type in ("group", "supergroup", "channel")
+    elif hasattr(chat_or_type, "chat") and hasattr(chat_or_type.chat, "type"):
+        is_group = chat_or_type.chat.type in ("group", "supergroup", "channel")
+
+    if not is_group:
+        return reply_markup
+
+    bot_user = "my_hw_manager_bot"
+    new_keyboard = []
+    has_changes = False
+    for row in reply_markup.inline_keyboard:
+        new_row = []
+        for btn in row:
+            if getattr(btn, "web_app", None):
+                new_row.append(InlineKeyboardButton(
+                    text=btn.text,
+                    url=f"https://t.me/{bot_user}?start=portal"
+                ))
+                has_changes = True
+            else:
+                new_row.append(btn)
+        new_keyboard.append(new_row)
+
+    if has_changes:
+        return InlineKeyboardMarkup(inline_keyboard=new_keyboard)
+    return reply_markup
+
+async def safe_reply(
+    message: Message,
+    text: str,
+    reply_markup: Optional[InlineKeyboardMarkup] = None,
+    parse_mode: str = "HTML"
+):
+    """
+    Безопасная отправка сообщения.
+    Автоматически адаптирует кнопки под тип чата (личный vs группа),
+    и в случае любых ограничений Telegram отправляет сообщение без ошибок.
+    """
+    if reply_markup is None:
+        reply_markup = get_portal_keyboard(chat_or_type=message)
+    else:
+        reply_markup = sanitize_markup_for_chat(reply_markup, message)
+    try:
+        return await message.answer(text, parse_mode=parse_mode, reply_markup=reply_markup)
+    except Exception as e:
+        logger.warning(f"Failed to reply with markup in chat {message.chat.id}: {e}")
+        try:
+            fallback_kb = InlineKeyboardMarkup(inline_keyboard=[[
+                InlineKeyboardButton(text="🎒 Открыть ДЗ Портал", url="https://t.me/my_hw_manager_bot?start=portal")
+            ]])
+            return await message.answer(text, parse_mode=parse_mode, reply_markup=fallback_kb)
+        except Exception:
+            return await message.answer(text, parse_mode=parse_mode)
+
+async def safe_send_photo(
+    message: Message,
+    photo_path: str,
+    caption: str,
+    reply_markup: Optional[InlineKeyboardMarkup] = None
+):
+    """Безопасная отправка фото с клавиатурой и авто-фолбэком."""
+    if reply_markup is None:
+        reply_markup = get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
+    else:
+        reply_markup = sanitize_markup_for_chat(reply_markup, message)
+    try:
+        return await message.answer_photo(
+            photo=FSInputFile(photo_path),
+            caption=caption[:1024],
+            parse_mode="HTML",
+            reply_markup=reply_markup
+        )
+    except Exception as e:
+        logger.warning(f"Failed to send photo with markup: {e}")
+        try:
+            return await message.answer_photo(
+                photo=FSInputFile(photo_path),
+                caption=caption[:1024],
+                parse_mode="HTML"
+            )
+        except Exception as e2:
+            logger.warning(f"Failed to send photo plain: {e2}")
+            return await safe_reply(message, caption)
 
 def format_plural_ru(n: int, one: str, few: str, many: str) -> str:
     """Русское склонение существительных после числительных."""
@@ -386,8 +502,8 @@ async def send_subject_homework(
             f"{icon} <b>По предмету «{html.escape(matched_subject)}» заданий {d_label} нет!</b>\n\n"
             f"В базе данных пока не найдено актуального Д/З. Возможно, его ещё не записали или уроков нет."
         )
-        btn = get_portal_keyboard("🎒 Проверить в ДЗ Портале")
-        await message.answer(not_found_text, parse_mode="HTML", reply_markup=btn)
+        btn = get_portal_keyboard("🎒 Проверить в ДЗ Портале", chat_or_type=message)
+        await safe_reply(message, not_found_text, reply_markup=btn)
         return
 
     task = tasks[0]
@@ -449,11 +565,11 @@ async def send_subject_homework(
     if photo_paths:
         try:
             if len(photo_paths) == 1:
-                await message.answer_photo(
-                    photo=FSInputFile(photo_paths[0]),
-                    caption=caption[:1024],
-                    parse_mode="HTML",
-                    reply_markup=get_portal_keyboard("🚀 Открыть в ДЗ Портале")
+                await safe_send_photo(
+                    message=message,
+                    photo_path=photo_paths[0],
+                    caption=caption,
+                    reply_markup=get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
                 )
                 sent_with_photo = True
             else:
@@ -472,8 +588,8 @@ async def send_subject_homework(
             sent_with_photo = False
 
     if not sent_with_photo:
-        btn = get_portal_keyboard("🚀 Открыть в ДЗ Портале")
-        await message.answer(caption, parse_mode="HTML", reply_markup=btn)
+        btn = get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
+        await safe_reply(message, caption, reply_markup=btn)
 
 async def send_group_daily_reminder(group: Dict[str, Any]):
     """Отправляет вечернее напоминание с Д/З на завтра в групповой чат."""
@@ -515,12 +631,16 @@ async def send_group_daily_reminder(group: Dict[str, Any]):
         lines.append("\n💡 <i>Спросите: «Что по алгебре?» или отправьте <code>/dz [предмет]</code>, чтобы посмотреть фото страниц.</i>")
         text = "\n".join(lines)
 
+    btn = get_portal_keyboard("🚀 Открыть ДЗ Портал", chat_or_type="group")
     try:
-        btn = get_portal_keyboard("🚀 Открыть ДЗ Портал")
         await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=btn)
         logger.info(f"✅ Group reminder sent to {chat_id} ({group.get('title')})")
     except Exception as e:
-        logger.warning(f"Could not send group reminder to {chat_id}: {e}")
+        logger.warning(f"Could not send group reminder to {chat_id} with markup: {e}")
+        try:
+            await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+        except Exception:
+            pass
 
 async def send_group_weekly_reminder(group: Dict[str, Any]):
     """Отправляет воскресный недельный дайджест заданий в групповой чат."""
@@ -564,16 +684,21 @@ async def send_group_weekly_reminder(group: Dict[str, Any]):
         lines.append("")
 
     lines.append("🚀 <i>Открывайте ДЗ Портал для просмотра фото страниц и расписания:</i>")
+    btn = get_portal_keyboard("🗓️ Открыть Портал на неделю", chat_or_type="group")
     try:
         await bot.send_message(
             chat_id=chat_id,
             text="\n".join(lines),
             parse_mode="HTML",
-            reply_markup=get_portal_keyboard("🗓️ Открыть Портал на неделю")
+            reply_markup=btn
         )
         logger.info(f"✅ Group weekly reminder sent to {chat_id}")
     except Exception as e:
-        logger.warning(f"Could not send group weekly reminder to {chat_id}: {e}")
+        logger.warning(f"Could not send group weekly reminder to {chat_id} with markup: {e}")
+        try:
+            await bot.send_message(chat_id=chat_id, text="\n".join(lines), parse_mode="HTML")
+        except Exception:
+            pass
 
 def record_user_activity(from_user):
     if not from_user:
@@ -1418,17 +1543,17 @@ async def handle_start(message: Message):
             InlineKeyboardButton(text="⚙️ Уведомления", callback_data="open_settings")
         ]
     ])
-    await message.answer(text, parse_mode="HTML", reply_markup=start_keyboard)
+    await safe_reply(message, text, reply_markup=start_keyboard)
 
 @dp.message(Command("top", "leaderboard", "rating", "рейтинг"))
 async def handle_leaderboard_command(message: Message):
     record_user_activity(message.from_user)
     leaders = get_leaderboard("10-А")
     text = format_leaderboard_text(leaders)
-    await message.answer(
+    await safe_reply(
+        message,
         text,
-        parse_mode="HTML",
-        reply_markup=get_portal_keyboard("🏆 Открыть рейтинг в приложении")
+        reply_markup=get_portal_keyboard("🏆 Открыть рейтинг в приложении", chat_or_type=message)
     )
 
 @dp.message(Command("remind", "notify"))
@@ -1452,7 +1577,7 @@ async def handle_remind(message: Message, command: CommandObject = None):
 
     text, has_tasks = build_reminder_notification(message.from_user.id, hour=target_hour)
     btn_text = "🚀 Открыть ДЗ Портал" if has_tasks else "🎒 Открыть ДЗ Портал"
-    await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard(btn_text))
+    await safe_reply(message, text, reply_markup=get_portal_keyboard(btn_text, chat_or_type=message))
 
 # ─────────────────────────────────────────────────────────────
 # ОБРАБОТКА ДОБАВЛЕНИЯ БОТА В ГРУППОВЫЕ ЧАТЫ КЛАССА
@@ -1482,12 +1607,16 @@ async def on_bot_joined_group(event: ChatMemberUpdated):
             "• <b>/remind_group</b> — настройки вечернего напоминания в группу (по умолчанию в 18:00)\n\n"
             "💡 <i>Также можно просто спросить в чате: «Что завтра по алгебре?» или «Какое дз на завтра?».</i>"
         )
-        btn = get_portal_keyboard("🎒 Открыть ДЗ Портал")
+        btn = get_portal_keyboard("🎒 Открыть ДЗ Портал", chat_or_type="group")
         try:
             await event.bot.send_message(chat.id, welcome_text, parse_mode="HTML", reply_markup=btn)
             logger.info(f"✅ Bot joined group {chat.id} ({chat.title}) and sent welcome message.")
         except Exception as e:
-            logger.warning(f"Could not send welcome message to group {chat.id}: {e}")
+            logger.warning(f"Could not send welcome message to group {chat.id} with markup: {e}")
+            try:
+                await event.bot.send_message(chat.id, welcome_text, parse_mode="HTML")
+            except Exception:
+                pass
 
 @dp.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=LEAVE_TRANSITION))
 async def on_bot_left_group(event: ChatMemberUpdated):
@@ -1521,7 +1650,8 @@ async def handle_tomorrow(message: Message, command: CommandObject = None):
             f"Все уроки на завтра сделаны или ещё не записаны. Отличный повод отдохнуть!\n"
             f"Если учитель задал домашку — добавьте её через кнопку ниже."
         )
-        await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard("🎒 Открыть ДЗ Портал"))
+        btn = get_portal_keyboard("🎒 Открыть ДЗ Портал", chat_or_type=message)
+        await safe_reply(message, text, reply_markup=btn)
         return
 
     lines = [
@@ -1539,8 +1669,8 @@ async def handle_tomorrow(message: Message, command: CommandObject = None):
         lines.append(f"   {html.escape(desc) if desc else '<i>(см. прикрепленные фото)</i>'}\n")
 
     lines.append("💡 <i>Чтобы увидеть фото страниц по предмету, отправьте:</i> <code>/dz алгебра</code>")
-    btn = get_portal_keyboard("🚀 Открыть задания с фото")
-    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=btn)
+    btn = get_portal_keyboard("🚀 Открыть задания с фото", chat_or_type=message)
+    await safe_reply(message, "\n".join(lines), reply_markup=btn)
 
 @dp.message(Command("remind_group", "group_remind"))
 async def handle_remind_group(message: Message, command: CommandObject = None):
@@ -1696,11 +1826,11 @@ async def handle_today_tasks(message: Message, command: CommandObject = None):
         tasks = get_today_tasks(message.from_user.id, today_str)
 
     if not tasks:
-        await message.answer(
+        await safe_reply(
+            message,
             f"🎉 <b>На сегодня ({weekday_nom}, {date_label}) нет заданий!</b>\n\n"
             f"На сегодня ничего не осталось. Ты свободен! Отдыхай или загляни в ДЗ Портал 👇",
-            parse_mode="HTML",
-            reply_markup=get_portal_keyboard()
+            reply_markup=get_portal_keyboard(chat_or_type=message)
         )
     else:
         lines = [
@@ -1715,7 +1845,7 @@ async def handle_today_tasks(message: Message, command: CommandObject = None):
             lines.append(f"{idx}. {icon} <b>{subj}</b>{mat_badge}: {desc}")
 
         lines.append("\n💡 <i>Чтобы увидеть фото страниц, напишите:</i> <code>/today [предмет]</code>")
-        await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=get_portal_keyboard())
+        await safe_reply(message, "\n".join(lines), reply_markup=get_portal_keyboard(chat_or_type=message))
 
 @dp.message(Command("overdue"))
 async def handle_overdue(message: Message):
@@ -1724,7 +1854,7 @@ async def handle_overdue(message: Message):
     overdue = get_overdue_tasks(message.from_user.id, today_str)
 
     if not overdue:
-        await message.answer("✨ <b>Просроченных заданий нет! Вы молодец!</b>", parse_mode="HTML", reply_markup=get_portal_keyboard())
+        await safe_reply(message, "✨ <b>Просроченных заданий нет! Вы молодец!</b>", reply_markup=get_portal_keyboard(chat_or_type=message))
     else:
         lines = [f"⚠️ <b>Просроченные задания ({len(overdue)}):</b>", ""]
         for idx, t in enumerate(overdue, 1):
@@ -1736,7 +1866,7 @@ async def handle_overdue(message: Message):
 
         lines.append("")
         lines.append("🚀 Откройте ДЗ Портал, чтобы закрыть задания 👇")
-        await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=get_portal_keyboard())
+        await safe_reply(message, "\n".join(lines), reply_markup=get_portal_keyboard(chat_or_type=message))
 
 @dp.message(Command("priority", "pending"))
 async def handle_priority(message: Message):
@@ -1748,7 +1878,7 @@ async def handle_priority(message: Message):
     tasks = get_pending_tasks(message.from_user.id)
 
     if not tasks:
-        await message.answer("🎉 <b>У вас нет невыполненных заданий! Всё чисто.</b>", parse_mode="HTML", reply_markup=get_portal_keyboard())
+        await safe_reply(message, "🎉 <b>У вас нет невыполненных заданий! Всё чисто.</b>", reply_markup=get_portal_keyboard(chat_or_type=message))
         return
 
     p_today, p_tomorrow, p_in2days, p_other = [], [], [], []
@@ -1789,35 +1919,35 @@ async def handle_priority(message: Message):
         lines.append("")
 
     lines.append("🚀 Открыть приложение:")
-    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=get_portal_keyboard())
+    await safe_reply(message, "\n".join(lines), reply_markup=get_portal_keyboard(chat_or_type=message))
 
 @dp.message(Command("week", "weekly", "неделя"))
 async def handle_weekly_command(message: Message):
     record_user_activity(message.from_user)
     text, has_tasks = build_weekly_notification(message.from_user.id)
-    await message.answer(
+    await safe_reply(
+        message,
         text,
-        parse_mode="HTML",
-        reply_markup=get_portal_keyboard("🗓️ Открыть Портал на неделю")
+        reply_markup=get_portal_keyboard("🗓️ Открыть Портал на неделю", chat_or_type=message)
     )
 
 @dp.message(Command("broadcast_weekly", "notify_week"))
 async def handle_broadcast_weekly(message: Message):
     record_user_activity(message.from_user)
-    await message.answer("🔄 Запуск рассылки недельного дайджеста...")
+    await safe_reply(message, "🔄 Запуск рассылки недельного дайджеста...")
     await send_weekly_reminder()
-    await message.answer("✅ Рассылка недельного дайджеста завершена!")
+    await safe_reply(message, "✅ Рассылка недельного дайджеста завершена!")
 
 @dp.message(Command("add"))
 async def handle_add(message: Message, command: CommandObject):
     record_user_activity(message.from_user)
     if not command.args:
-        await message.answer("Использование: /add <предмет> <ГГГГ-ММ-ДД> <описание>\nПример: /add Алгебра 2026-11-16 Стр. 45 № 1-5")
+        await safe_reply(message, "Использование: /add <предмет> <ГГГГ-ММ-ДД> <описание>\nПример: /add Алгебра 2026-11-16 Стр. 45 № 1-5")
         return
 
     args = command.args.split(maxsplit=2)
     if len(args) < 3:
-        await message.answer("Использование: /add <предмет> <ГГГГ-ММ-ДД> <описание>")
+        await safe_reply(message, "Использование: /add <предмет> <ГГГГ-ММ-ДД> <описание>")
         return
 
     subject, due_date, description = args[0], args[1], args[2]
@@ -1831,7 +1961,8 @@ async def handle_add(message: Message, command: CommandObject):
         [InlineKeyboardButton(text="🚀 Открыть ДЗ Портал", web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL))]
     ])
 
-    await message.answer(
+    await safe_reply(
+        message,
         f"✅ Добавлено #{task_id}: [{subject}] {description} (Дедлайн: {due_date})",
         reply_markup=keyboard
     )
@@ -1840,50 +1971,50 @@ async def handle_add(message: Message, command: CommandObject):
 async def handle_done(message: Message, command: CommandObject):
     record_user_activity(message.from_user)
     if not command.args or not command.args.isdigit():
-        await message.answer("Использование: /done <номер_задания>\nПример: /done 2")
+        await safe_reply(message, "Использование: /done <номер_задания>\nПример: /done 2")
         return
 
     task_id = int(command.args)
     mark_task_done(task_id, message.from_user.id)
-    await message.answer(f"🎉 Отлично! Задание #{task_id} отмечено выполненным.", reply_markup=get_portal_keyboard())
+    await safe_reply(message, f"🎉 Отлично! Задание #{task_id} отмечено выполненным.", reply_markup=get_portal_keyboard(chat_or_type=message))
 
 @dp.message(Command("delete"))
 async def handle_delete(message: Message, command: CommandObject):
     record_user_activity(message.from_user)
     if not command.args or not command.args.isdigit():
-        await message.answer("Использование: /delete <номер_задания>\nПример: /delete 2")
+        await safe_reply(message, "Использование: /delete <номер_задания>\nПример: /delete 2")
         return
 
     task_id = int(command.args)
     success, msg = delete_task(task_id, message.from_user.id)
     if not success:
-        await message.answer(f"❌ {msg}")
+        await safe_reply(message, f"❌ {msg}")
         return
-    await message.answer(f"🗑️ Задание #{task_id} удалено.")
+    await safe_reply(message, f"🗑️ Задание #{task_id} удалено.")
 
 @dp.message(Command("delete_all"))
 async def handle_delete_all(message: Message):
     record_user_activity(message.from_user)
     delete_all_tasks(message.from_user.id)
-    await message.answer("🗑️ Все ваши задания успешно удалены.")
+    await safe_reply(message, "🗑️ Все ваши задания успешно удалены.")
 
 @dp.message(Command("materials"))
 async def handle_materials(message: Message, command: CommandObject):
     record_user_activity(message.from_user)
     if not command.args or not command.args.isdigit():
-        await message.answer("Использование: /materials <номер_задания>")
+        await safe_reply(message, "Использование: /materials <номер_задания>")
         return
 
     task_id = int(command.args)
     materials = get_materials_for_task(task_id)
 
     if not materials:
-        await message.answer(f"К заданию #{task_id} пока не прикреплено фотоматериалов.", reply_markup=get_portal_keyboard())
+        await safe_reply(message, f"К заданию #{task_id} пока не прикреплено фотоматериалов.", reply_markup=get_portal_keyboard(chat_or_type=message))
     else:
         text = f"📎 <b>Материалы к заданию #{task_id} ({len(materials)} шт.):</b>\n"
         for m in materials:
             text += f"- [{m['file_id']}] {m.get('caption', '')} (Автор: {m.get('uploader_nick', '')})\n"
-        await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard())
+        await safe_reply(message, text, reply_markup=get_portal_keyboard(chat_or_type=message))
 
 @dp.message(Command("help"))
 async def handle_help(message: Message):
@@ -1892,16 +2023,17 @@ async def handle_help(message: Message):
         "🤖 <b>Команды ДЗ Бота 10-го класса:</b>\n\n"
         "• <b>/start</b> — Главное меню и запуск приложения\n"
         "• <b>/top</b> — 🏆 Таблица лидеров и самых активных редакторов\n"
-        "• <b>/settings</b> — Настройки личных уведомлений (08:00, 16:00, 18:00)\n"
-        "• <b>/remind [8|16|18]</b> — Проверить уведомления (утро, день, вечер)\n"
-        "• <b>/notify_all [8|16|18]</b> — Разослать напоминания всем ученикам\n"
-        "• <b>/today</b> — Задания на сегодня\n"
+        "• <b>/tomorrow</b> (или <b>/завтра</b>) — Задания на завтра\n"
+        "• <b>/tomorrow [предмет]</b> — Д/З по конкретному предмету (с фото!)\n"
+        "• <b>/today</b> (или <b>/сегодня</b>) — Задания на сегодня\n"
         "• <b>/priority</b> — Все невыполненные задания по дням\n"
+        "• <b>/settings</b> — Настройки личных уведомлений\n"
+        "• <b>/remind_group</b> — Напоминание в групповой чат прямо сейчас\n"
         "• <b>/overdue</b> — Просроченные задания\n"
         "• <b>/done &lt;id&gt;</b> — Отметить задание выполненным\n\n"
-        "💡 <i>Самый удобный способ управлять домашними заданиями, загружать фото и листать страницы — наш интерактивный ДЗ Портал:</i>"
+        "💡 <i>В группе можно просто спросить: «что задали на завтра по алгебре?» или «что на завтра?» — бот всё поймет и покажет!</i>"
     )
-    await message.answer(help_text, parse_mode="HTML", reply_markup=get_portal_keyboard())
+    await safe_reply(message, help_text, reply_markup=get_portal_keyboard(chat_or_type=message))
 
 @dp.message(Command("cleanup"))
 async def cmd_cleanup(message: Message):
@@ -1922,6 +2054,26 @@ async def handle_text_fallback(message: Message):
     raw_text = (message.text or message.caption or "").strip()
     if not raw_text:
         return
+
+    # Запасная обработка команд со слэшем (на случай если Command filter не сработал из-за формата mention)
+    if raw_text.startswith("/"):
+        parts = raw_text.split(maxsplit=1)
+        cmd_part = parts[0].lower().lstrip("/")
+        cmd_clean = cmd_part.split("@")[0]
+        cmd_args = parts[1].strip() if len(parts) > 1 else None
+
+        if cmd_clean in ("tomorrow", "завтра", "dz", "дз", "hw", "tasks"):
+            fake_cmd = CommandObject(prefix="/", command=cmd_clean, args=cmd_args)
+            await handle_tomorrow(message, command=fake_cmd)
+            return
+        elif cmd_clean in ("today", "сегодня"):
+            fake_cmd = CommandObject(prefix="/", command=cmd_clean, args=cmd_args)
+            await handle_today_tasks(message, command=fake_cmd)
+            return
+        elif cmd_clean in ("remind_group", "group_remind"):
+            fake_cmd = CommandObject(prefix="/", command=cmd_clean, args=cmd_args)
+            await handle_remind_group(message, command=fake_cmd)
+            return
 
     is_group = message.chat.type in ("group", "supergroup")
     bot_info = None
@@ -1981,10 +2133,11 @@ async def handle_text_fallback(message: Message):
             day_title = "завтра"
 
         if not tasks:
-            await message.answer(
+            btn = get_portal_keyboard("🎒 Открыть ДЗ Портал", chat_or_type=message)
+            await safe_reply(
+                message,
                 f"🎉 <b>На {day_title} уроков не задано!</b>\nОтдыхайте или загляните в ДЗ Портал 👇",
-                parse_mode="HTML",
-                reply_markup=get_portal_keyboard("🎒 Открыть ДЗ Портал")
+                reply_markup=btn
             )
             return
 
@@ -1998,7 +2151,8 @@ async def handle_text_fallback(message: Message):
             lines.append(f"{idx}. {icon} <b>{html.escape(subj)}</b>{mat_badge}: {html.escape(desc)}")
 
         lines.append("\n💡 <i>Чтобы увидеть фото страниц, напишите:</i> <code>/dz [предмет]</code>")
-        await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал"))
+        btn = get_portal_keyboard("🚀 Открыть ДЗ Портал", chat_or_type=message)
+        await safe_reply(message, "\n".join(lines), reply_markup=btn)
         return
 
     # Для личного чата: общее приветствие и кнопка WebApp
@@ -2013,7 +2167,8 @@ async def handle_text_fallback(message: Message):
             f"• ➕ Быстро публиковать новые задания\n\n"
             f"Нажмите кнопку ниже, чтобы открыть портал 👇"
         )
-        await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал"))
+        btn = get_portal_keyboard("🚀 Открыть ДЗ Портал", chat_or_type=message)
+        await safe_reply(message, text, reply_markup=btn)
 
 async def main():
     if not bot:
