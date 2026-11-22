@@ -97,6 +97,30 @@ def init_db():
         except Exception:
             pass
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS group_chats (
+        chat_id INTEGER PRIMARY KEY,
+        title TEXT,
+        chat_type TEXT,
+        class_name TEXT DEFAULT '10-А',
+        is_active INTEGER DEFAULT 1,
+        remind_time TEXT DEFAULT '18:00',
+        added_by INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+    for col, col_def in (
+        ("class_name", "TEXT DEFAULT '10-А'"),
+        ("is_active", "INTEGER DEFAULT 1"),
+        ("remind_time", "TEXT DEFAULT '18:00'"),
+        ("added_by", "INTEGER")
+    ):
+        try:
+            cursor.execute(f"ALTER TABLE group_chats ADD COLUMN {col} {col_def}")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 
@@ -697,5 +721,201 @@ def cleanup_old_tasks(days: int = 30) -> int:
     global _LEADERBOARD_CACHE
     _LEADERBOARD_CACHE.clear()
     return deleted_count
+
+# ─────────────────────────────────────────────────────────────
+# ГРУППОВЫЕ ЧАТЫ (GROUP CHATS) И ПОИСК ЗАДАНИЙ ДЛЯ КЛАССА
+# ─────────────────────────────────────────────────────────────
+
+def upsert_group_chat(chat_id: int, title: str = "", chat_type: str = "group", added_by: Optional[int] = None, is_active: int = 1, remind_time: str = "18:00", class_name: str = "10-А") -> bool:
+    """Сохраняет или обновляет информацию о групповом чате класса."""
+    if is_using_supabase():
+        res = supabase_db.upsert_group_chat(chat_id, title, chat_type, added_by, is_active, remind_time, class_name)
+        if res:
+            return True
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        cursor = conn.cursor()
+        sql = """
+        INSERT INTO group_chats (chat_id, title, chat_type, class_name, is_active, remind_time, added_by, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT(chat_id) DO UPDATE SET
+            title = excluded.title,
+            chat_type = excluded.chat_type,
+            class_name = excluded.class_name,
+            is_active = excluded.is_active,
+            updated_at = CURRENT_TIMESTAMP
+        """
+        cursor.execute(sql, (chat_id, title or "Групповой чат", chat_type, class_name, is_active, remind_time, added_by))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"Error in upsert_group_chat: {e}")
+        return False
+
+def get_group_chat(chat_id: int) -> Optional[Dict[str, Any]]:
+    """Возвращает информацию о групповом чате."""
+    if is_using_supabase():
+        res = supabase_db.get_group_chat(chat_id)
+        if res is not None:
+            return res
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM group_chats WHERE chat_id = ?", (chat_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"Error in get_group_chat: {e}")
+        return None
+
+def get_active_group_chats() -> List[Dict[str, Any]]:
+    """Возвращает список всех активных групповых чатов для отправки напоминаний."""
+    if is_using_supabase():
+        res = supabase_db.get_active_group_chats()
+        if res:
+            return res
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM group_chats WHERE is_active = 1")
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"Error in get_active_group_chats: {e}")
+        return []
+
+def set_group_reminder(chat_id: int, is_active: bool, remind_time: Optional[str] = None) -> bool:
+    """Включает/выключает напоминания в группе или меняет время отправки."""
+    if is_using_supabase():
+        res = supabase_db.set_group_reminder(chat_id, is_active, remind_time)
+        if res:
+            return True
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        cursor = conn.cursor()
+        if remind_time:
+            norm_time = normalize_time_str(remind_time) or remind_time
+            cursor.execute("UPDATE group_chats SET is_active = ?, remind_time = ?, updated_at = CURRENT_TIMESTAMP WHERE chat_id = ?",
+                           (1 if is_active else 0, norm_time, chat_id))
+        else:
+            cursor.execute("UPDATE group_chats SET is_active = ?, updated_at = CURRENT_TIMESTAMP WHERE chat_id = ?",
+                           (1 if is_active else 0, chat_id))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"Error in set_group_reminder: {e}")
+        return False
+
+def get_all_subjects(class_name: str = "10-А") -> List[str]:
+    """Возвращает список всех уникальных предметов из базы данных."""
+    if is_using_supabase():
+        res = supabase_db.get_all_subjects(class_name)
+        if res:
+            return res
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        cursor = conn.cursor()
+        cursor.execute("SELECT DISTINCT subject FROM tasks WHERE class_name = ? OR class_name IS NULL ORDER BY subject ASC", (class_name,))
+        rows = cursor.fetchall()
+        conn.close()
+        return [r[0] for r in rows if r[0]]
+    except Exception as e:
+        logger.error(f"Error in get_all_subjects: {e}")
+        return []
+
+def get_class_tasks_for_date(date_str: str, class_name: str = "10-А", subject: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Возвращает все домашние задания класса на конкретную дату с прикрепленными материалами."""
+    if is_using_supabase():
+        res = supabase_db.get_class_tasks_for_date(date_str, class_name, subject)
+        if res is not None:
+            return res
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        if subject:
+            sql = """
+            SELECT t.*,
+                   COALESCE(u.telegram_nick, '@ученик_' || t.user_id) as author_nick,
+                   COALESCE(u.full_name, '') as author_name,
+                   COALESCE(u.role, 'student') as role
+            FROM tasks t
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE t.due_date = ? AND (t.class_name = ? OR t.class_name IS NULL) AND LOWER(t.subject) LIKE ?
+            ORDER BY t.subject ASC, t.id ASC
+            """
+            cursor.execute(sql, (date_str, class_name, f"%{subject.lower()}%"))
+        else:
+            sql = """
+            SELECT t.*,
+                   COALESCE(u.telegram_nick, '@ученик_' || t.user_id) as author_nick,
+                   COALESCE(u.full_name, '') as author_name,
+                   COALESCE(u.role, 'student') as role
+            FROM tasks t
+            LEFT JOIN users u ON t.user_id = u.id
+            WHERE t.due_date = ? AND (t.class_name = ? OR t.class_name IS NULL)
+            ORDER BY t.subject ASC, t.id ASC
+            """
+            cursor.execute(sql, (date_str, class_name))
+        rows = cursor.fetchall()
+        tasks = [dict(r) for r in rows]
+        conn.close()
+
+        task_ids = [t["id"] for t in tasks]
+        materials_batch = get_materials_for_tasks_batch(task_ids)
+        for t in tasks:
+            t["materials"] = materials_batch.get(t["id"], [])
+        return tasks
+    except Exception as e:
+        logger.error(f"Error in get_class_tasks_for_date: {e}")
+        return []
+
+def get_upcoming_tasks_for_subject(subject_query: str, start_date_str: str, class_name: str = "10-А", limit: int = 5) -> List[Dict[str, Any]]:
+    """Возвращает ближайшие задания по предмету начиная со start_date_str."""
+    if is_using_supabase():
+        res = supabase_db.get_upcoming_tasks_for_subject(subject_query, start_date_str, class_name, limit)
+        if res is not None:
+            return res
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        sql = """
+        SELECT t.*,
+               COALESCE(u.telegram_nick, '@ученик_' || t.user_id) as author_nick,
+               COALESCE(u.full_name, '') as author_name,
+               COALESCE(u.role, 'student') as role
+        FROM tasks t
+        LEFT JOIN users u ON t.user_id = u.id
+        WHERE t.due_date >= ? AND (t.class_name = ? OR t.class_name IS NULL) AND LOWER(t.subject) LIKE ?
+        ORDER BY t.due_date ASC, t.id ASC
+        LIMIT ?
+        """
+        cursor.execute(sql, (start_date_str, class_name, f"%{subject_query.lower()}%", limit))
+        rows = cursor.fetchall()
+        tasks = [dict(r) for r in rows]
+        conn.close()
+
+        task_ids = [t["id"] for t in tasks]
+        materials_batch = get_materials_for_tasks_batch(task_ids)
+        for t in tasks:
+            t["materials"] = materials_batch.get(t["id"], [])
+        return tasks
+    except Exception as e:
+        logger.error(f"Error in get_upcoming_tasks_for_subject: {e}")
+        return []
 
 init_db()

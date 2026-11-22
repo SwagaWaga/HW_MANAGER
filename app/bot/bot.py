@@ -1,14 +1,19 @@
 import os
+import re
 import asyncio
 import logging
 import html
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
-from typing import Optional
+from typing import Optional, List, Dict, Any, Tuple
 from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher
-from aiogram.filters import CommandStart, Command, CommandObject
-from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
+from aiogram.filters import CommandStart, Command, CommandObject, ChatMemberUpdatedFilter, JOIN_TRANSITION, LEAVE_TRANSITION
+from aiogram.types import (
+    Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
+    ChatMemberUpdated, FSInputFile, InputMediaPhoto,
+    BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats
+)
 try:
     from app.database.db import (
         init_db,
@@ -27,7 +32,14 @@ try:
         get_leaderboard,
         cleanup_old_tasks,
         normalize_time_str,
-        parse_custom_times
+        parse_custom_times,
+        upsert_group_chat,
+        get_group_chat,
+        get_active_group_chats,
+        set_group_reminder,
+        get_all_subjects,
+        get_class_tasks_for_date,
+        get_upcoming_tasks_for_subject
     )
 except ImportError:
     from db import (
@@ -47,7 +59,14 @@ except ImportError:
         get_leaderboard,
         cleanup_old_tasks,
         normalize_time_str,
-        parse_custom_times
+        parse_custom_times,
+        upsert_group_chat,
+        get_group_chat,
+        get_active_group_chats,
+        set_group_reminder,
+        get_all_subjects,
+        get_class_tasks_for_date,
+        get_upcoming_tasks_for_subject
     )
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -65,7 +84,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.8.3"
+APP_VERSION = "2.9.0"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -143,20 +162,32 @@ async def sync_bot_profile():
     except Exception as e:
         logger.warning(f"Note setting full description: {e}")
 
-    # 4. Commands menu
+    # 4. Commands menu (для личных и групповых чатов)
     try:
-        commands = [
+        private_commands = [
             BotCommand(command="start", description="🚀 Открыть ДЗ Портал 10-А"),
-            BotCommand(command="week", description="🗓️ Все задания на неделю"),
+            BotCommand(command="tomorrow", description="📚 Домашнее задание на завтра"),
             BotCommand(command="today", description="📅 Уроки и задания на сегодня"),
+            BotCommand(command="week", description="🗓️ Все задания на неделю"),
             BotCommand(command="priority", description="⚡ Срочные задания по дням"),
             BotCommand(command="top", description="🏆 Таблица лидеров редакторов"),
             BotCommand(command="settings", description="⚙️ Настройки уведомлений (8/16/18/2 дня/неделя)"),
             BotCommand(command="overdue", description="⏳ Просроченные задания"),
             BotCommand(command="help", description="ℹ️ Справка по всем командам"),
         ]
-        await bot.set_my_commands(commands)
-        logger.info("✅ Bot commands updated.")
+        group_commands = [
+            BotCommand(command="tomorrow", description="📚 Д/З на завтра (или /tomorrow алгебра)"),
+            BotCommand(command="today", description="📅 Д/З на сегодня (или /today физика)"),
+            BotCommand(command="remind_group", description="⏰ Напоминания в группе"),
+            BotCommand(command="start", description="🎒 Запустить ДЗ Портал"),
+            BotCommand(command="help", description="ℹ️ Справка по командам в группе"),
+        ]
+        try:
+            await bot.set_my_commands(private_commands, scope=BotCommandScopeAllPrivateChats())
+            await bot.set_my_commands(group_commands, scope=BotCommandScopeAllGroupChats())
+        except Exception:
+            await bot.set_my_commands(private_commands)
+        logger.info("✅ Bot commands updated for private and group chats.")
     except Exception as e:
         logger.warning(f"Note setting bot commands: {e}")
 
@@ -256,6 +287,293 @@ def get_portal_keyboard(button_text: str = "🚀 Открыть ДЗ Порта�
     return InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(text=button_text, web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL))
     ]])
+
+def format_plural_ru(n: int, one: str, few: str, many: str) -> str:
+    """Русское склонение существительных после числительных."""
+    mod10 = n % 10
+    mod100 = n % 100
+    if 11 <= mod100 <= 19:
+        return many
+    if mod10 == 1:
+        return one
+    if 2 <= mod10 <= 4:
+        return few
+    return many
+
+# ─────────────────────────────────────────────────────────────
+# УМНОЕ РАСПОЗНАВАНИЕ ПРЕДМЕТОВ (СИНОНИМЫ И АББРЕВИАТУРЫ)
+# ─────────────────────────────────────────────────────────────
+
+SUBJECT_SYNONYMS = {
+    "Алгебра": ["алгебр", "алебр", "алг"],
+    "Геометрия": ["геометр", "геом"],
+    "Математика": ["матем", "математик", "мат"],
+    "Физика": ["физик", "физ"],
+    "Химия": ["хими", "хим"],
+    "Биология": ["биолог", "био"],
+    "Информатика": ["информ", "ивт", "cs", "инф"],
+    "Русский язык": ["русск", "русский", "рус"],
+    "Литература": ["литератур", "лит-ра", "литра", "лит", "рил"],
+    "Английский язык": ["англ", "английск", "инглиш", "english", "ая"],
+    "История": ["истори", "ист"],
+    "География": ["географ", "гео"],
+    "Обществознание": ["обществ", "общество", "общ"],
+    "Физкультура": ["физкульт", "физ-р", "физра", "ф-ра"],
+    "Узбекский язык": ["узбек", "узб", "уя"],
+    "Ораторское искусство": ["оратор", "ор.иск", "театр"],
+    "Проект": ["проект", "пд"],
+    "ОБЖ": ["обж"],
+    "НДП": ["ндп"],
+    "ШУ": ["шу"]
+}
+
+def find_subject_in_text(text: str, class_name: str = "10-А") -> Optional[str]:
+    """Находит предмет в тексте запроса ученика с учетом синонимов и базы данных."""
+    if not text:
+        return None
+    raw = text.lower().strip()
+
+    # 1. Сначала проверяем точные совпадения с синонимами
+    for canonical, keywords in SUBJECT_SYNONYMS.items():
+        for kw in keywords:
+            if re.search(r'\b' + re.escape(kw), raw) or kw in raw:
+                return canonical
+
+    # 2. Проверяем реальные предметы из базы
+    try:
+        db_subjects = get_all_subjects(class_name)
+        for s in db_subjects:
+            s_clean = s.strip().lower()
+            if s_clean in raw or (len(s_clean) >= 3 and s_clean[:4] in raw):
+                return s
+    except Exception:
+        pass
+    return None
+
+async def send_subject_homework(
+    message: Message,
+    subject_query: str,
+    target_date_str: Optional[str] = None
+):
+    """
+    Находит и отправляет домашнее задание по конкретному предмету с фотографиями страниц.
+    Если на target_date_str ничего нет, ищет ближайшее будущее задание.
+    """
+    now_local = datetime.now(TARGET_TZ)
+    today = now_local.date()
+    today_str = today.isoformat()
+    tomorrow = today + timedelta(days=1)
+    tomorrow_str = tomorrow.isoformat()
+
+    if not target_date_str:
+        target_date_str = tomorrow_str
+
+    matched_subject = find_subject_in_text(subject_query) or subject_query.strip()
+
+    # 1. Поиск задания на целевую дату
+    tasks = get_class_tasks_for_date(target_date_str, class_name="10-А", subject=matched_subject)
+
+    # 2. Если на целевую дату нет — ищем ближайшие будущие задания по предмету
+    if not tasks:
+        upcoming = get_upcoming_tasks_for_subject(matched_subject, start_date_str=today_str, class_name="10-А", limit=1)
+        if upcoming:
+            tasks = upcoming
+
+    if not tasks:
+        icon = get_subject_icon(matched_subject)
+        d_label = "на завтра" if target_date_str == tomorrow_str else f"на {target_date_str}"
+        not_found_text = (
+            f"{icon} <b>По предмету «{html.escape(matched_subject)}» заданий {d_label} нет!</b>\n\n"
+            f"В базе данных пока не найдено актуального Д/З. Возможно, его ещё не записали или уроков нет."
+        )
+        btn = get_portal_keyboard("🎒 Проверить в ДЗ Портале")
+        await message.answer(not_found_text, parse_mode="HTML", reply_markup=btn)
+        return
+
+    task = tasks[0]
+    task_subject = task.get("subject", matched_subject)
+    icon = get_subject_icon(task_subject)
+    desc = task.get("description", "").strip()
+    due_date = str(task.get("due_date", ""))
+    author_name = task.get("author_name") or task.get("author_nick") or "ученик"
+    materials = task.get("materials") or []
+
+    # Формируем читаемую плашку даты
+    if due_date == today_str:
+        date_badge = "📅 <b>Сегодня</b>"
+    elif due_date == tomorrow_str:
+        tomorrow_nom = RU_WEEKDAYS_NOMINATIVE.get(tomorrow.weekday(), "Завтра")
+        tomorrow_label = f"{tomorrow.day} {RU_MONTHS[tomorrow.month]}"
+        date_badge = f"📅 <b>Завтра</b> ({tomorrow_nom}, {tomorrow_label})"
+    else:
+        try:
+            d_obj = datetime.strptime(due_date, "%Y-%m-%d").date()
+            d_nom = RU_WEEKDAYS_NOMINATIVE.get(d_obj.weekday(), "")
+            d_label = f"{d_obj.day} {RU_MONTHS[d_obj.month]}"
+            date_badge = f"📅 <b>{due_date}</b> ({d_nom}, {d_label})"
+        except Exception:
+            date_badge = f"📅 <b>{due_date}</b>"
+
+    caption_lines = [
+        f"{icon} <b>Д/З по предмету: {html.escape(task_subject)}</b>",
+        f"{date_badge}",
+        f"\n📝 <b>Задание:</b>\n{html.escape(desc) if desc else '<i>(см. прикрепленные фото)</i>'}",
+    ]
+    if author_name:
+        caption_lines.append(f"\n👤 <i>Опубликовал: {html.escape(str(author_name))}</i>")
+
+    caption = "\n".join(caption_lines)
+
+    # 3. Подготовка фотоматериалов
+    photo_paths = []
+    for m in materials:
+        raw_f = m.get("file_id") or m.get("url") or ""
+        if not raw_f:
+            continue
+        candidates = [
+            raw_f,
+            os.path.join("uploads", raw_f),
+            os.path.join("uploads", os.path.basename(raw_f)),
+            os.path.join(os.getcwd(), "uploads", os.path.basename(raw_f))
+        ]
+        found_path = None
+        for c in candidates:
+            if os.path.isfile(c):
+                found_path = c
+                break
+        if found_path:
+            photo_paths.append(found_path)
+
+    # 4. Отправляем фото или форматированный текст
+    sent_with_photo = False
+    if photo_paths:
+        try:
+            if len(photo_paths) == 1:
+                await message.answer_photo(
+                    photo=FSInputFile(photo_paths[0]),
+                    caption=caption[:1024],
+                    parse_mode="HTML",
+                    reply_markup=get_portal_keyboard("🚀 Открыть в ДЗ Портале")
+                )
+                sent_with_photo = True
+            else:
+                media = [
+                    InputMediaPhoto(
+                        media=FSInputFile(p),
+                        caption=caption[:1024] if idx == 0 else None,
+                        parse_mode="HTML"
+                    )
+                    for idx, p in enumerate(photo_paths[:10])
+                ]
+                await message.answer_media_group(media=media)
+                sent_with_photo = True
+        except Exception as p_err:
+            logger.warning(f"Failed to send photo for task #{task.get('id')}: {p_err}")
+            sent_with_photo = False
+
+    if not sent_with_photo:
+        btn = get_portal_keyboard("🚀 Открыть в ДЗ Портале")
+        await message.answer(caption, parse_mode="HTML", reply_markup=btn)
+
+async def send_group_daily_reminder(group: Dict[str, Any]):
+    """Отправляет вечернее напоминание с Д/З на завтра в групповой чат."""
+    chat_id = group.get("chat_id")
+    if not chat_id or not bot:
+        return
+
+    now_local = datetime.now(TARGET_TZ)
+    tomorrow = now_local.date() + timedelta(days=1)
+    tomorrow_str = tomorrow.isoformat()
+    tomorrow_nom = RU_WEEKDAYS_NOMINATIVE.get(tomorrow.weekday(), "Завтра")
+    tomorrow_label = f"{tomorrow.day} {RU_MONTHS[tomorrow.month]}"
+    tomorrow_prep = RU_WEEKDAYS.get(tomorrow.weekday(), "завтра")
+    class_name = group.get("class_name", "10-А")
+
+    tasks = get_class_tasks_for_date(tomorrow_str, class_name=class_name)
+
+    if not tasks:
+        text = (
+            f"🌆 <b>Вечерняя проверка домашнего задания {tomorrow_prep}!</b>\n"
+            f"📅 <b>{tomorrow_nom}, {tomorrow_label} (завтра)</b>\n\n"
+            f"🎉 <b>На завтра уроков не задано!</b>\n"
+            f"Отдыхайте или проверьте расписание в приложении."
+        )
+    else:
+        lines = [
+            f"🌆 <b>Вечернее напоминание для {class_name}!</b>",
+            f"📅 <b>{tomorrow_nom}, {tomorrow_label} (завтра)</b>",
+            f"\n📚 <b>Задания на завтра ({len(tasks)}):</b>"
+        ]
+        for idx, t in enumerate(tasks, start=1):
+            subj = str(t.get('subject', 'Предмет')).strip()
+            icon = get_subject_icon(subj)
+            desc = str(t.get('description', '')).strip()
+            mats = t.get('materials') or []
+            mat_badge = f" [📷 {len(mats)}]" if mats else ""
+            lines.append(f"{idx}. {icon} <b>{html.escape(subj)}</b>{mat_badge}: {html.escape(desc)}")
+
+        lines.append("\n💡 <i>Спросите: «Что по алгебре?» или отправьте <code>/dz [предмет]</code>, чтобы посмотреть фото страниц.</i>")
+        text = "\n".join(lines)
+
+    try:
+        btn = get_portal_keyboard("🚀 Открыть ДЗ Портал")
+        await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML", reply_markup=btn)
+        logger.info(f"✅ Group reminder sent to {chat_id} ({group.get('title')})")
+    except Exception as e:
+        logger.warning(f"Could not send group reminder to {chat_id}: {e}")
+
+async def send_group_weekly_reminder(group: Dict[str, Any]):
+    """Отправляет воскресный недельный дайджест заданий в групповой чат."""
+    chat_id = group.get("chat_id")
+    if not chat_id or not bot:
+        return
+    class_name = group.get("class_name", "10-А")
+    now_local = datetime.now(TARGET_TZ)
+    monday = now_local.date() + timedelta(days=1)
+    sunday = monday + timedelta(days=6)
+
+    days_tasks = {}
+    total_count = 0
+    for day_offset in range(7):
+        curr_d = monday + timedelta(days=day_offset)
+        curr_str = curr_d.isoformat()
+        t_list = get_class_tasks_for_date(curr_str, class_name=class_name)
+        if t_list:
+            days_tasks[curr_d] = t_list
+            total_count += len(t_list)
+
+    if total_count == 0:
+        return
+
+    lines = [
+        f"🗓️ <b>План домашнего задания на неделю для {class_name}!</b>",
+        f"📅 <b>{monday.day} {RU_MONTHS[monday.month]} – {sunday.day} {RU_MONTHS[sunday.month]}</b>\n"
+    ]
+
+    for d_obj, t_list in sorted(days_tasks.items(), key=lambda x: x[0]):
+        d_nom = RU_WEEKDAYS_NOMINATIVE.get(d_obj.weekday(), "")
+        d_label = f"{d_obj.day} {RU_MONTHS[d_obj.month]}"
+        lines.append(f"📌 <b>{d_nom}, {d_label}:</b>")
+        for t in t_list:
+            subj = str(t.get('subject', 'Предмет')).strip()
+            icon = get_subject_icon(subj)
+            desc = str(t.get('description', '')).strip()
+            mats = t.get('materials') or []
+            mat_badge = f" [📷 {len(mats)}]" if mats else ""
+            lines.append(f"  • {icon} <b>{html.escape(subj)}</b>{mat_badge}: {html.escape(desc)}")
+        lines.append("")
+
+    lines.append("🚀 <i>Открывайте ДЗ Портал для просмотра фото страниц и расписания:</i>")
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text="\n".join(lines),
+            parse_mode="HTML",
+            reply_markup=get_portal_keyboard("🗓️ Открыть Портал на неделю")
+        )
+        logger.info(f"✅ Group weekly reminder sent to {chat_id}")
+    except Exception as e:
+        logger.warning(f"Could not send group weekly reminder to {chat_id}: {e}")
 
 def record_user_activity(from_user):
     if not from_user:
@@ -570,6 +888,16 @@ async def check_and_send_minutely_reminders():
         except Exception as err:
             logger.warning(f"Error checking reminder for user {uid} at {cur_time_str}: {err}")
 
+    # 3. Отправка напоминаний в активные групповые чаты класса
+    try:
+        active_groups = get_active_group_chats()
+        for g in active_groups:
+            g_remind_time = normalize_time_str(g.get("remind_time") or "18:00")
+            if g_remind_time == cur_time_str:
+                await send_group_daily_reminder(g)
+    except Exception as g_err:
+        logger.warning(f"Error checking group reminders at {cur_time_str}: {g_err}")
+
 def build_weekly_notification(user_id: int, start_date: Optional[date] = None, end_date: Optional[date] = None) -> tuple[str, bool]:
     """
     Builds a weekly summary of all upcoming homework assignments
@@ -685,6 +1013,15 @@ async def send_weekly_reminder():
                 skipped_count += 1
         except Exception as e:
             logger.warning(f"Could not send weekly reminder to user {uid}: {e}")
+
+    # 2. Отправка недельного плана в активные групповые чаты класса
+    try:
+        active_groups = get_active_group_chats()
+        for g in active_groups:
+            if g.get("is_active", 1):
+                await send_group_weekly_reminder(g)
+    except Exception as g_err:
+        logger.warning(f"Error checking group weekly reminders: {g_err}")
 
     logger.info(f"📅 Weekly reminder finished: sent {sent_count} notifications, {skipped_count} skipped.")
 
@@ -1094,7 +1431,7 @@ async def handle_leaderboard_command(message: Message):
         reply_markup=get_portal_keyboard("🏆 Открыть рейтинг в приложении")
     )
 
-@dp.message(Command("remind", "notify", "tomorrow", "zavtra"))
+@dp.message(Command("remind", "notify"))
 async def handle_remind(message: Message, command: CommandObject = None):
     """
     On-demand command for testing and checking homework notifications.
@@ -1116,6 +1453,169 @@ async def handle_remind(message: Message, command: CommandObject = None):
     text, has_tasks = build_reminder_notification(message.from_user.id, hour=target_hour)
     btn_text = "🚀 Открыть ДЗ Портал" if has_tasks else "🎒 Открыть ДЗ Портал"
     await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard(btn_text))
+
+# ─────────────────────────────────────────────────────────────
+# ОБРАБОТКА ДОБАВЛЕНИЯ БОТА В ГРУППОВЫЕ ЧАТЫ КЛАССА
+# ─────────────────────────────────────────────────────────────
+
+@dp.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=JOIN_TRANSITION))
+async def on_bot_joined_group(event: ChatMemberUpdated):
+    chat = event.chat
+    if chat.type in ("group", "supergroup"):
+        user = event.from_user
+        upsert_group_chat(
+            chat_id=chat.id,
+            title=chat.title or "Групповой чат",
+            chat_type=chat.type,
+            added_by=user.id if user else None,
+            is_active=1,
+            remind_time="18:00",
+            class_name="10-А"
+        )
+        welcome_text = (
+            f"👋 <b>Всем привет! Я помощник по домашним заданиям для {html.escape(chat.title or 'вашего класса')}!</b>\n\n"
+            "Я буду помогать классу не забывать про уроки и быстро находить Д/З прямо здесь.\n\n"
+            "📌 <b>Что я умею в группе:</b>\n"
+            "• <b>/tomorrow</b> (или <b>/завтра</b>, <b>/dz</b>) — показать всё Д/З на завтра\n"
+            "• <b>/tomorrow [предмет]</b> (например: <code>/dz алгебра</code>) — показать задание и фото страниц\n"
+            "• <b>/today</b> (или <b>/сегодня</b>) — показать Д/З на сегодня\n"
+            "• <b>/remind_group</b> — настройки вечернего напоминания в группу (по умолчанию в 18:00)\n\n"
+            "💡 <i>Также можно просто спросить в чате: «Что завтра по алгебре?» или «Какое дз на завтра?».</i>"
+        )
+        btn = get_portal_keyboard("🎒 Открыть ДЗ Портал")
+        try:
+            await event.bot.send_message(chat.id, welcome_text, parse_mode="HTML", reply_markup=btn)
+            logger.info(f"✅ Bot joined group {chat.id} ({chat.title}) and sent welcome message.")
+        except Exception as e:
+            logger.warning(f"Could not send welcome message to group {chat.id}: {e}")
+
+@dp.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=LEAVE_TRANSITION))
+async def on_bot_left_group(event: ChatMemberUpdated):
+    if event.chat.type in ("group", "supergroup"):
+        set_group_reminder(event.chat.id, is_active=False)
+        logger.info(f"Bot was removed from group {event.chat.id} ({event.chat.title})")
+
+# ─────────────────────────────────────────────────────────────
+# КОМАНДЫ Д/З: /tomorrow, /today, /remind_group
+# ─────────────────────────────────────────────────────────────
+
+@dp.message(Command("tomorrow", "завтра", "dz", "дз", "hw", "tasks"))
+async def handle_tomorrow(message: Message, command: CommandObject = None):
+    record_user_activity(message.from_user)
+    now_local = datetime.now(TARGET_TZ)
+    tomorrow = now_local.date() + timedelta(days=1)
+    tomorrow_str = tomorrow.isoformat()
+    tomorrow_nom = RU_WEEKDAYS_NOMINATIVE.get(tomorrow.weekday(), "Завтра")
+    tomorrow_label = f"{tomorrow.day} {RU_MONTHS[tomorrow.month]}"
+
+    if command and command.args:
+        arg_subject = command.args.strip()
+        await send_subject_homework(message, subject_query=arg_subject, target_date_str=tomorrow_str)
+        return
+
+    tasks = get_class_tasks_for_date(tomorrow_str, class_name="10-А")
+
+    if not tasks:
+        text = (
+            f"🎉 <b>На завтра ({tomorrow_nom}, {tomorrow_label}) ничего не задано!</b>\n\n"
+            f"Все уроки на завтра сделаны или ещё не записаны. Отличный повод отдохнуть!\n"
+            f"Если учитель задал домашку — добавьте её через кнопку ниже."
+        )
+        await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard("🎒 Открыть ДЗ Портал"))
+        return
+
+    lines = [
+        f"📚 <b>Домашнее задание на завтра!</b>",
+        f"📅 <b>{tomorrow_nom}, {tomorrow_label}</b> ({len(tasks)} {format_plural_ru(len(tasks), 'предмет', 'предмета', 'предметов')}):\n"
+    ]
+
+    for idx, t in enumerate(tasks, start=1):
+        subj = str(t.get('subject', 'Предмет')).strip()
+        icon = get_subject_icon(subj)
+        desc = str(t.get('description', '')).strip()
+        mats = t.get('materials') or []
+        mat_badge = f" [📷 {len(mats)}]" if mats else ""
+        lines.append(f"{idx}. {icon} <b>{html.escape(subj)}</b>{mat_badge}:")
+        lines.append(f"   {html.escape(desc) if desc else '<i>(см. прикрепленные фото)</i>'}\n")
+
+    lines.append("💡 <i>Чтобы увидеть фото страниц по предмету, отправьте:</i> <code>/dz алгебра</code>")
+    btn = get_portal_keyboard("🚀 Открыть задания с фото")
+    await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=btn)
+
+@dp.message(Command("remind_group", "group_remind"))
+async def handle_remind_group(message: Message, command: CommandObject = None):
+    record_user_activity(message.from_user)
+    chat = message.chat
+    if chat.type not in ("group", "supergroup"):
+        await message.answer(
+            "ℹ️ Команда <b>/remind_group</b> предназначена для групповых чатов класса.\n"
+            "Добавьте бота в чат класса и настройте автоматические напоминания!",
+            parse_mode="HTML"
+        )
+        return
+
+    group_info = get_group_chat(chat.id)
+    if not group_info:
+        upsert_group_chat(
+            chat_id=chat.id,
+            title=chat.title or "Группа класса",
+            chat_type=chat.type,
+            added_by=message.from_user.id if message.from_user else None,
+            is_active=1,
+            remind_time="18:00"
+        )
+        group_info = get_group_chat(chat.id) or {}
+
+    cur_active = bool(group_info.get("is_active", 1))
+    cur_time = group_info.get("remind_time", "18:00")
+
+    if command and command.args:
+        arg = command.args.strip().lower()
+        if arg in ("off", "0", "выкл", "disable", "stop"):
+            set_group_reminder(chat.id, is_active=False)
+            await message.answer(
+                "🔕 <b>Ежедневные напоминания в этой группе выключены.</b>\n"
+                "Чтобы включить обратно, отправьте: <code>/remind_group on</code>",
+                parse_mode="HTML"
+            )
+            return
+        elif arg in ("on", "1", "вкл", "enable", "start"):
+            set_group_reminder(chat.id, is_active=True)
+            await message.answer(
+                f"🔔 <b>Ежедневные напоминания в группе включены!</b>\n"
+                f"⏰ Время отправки: <b>{cur_time}</b> (Asia/Tashkent).\n"
+                f"Бот будет каждый вечер присылать список Д/З на завтра.",
+                parse_mode="HTML"
+            )
+            return
+        else:
+            norm = normalize_time_str(arg)
+            if norm:
+                set_group_reminder(chat.id, is_active=True, remind_time=norm)
+                await message.answer(
+                    f"⏰ <b>Время вечернего напоминания в группе изменено на {norm}!</b>\n"
+                    f"Каждый день в {norm} бот будет публиковать уроки на завтра.",
+                    parse_mode="HTML"
+                )
+                return
+            else:
+                await message.answer(
+                    "❌ Неверный формат времени. Используйте ЧЧ:ММ (например: <code>/remind_group 18:30</code>) или <code>/remind_group on/off</code>.",
+                    parse_mode="HTML"
+                )
+                return
+
+    status_str = "🔔 <b>Включены</b>" if cur_active else "🔕 <b>Выключены</b>"
+    text = (
+        f"⚙️ <b>Настройки напоминаний для группы «{html.escape(chat.title or '')}»:</b>\n\n"
+        f"• Статус: {status_str}\n"
+        f"• Время отправки: <b>{cur_time}</b> (Asia/Tashkent)\n\n"
+        f"📌 <b>Управление:</b>\n"
+        f"• <code>/remind_group off</code> — выключить напоминания\n"
+        f"• <code>/remind_group on</code> — включить напоминания\n"
+        f"• <code>/remind_group 19:00</code> — изменить время напоминания\n"
+    )
+    await message.answer(text, parse_mode="HTML")
 
 @dp.message(Command("notify_all", "broadcast_reminders"))
 async def handle_notify_all(message: Message, command: CommandObject = None):
@@ -1176,36 +1676,45 @@ async def handle_notify_all(message: Message, command: CommandObject = None):
         reply_markup=get_portal_keyboard()
     )
 
-@dp.message(Command("today"))
-async def handle_today_tasks(message: Message):
+@dp.message(Command("today", "сегодня"))
+async def handle_today_tasks(message: Message, command: CommandObject = None):
     record_user_activity(message.from_user)
     today = get_local_today()
     today_str = today.isoformat()
-    tasks = get_today_tasks(message.from_user.id, today_str)
-
     weekday_nom = RU_WEEKDAYS_NOMINATIVE.get(today.weekday(), "Сегодня")
     date_label = f"{today.day} {RU_MONTHS[today.month]}"
 
+    if command and command.args:
+        arg_subject = command.args.strip()
+        await send_subject_homework(message, subject_query=arg_subject, target_date_str=today_str)
+        return
+
+    is_group = message.chat.type in ("group", "supergroup")
+    if is_group:
+        tasks = get_class_tasks_for_date(today_str, class_name="10-А")
+    else:
+        tasks = get_today_tasks(message.from_user.id, today_str)
+
     if not tasks:
         await message.answer(
-            f"🎉 <b>На сегодня ({weekday_nom}, {date_label}) нет невыполненных заданий!</b>\n\n"
-            f"Отдыхайте или загляните в ДЗ Портал 👇",
+            f"🎉 <b>На сегодня ({weekday_nom}, {date_label}) нет заданий!</b>\n\n"
+            f"На сегодня ничего не осталось. Ты свободен! Отдыхай или загляни в ДЗ Портал 👇",
             parse_mode="HTML",
             reply_markup=get_portal_keyboard()
         )
     else:
         lines = [
-            f"📋 <b>Задания на сегодня ({weekday_nom}, {date_label}) [{len(tasks)}]:</b>",
-            ""
+            f"📋 <b>Задания на сегодня ({weekday_nom}, {date_label}) [{len(tasks)}]:</b>\n"
         ]
         for idx, t in enumerate(tasks, 1):
             icon = get_subject_icon(t.get('subject', ''))
             subj = html.escape(str(t.get('subject', 'Предмет')).strip())
             desc = html.escape(str(t.get('description', '')).strip())
-            lines.append(f"{idx}. {icon} <b>{subj}</b>: {desc}")
+            mats = t.get('materials') or []
+            mat_badge = f" [📷 {len(mats)}]" if mats else ""
+            lines.append(f"{idx}. {icon} <b>{subj}</b>{mat_badge}: {desc}")
 
-        lines.append("")
-        lines.append("🚀 Нажмите кнопку ниже, чтобы открыть ДЗ Портал 👇")
+        lines.append("\n💡 <i>Чтобы увидеть фото страниц, напишите:</i> <code>/today [предмет]</code>")
         await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=get_portal_keyboard())
 
 @dp.message(Command("overdue"))
@@ -1406,22 +1915,105 @@ async def cmd_cleanup(message: Message):
         parse_mode="HTML"
     )
 
-# --- Text fallback handler ---
-# Replaces old text parsing with a friendly guide to the WebApp portal
+# --- Умная обработка текстовых запросов и fallback ---
 @dp.message()
 async def handle_text_fallback(message: Message):
     record_user_activity(message.from_user)
-    user_name = message.from_user.first_name or "ученик"
-    text = (
-        f"👋 <b>{html.escape(user_name)}</b>, для просмотра и добавления домашних заданий используйте наш <b>ДЗ Портал</b>!\n\n"
-        f"В приложении вы можете:\n"
-        f"• 📚 Смотреть все предметы и дедлайны\n"
-        f"• 📸 Загружать и увеличивать фото заданий\n"
-        f"• ✅ Отмечать сделанное в один клик\n"
-        f"• ➕ Быстро публиковать новые задания\n\n"
-        f"Нажмите кнопку ниже, чтобы открыть портал 👇"
-    )
-    await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал"))
+    raw_text = (message.text or message.caption or "").strip()
+    if not raw_text:
+        return
+
+    is_group = message.chat.type in ("group", "supergroup")
+    bot_info = None
+    try:
+        bot_info = await bot.get_me() if bot else None
+    except Exception:
+        pass
+    bot_username = (bot_info.username.lower() if bot_info and bot_info.username else "")
+
+    # Проверка упоминания бота или ответа боту в группе
+    is_mentioned = False
+    if is_group:
+        if bot_username and f"@{bot_username}" in raw_text.lower():
+            is_mentioned = True
+        elif message.reply_to_message and bot_info and message.reply_to_message.from_user.id == bot_info.id:
+            is_mentioned = True
+
+    # Регулярные выражения для распознавания вопросов о Д/З
+    HW_QUERY_PATTERNS = [
+        r'(?:что|какое|какие|есть ли|скиньте|подскажите)\s+(?:задали|задано|дз|д\/з|домашк[аеу]|задани[ея]|уроки?)',
+        r'^(?:дз|д\/з|домашка)\s+(?:по\s+)?(\w+)',
+        r'(?:что|какое дз|какие уроки)\s+(?:на\s+)?(?:завтра|сегодня)',
+        r'(?:что|как)\s+там\s+(?:по\s+)?(\w+)',
+        r'по\s+([а-яa-z\-]+)\s+(?:что|какое|задали)',
+        r'что\s+(?:завтра|сегодня)\s+(?:по\s+)?(\w+)',
+        r'что\s+по\s+([а-яa-z\-]+)',
+    ]
+    is_hw_query = any(re.search(pat, raw_text.lower()) for pat in HW_QUERY_PATTERNS)
+
+    if is_group and not is_mentioned and not is_hw_query:
+        # В групповом чате бот не спамит и игнорирует обычные разговоры одноклассников
+        return
+
+    now_local = datetime.now(TARGET_TZ)
+    today = now_local.date()
+    today_str = today.isoformat()
+    tomorrow = today + timedelta(days=1)
+    tomorrow_str = tomorrow.isoformat()
+
+    # Определение целевой даты (по умолчанию "завтра", если явно не сказано "сегодня")
+    target_date = today_str if ("сегодня" in raw_text.lower()) else tomorrow_str
+
+    # Поиск предмета в тексте (например: "алгебра", "физика", "геометрия")
+    found_subject = find_subject_in_text(raw_text)
+
+    if found_subject:
+        await send_subject_homework(message, subject_query=found_subject, target_date_str=target_date)
+        return
+
+    # Если спросили в общем про завтра / сегодня или упомянули бота
+    if "сегодня" in raw_text.lower() or "завтра" in raw_text.lower() or is_hw_query or is_mentioned:
+        if "сегодня" in raw_text.lower():
+            tasks = get_class_tasks_for_date(today_str, class_name="10-А")
+            day_title = "сегодня"
+        else:
+            tasks = get_class_tasks_for_date(tomorrow_str, class_name="10-А")
+            day_title = "завтра"
+
+        if not tasks:
+            await message.answer(
+                f"🎉 <b>На {day_title} уроков не задано!</b>\nОтдыхайте или загляните в ДЗ Портал 👇",
+                parse_mode="HTML",
+                reply_markup=get_portal_keyboard("🎒 Открыть ДЗ Портал")
+            )
+            return
+
+        lines = [f"📚 <b>Домашнее задание на {day_title} ({len(tasks)}):</b>\n"]
+        for idx, t in enumerate(tasks, 1):
+            subj = str(t.get('subject', 'Предмет')).strip()
+            icon = get_subject_icon(subj)
+            desc = str(t.get('description', '')).strip()
+            mats = t.get('materials') or []
+            mat_badge = f" [📷 {len(mats)}]" if mats else ""
+            lines.append(f"{idx}. {icon} <b>{html.escape(subj)}</b>{mat_badge}: {html.escape(desc)}")
+
+        lines.append("\n💡 <i>Чтобы увидеть фото страниц, напишите:</i> <code>/dz [предмет]</code>")
+        await message.answer("\n".join(lines), parse_mode="HTML", reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал"))
+        return
+
+    # Для личного чата: общее приветствие и кнопка WebApp
+    if not is_group:
+        user_name = message.from_user.first_name or "ученик"
+        text = (
+            f"👋 <b>{html.escape(user_name)}</b>, для просмотра и добавления домашних заданий используйте наш <b>ДЗ Портал</b>!\n\n"
+            f"В приложении вы можете:\n"
+            f"• 📚 Смотреть все предметы и дедлайны\n"
+            f"• 📸 Загружать и увеличивать фото заданий\n"
+            f"• ✅ Отмечать сделанное в один клик\n"
+            f"• ➕ Быстро публиковать новые задания\n\n"
+            f"Нажмите кнопку ниже, чтобы открыть портал 👇"
+        )
+        await message.answer(text, parse_mode="HTML", reply_markup=get_portal_keyboard("🚀 Открыть ДЗ Портал"))
 
 async def main():
     if not bot:

@@ -689,3 +689,164 @@ def cleanup_old_tasks(days: int = 30) -> int:
     except Exception as e:
         logger.error(f"Error in Supabase cleanup_old_tasks: {e}")
         return 0
+
+# ─────────────────────────────────────────────────────────────
+# ГРУППОВЫЕ ЧАТЫ (GROUP CHATS) И ПОИСК ЗАДАНИЙ ДЛЯ КЛАССА
+# ─────────────────────────────────────────────────────────────
+
+def upsert_group_chat(chat_id: int, title: str = "", chat_type: str = "group", added_by: Optional[int] = None, is_active: int = 1, remind_time: str = "18:00", class_name: str = "10-А") -> bool:
+    """Сохраняет или обновляет информацию о групповом чате класса."""
+    client = get_supabase_client()
+    if not client:
+        return False
+    try:
+        data = {
+            "chat_id": chat_id,
+            "title": title or "Групповой чат",
+            "chat_type": chat_type,
+            "class_name": class_name,
+            "is_active": is_active,
+            "remind_time": remind_time,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        }
+        if added_by is not None:
+            data["added_by"] = added_by
+        client.table("group_chats").upsert(data, on_conflict="chat_id").execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error in Supabase upsert_group_chat: {e}")
+        return False
+
+def get_group_chat(chat_id: int) -> Optional[Dict[str, Any]]:
+    """Возвращает информацию о групповом чате."""
+    client = get_supabase_client()
+    if not client:
+        return None
+    try:
+        res = client.table("group_chats").select("*").eq("chat_id", chat_id).execute()
+        if res.data and len(res.data) > 0:
+            return res.data[0]
+        return None
+    except Exception as e:
+        logger.error(f"Error in Supabase get_group_chat: {e}")
+        return None
+
+def get_active_group_chats() -> List[Dict[str, Any]]:
+    """Возвращает список всех активных групповых чатов для отправки напоминаний."""
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        res = client.table("group_chats").select("*").eq("is_active", 1).execute()
+        return res.data or []
+    except Exception as e:
+        logger.error(f"Error in Supabase get_active_group_chats: {e}")
+        return []
+
+def set_group_reminder(chat_id: int, is_active: bool, remind_time: Optional[str] = None) -> bool:
+    """Включает/выключает напоминания в группе или меняет время отправки."""
+    client = get_supabase_client()
+    if not client:
+        return False
+    try:
+        data = {
+            "is_active": 1 if is_active else 0,
+            "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        }
+        if remind_time:
+            data["remind_time"] = remind_time
+        client.table("group_chats").update(data).eq("chat_id", chat_id).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error in Supabase set_group_reminder: {e}")
+        return False
+
+def get_all_subjects(class_name: str = "10-А") -> List[str]:
+    """Возвращает список всех уникальных предметов из базы данных."""
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        res = client.table("tasks").select("subject").or_(f"class_name.eq.{class_name},class_name.is.null").execute()
+        rows = res.data or []
+        subjects = sorted(list({r["subject"].strip() for r in rows if r.get("subject")}))
+        return subjects
+    except Exception as e:
+        logger.error(f"Error in Supabase get_all_subjects: {e}")
+        return []
+
+def get_class_tasks_for_date(date_str: str, class_name: str = "10-А", subject: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Возвращает все домашние задания класса на конкретную дату с прикрепленными материалами."""
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        query = client.table("tasks").select("*, users!tasks_user_id_fkey(telegram_nick, full_name, role)").eq("due_date", date_str).or_(f"class_name.eq.{class_name},class_name.is.null")
+        if subject:
+            query = query.ilike("subject", f"%{subject}%")
+        res = query.order("subject").order("id").execute()
+        rows = res.data or []
+        tasks = []
+        for row in rows:
+            u_info = row.get("users") or {}
+            author_nick = u_info.get("telegram_nick") or f"@ученик_{row.get('user_id')}"
+            author_name = u_info.get("full_name") or ""
+            tasks.append({
+                "id": row["id"],
+                "user_id": row.get("user_id"),
+                "subject": row.get("subject"),
+                "description": row.get("description"),
+                "due_date": str(row.get("due_date")),
+                "last_edited_by": row.get("last_edited_by"),
+                "last_edited_by_name": row.get("last_edited_by_name"),
+                "last_edited_at": row.get("last_edited_at"),
+                "author_nick": author_nick,
+                "author_name": author_name,
+                "role": u_info.get("role", "student"),
+                "class_name": row.get("class_name", class_name)
+            })
+        task_ids = [t["id"] for t in tasks]
+        materials_batch = get_materials_for_tasks_batch(task_ids)
+        for t in tasks:
+            t["materials"] = materials_batch.get(t["id"], [])
+        return tasks
+    except Exception as e:
+        logger.error(f"Error in Supabase get_class_tasks_for_date: {e}")
+        return []
+
+def get_upcoming_tasks_for_subject(subject_query: str, start_date_str: str, class_name: str = "10-А", limit: int = 5) -> List[Dict[str, Any]]:
+    """Возвращает ближайшие задания по предмету начиная со start_date_str."""
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        query = client.table("tasks").select("*, users!tasks_user_id_fkey(telegram_nick, full_name, role)").gte("due_date", start_date_str).or_(f"class_name.eq.{class_name},class_name.is.null").ilike("subject", f"%{subject_query}%").order("due_date").order("id").limit(limit)
+        res = query.execute()
+        rows = res.data or []
+        tasks = []
+        for row in rows:
+            u_info = row.get("users") or {}
+            author_nick = u_info.get("telegram_nick") or f"@ученик_{row.get('user_id')}"
+            author_name = u_info.get("full_name") or ""
+            tasks.append({
+                "id": row["id"],
+                "user_id": row.get("user_id"),
+                "subject": row.get("subject"),
+                "description": row.get("description"),
+                "due_date": str(row.get("due_date")),
+                "last_edited_by": row.get("last_edited_by"),
+                "last_edited_by_name": row.get("last_edited_by_name"),
+                "last_edited_at": row.get("last_edited_at"),
+                "author_nick": author_nick,
+                "author_name": author_name,
+                "role": u_info.get("role", "student"),
+                "class_name": row.get("class_name", class_name)
+            })
+        task_ids = [t["id"] for t in tasks]
+        materials_batch = get_materials_for_tasks_batch(task_ids)
+        for t in tasks:
+            t["materials"] = materials_batch.get(t["id"], [])
+        return tasks
+    except Exception as e:
+        logger.error(f"Error in Supabase get_upcoming_tasks_for_subject: {e}")
+        return []

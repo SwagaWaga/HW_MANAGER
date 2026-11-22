@@ -62,11 +62,25 @@ CREATE TABLE IF NOT EXISTS public.task_materials (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 5. Таблица групповых чатов класса
+CREATE TABLE IF NOT EXISTS public.group_chats (
+    chat_id BIGINT PRIMARY KEY,
+    title TEXT,
+    chat_type TEXT DEFAULT 'group',
+    class_name TEXT DEFAULT '10-А',
+    is_active INTEGER DEFAULT 1,
+    remind_time TEXT DEFAULT '18:00',
+    added_by BIGINT REFERENCES public.users(id) ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Индексы для ускорения выборок
 CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON public.tasks(due_date);
 CREATE INDEX IF NOT EXISTS idx_tasks_class ON public.tasks(class_name);
 CREATE INDEX IF NOT EXISTS idx_completions_user ON public.user_completions(user_id);
 CREATE INDEX IF NOT EXISTS idx_materials_task ON public.task_materials(task_id);
+CREATE INDEX IF NOT EXISTS idx_group_chats_active ON public.group_chats(is_active);
 
 -- Включение Row Level Security (RLS) для защиты данных
 ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
@@ -74,6 +88,7 @@ ALTER TABLE public.tasks ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_completions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.task_materials ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_notification_prefs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.group_chats ENABLE ROW LEVEL SECURITY;
 
 -- Публичные политики для анонимного и сервисного доступа через API
 CREATE POLICY "Allow select on users" ON public.users FOR SELECT USING (true);
@@ -83,3 +98,4 @@ CREATE POLICY "Allow all on tasks" ON public.tasks FOR ALL USING (true);
 CREATE POLICY "Allow all on completions" ON public.user_completions FOR ALL USING (true);
 CREATE POLICY "Allow all on materials" ON public.task_materials FOR ALL USING (true);
 CREATE POLICY "Allow all on prefs" ON public.user_notification_prefs FOR ALL USING (true);
+CREATE POLICY "Allow all on group_chats" ON public.group_chats FOR ALL USING (true);
