@@ -6,13 +6,13 @@ import html
 import base64
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Callable, Awaitable
 from dotenv import load_dotenv
-from aiogram import Bot, Dispatcher
+from aiogram import Bot, Dispatcher, BaseMiddleware
 from aiogram.filters import CommandStart, Command, CommandObject, ChatMemberUpdatedFilter, JOIN_TRANSITION, LEAVE_TRANSITION
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
-    ChatMemberUpdated, FSInputFile, InputMediaPhoto,
+    ChatMemberUpdated, FSInputFile, InputMediaPhoto, TelegramObject,
     BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats
 )
 try:
@@ -85,7 +85,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.9.1"
+APP_VERSION = "2.9.2"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -96,6 +96,148 @@ except Exception:
 
 bot = Bot(token=BOT_TOKEN) if BOT_TOKEN else None
 dp = Dispatcher()
+
+# ─────────────────────────────────────────────────────────────
+# АНТИ-СПАМ И ЗАЩИТА ОТ ФЛУДА (RATE LIMITING & FLOOD CONTROL)
+# ─────────────────────────────────────────────────────────────
+class AntiSpamMiddleware(BaseMiddleware):
+    """
+    Интеллектуальная защита от спама и флуда в личных и групповых чатах:
+    1. Ограничение частоты запросов (rate limiting / throttling):
+       - В личных чатах: не чаще 1 команды в 1.2 секунды.
+       - В групповых чатах: не чаще 1 команды в 2.5 секунды от одного пользователя
+         (так как отправка Д/З с карточками и фото требует нескольких сообщений Telegram).
+       - Общий флуд-контроль группы: не чаще 1 команды в 1.2 секунды на группу в целом.
+    2. Поведение при спаме:
+       - Первое превышение частоты: вежливое предупреждение с оставшимся временем ожидания (не чаще 1 раза в 8 секунд).
+       - Повторный спам (2-4 раза подряд): ПОЛНЫЙ МОЛЧАЛИВЫЙ СБРОС (silent drop). Бот ничего не отправляет и не тратит лимиты.
+       - Злостный спам (>= 5 раз подряд): временная теневая блокировка (shadow ban) на 30 секунд.
+    3. Защита от спама по inline-кнопкам (CallbackQuery debounce 0.6 сек).
+    4. Автоматическая очистка устаревших записей в памяти.
+    """
+    def __init__(self):
+        super().__init__()
+        self.user_stats: Dict[int, Dict[str, Any]] = {}
+        self.group_last_time: Dict[int, float] = {}
+        self.cb_last_time: Dict[int, float] = {}
+
+    async def __call__(
+        self,
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any]
+    ) -> Any:
+        loop = asyncio.get_event_loop()
+        now = loop.time()
+
+        # 1. Защита от спама по кнопкам (CallbackQuery)
+        if isinstance(event, CallbackQuery):
+            user = event.from_user
+            if user:
+                last_cb = self.cb_last_time.get(user.id, 0.0)
+                if (now - last_cb) < 0.6:
+                    try:
+                        await event.answer("⏳ Подождите...", show_alert=False)
+                    except Exception:
+                        pass
+                    return
+                self.cb_last_time[user.id] = now
+            return await handler(event, data)
+
+        # 2. Защита от спама по сообщениям (Message)
+        if not isinstance(event, Message):
+            return await handler(event, data)
+
+        user = event.from_user
+        if not user or user.is_bot:
+            return await handler(event, data)
+
+        chat = event.chat
+        is_group = chat.type in ("group", "supergroup")
+        user_id = user.id
+
+        # Авто-очистка устаревших записей памяти
+        if len(self.user_stats) > 1000:
+            cutoff = now - 180.0
+            self.user_stats = {
+                uid: s for uid, s in self.user_stats.items()
+                if s.get("last_time", 0) > cutoff or s.get("banned_until", 0) > now
+            }
+        if len(self.group_last_time) > 300:
+            cutoff = now - 60.0
+            self.group_last_time = {
+                cid: t for cid, t in self.group_last_time.items() if t > cutoff
+            }
+
+        stats = self.user_stats.setdefault(user_id, {
+            "last_time": 0.0,
+            "spam_count": 0,
+            "last_warned": 0.0,
+            "banned_until": 0.0
+        })
+
+        # А) Проверка временного бана за спам
+        if stats["banned_until"] > now:
+            # Полностью молча игнорируем любые сообщения
+            return
+
+        # Б) Определение минимального интервала
+        limit_interval = 2.5 if is_group else 1.2
+        elapsed = now - stats["last_time"]
+
+        # В) Обработка превышения скорости (спама)
+        if elapsed < limit_interval:
+            stats["spam_count"] += 1
+            stats["last_time"] = now
+
+            # Злостный спам (5+ раз подряд)
+            if stats["spam_count"] >= 5:
+                stats["banned_until"] = now + 30.0
+                try:
+                    await event.reply(
+                        "⛔ <b>Слишком много запросов!</b>\n"
+                        "Бот временно отключен для вас на 30 секунд из-за спама.",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+                return
+
+            # Предупреждение пользователю (не чаще одного раза в 8 секунд, чтобы не флудить)
+            if (now - stats["last_warned"]) > 8.0:
+                stats["last_warned"] = now
+                remaining = max(1, int(limit_interval - elapsed + 0.5))
+                try:
+                    await event.reply(
+                        f"⏳ <b>Пожалуйста, не спамьте командами!</b>\n"
+                        f"Подождите {remaining} сек. перед следующим запросом.",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+
+            # Молча сбрасываем выполнение при спаме
+            return
+
+        # Г) Защита группы от одновременного спама несколькими участниками
+        if is_group:
+            grp_last = self.group_last_time.get(chat.id, 0.0)
+            if (now - grp_last) < 1.2:
+                # Тихо пропускаем, чтобы не перегружать общий чат ответами
+                return
+            self.group_last_time[chat.id] = now
+
+        # Успешный запрос в пределах лимита
+        stats["spam_count"] = 0
+        stats["last_time"] = now
+
+        return await handler(event, data)
+
+
+# Подключение Anti-Spam Middleware
+anti_spam_middleware = AntiSpamMiddleware()
+dp.message.middleware(anti_spam_middleware)
+dp.callback_query.middleware(anti_spam_middleware)
 
 async def sync_menu_button(chat_id: int = None):
     """

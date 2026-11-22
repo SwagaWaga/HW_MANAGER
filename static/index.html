@@ -186,6 +186,7 @@
       justify-content: center;
       transform: translateZ(0);
       backface-visibility: hidden;
+      contain: layout style;
     }
 
     /* Верхняя ручка рюкзака */
@@ -286,7 +287,7 @@
       opacity: 0;
       will-change: transform, opacity;
       backface-visibility: hidden;
-      transition: transform 1.1s cubic-bezier(0.14, 1, 0.22, 1), opacity 0.35s ease-out;
+      transition: transform 0.95s cubic-bezier(0.14, 1, 0.22, 1), opacity 0.3s ease-out;
       z-index: 20;
     }
 
@@ -478,7 +479,9 @@
       border: 1px solid rgba(255, 255, 255, 0.18);
       transform-origin: center bottom;
       transform-style: preserve-3d;
-      transition: transform 1.1s cubic-bezier(0.2, 0.9, 0.25, 1);
+      will-change: transform;
+      transform: translateZ(0);
+      transition: transform 0.95s cubic-bezier(0.2, 0.9, 0.25, 1);
       z-index: 30;
       overflow: visible;
     }
@@ -806,10 +809,19 @@
       </div>
     </div>
 
-    <!-- Подсказка -->
-    <div class="skip-prompt">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-      <span>Нажмите, чтобы пропустить</span>
+    <!-- Индикатор загрузочного буфера (Real Loading Buffer) -->
+    <div id="splash-buffer-status" class="mt-4 flex flex-col items-center gap-1.5 select-none transition-all duration-300">
+      <div class="flex items-center gap-2 text-xs font-bold text-amber-400">
+        <svg id="splash-buffer-spinner" class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+        </svg>
+        <span id="splash-buffer-text" class="tracking-wide text-[11.5px]">Распаковка рюкзака...</span>
+      </div>
+      <div class="w-44 h-1.5 bg-white/10 rounded-full overflow-hidden p-0.5">
+        <div id="splash-progress-bar" class="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full transition-all duration-300" style="width: 25%;"></div>
+      </div>
+      <span class="text-[9.5px] text-slate-400 opacity-60 tracking-wider uppercase mt-0.5">Нажмите в любое место, чтобы войти</span>
     </div>
   </div>
 
@@ -1636,7 +1648,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
-              <span class="font-mono font-bold text-amber-500">v2.9.1</span>
+              <span class="font-mono font-bold text-amber-500">v2.9.2</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Класс</span>
@@ -5183,43 +5195,76 @@
       }
     });
 
-            // ========================================================
-    // РЮКЗАК И ТЕТРАДЬ STAR: АНИМАЦИЯ ОТКРЫТИЯ (КАК НА ФОТО)
+    // ========================================================
+    // 🎒 РЮКЗАК И ТЕТРАДИ STAR: АППАРАТНЫЙ ЗАГРУЗОЧНЫЙ БУФЕР
+    // Исключены лаги, скоординирована реальная загрузка данных
     // ========================================================
     const backpackScreen = document.getElementById('backpack-screen');
     let isUnzipping = false;
     let isFinished = false;
+    let minAnimationPassed = false;
+    let initialDataLoaded = false;
+
+    function updateSplashStatus(text, progressPct) {
+      const statusText = document.getElementById('splash-buffer-text');
+      const progressBar = document.getElementById('splash-progress-bar');
+      if (statusText && text) statusText.innerText = text;
+      if (progressBar && progressPct !== undefined) progressBar.style.width = `${progressPct}%`;
+    }
+
+    function checkBufferDismiss() {
+      if (isFinished || !backpackScreen) return;
+      if (minAnimationPassed && initialDataLoaded) {
+        updateSplashStatus('Готово! ✨', 100);
+        const spinner = document.getElementById('splash-buffer-spinner');
+        if (spinner) {
+          spinner.outerHTML = `<svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+        }
+        setTimeout(() => {
+          dismissScreen();
+        }, 160);
+      }
+    }
 
     function startAutoUnzip() {
       if (isUnzipping || isFinished || !backpackScreen) return;
       isUnzipping = true;
 
-      // Используем requestAnimationFrame для гарантированного отсутствия первого лага
-      requestAnimationFrame(() => {
-        // Фаза 1: бегунки плавно расстегивают верхний купол (на отдельном GPU потоке)
-        setTimeout(() => {
-          if (isFinished) return;
-          requestAnimationFrame(() => {
-            backpackScreen.classList.add('unzipped');
-          });
-        }, 180);
+      updateSplashStatus('Распаковка рюкзака...', 30);
 
-        // Фаза 2: клапан откидывается и 3 учебника плавно выходят веером
-        setTimeout(() => {
-          if (isFinished) return;
-          requestAnimationFrame(() => {
-            backpackScreen.classList.add('emerged');
-            if (tg?.HapticFeedback) {
-              tg.HapticFeedback.notificationOccurred('success');
-            }
-          });
-        }, 620);
+      // Фаза 1: бегунки плавно расстегивают молнию (на аппаратном GPU слое)
+      setTimeout(() => {
+        if (isFinished) return;
+        requestAnimationFrame(() => {
+          backpackScreen.classList.add('unzipped');
+          updateSplashStatus('Загрузка заданий и расписания...', 65);
+        });
+      }, 140);
 
-        // Фаза 3: бесшовный переход в приложение
-        setTimeout(() => {
-          dismissScreen();
-        }, 2050);
-      });
+      // Фаза 2: клапан откидывается и учебники плавно выходят
+      setTimeout(() => {
+        if (isFinished) return;
+        requestAnimationFrame(() => {
+          backpackScreen.classList.add('emerged');
+          updateSplashStatus('Синхронизация с классом...', 88);
+          if (tg?.HapticFeedback) {
+            tg.HapticFeedback.notificationOccurred('success');
+          }
+        });
+      }, 480);
+
+      // Фаза 3: минимальное время анимации для естественного восприятия (900мс)
+      setTimeout(() => {
+        minAnimationPassed = true;
+        checkBufferDismiss();
+      }, 900);
+
+      // Гарантированный защитный таймер (максимум 4.5 сек при очень плохом интернете)
+      setTimeout(() => {
+        initialDataLoaded = true;
+        minAnimationPassed = true;
+        dismissScreen();
+      }, 4500);
     }
 
     function dismissScreen() {
@@ -5230,15 +5275,24 @@
         setTimeout(() => {
           backpackScreen.style.display = 'none';
           backpackScreen.remove();
-        }, 400);
+
+          // Фоновые эффекты запускаются ТОЛЬКО ПОСЛЕ закрытия сплэш-экрана
+          // Это освобождает 100% ресурсов GPU/CPU во время анимации рюкзака!
+          loadLeaderboard();
+          initAutumnLeavesEngine();
+        }, 380);
       });
     }
 
     // Мгновенный пропуск при тапе
-    backpackScreen?.addEventListener('click', dismissScreen, { once: true });
-    backpackScreen?.addEventListener('touchstart', dismissScreen, { once: true });
+    backpackScreen?.addEventListener('click', () => {
+      dismissScreen();
+    }, { once: true });
+    backpackScreen?.addEventListener('touchstart', () => {
+      dismissScreen();
+    }, { once: true });
 
-    // Загрузка заданий
+    // Загрузка заданий (служит ключевым триггером для загрузочного буфера)
     async function loadTasks() {
       try {
         const res = await fetch(`/api/tasks?user_id=${userId}`);
@@ -5246,9 +5300,12 @@
         updateProgressBar();
         renderTasks();
         renderWorkloadRibbon();
-        loadLeaderboard();
+        initialDataLoaded = true;
+        checkBufferDismiss();
       } catch (err) {
         console.error("Error in loadTasks:", err);
+        initialDataLoaded = true;
+        checkBufferDismiss();
         document.getElementById('tasks-container').innerHTML = `
           <div class="text-center py-12 px-4 rounded-[24px] glossy-card text-slate-500 dark:text-slate-400 text-sm max-w-sm mx-auto shadow-sm">
             <div class="w-10 h-10 mx-auto mb-2 text-amber-500">${ICONS.note}</div>
@@ -6942,10 +6999,14 @@
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     }
 
-    // Инициализация сводок, рейтинга и осенней атмосферы на главной
+    // Инициализация сводки расписания
     updateScheduleQuickSummary();
-    loadLeaderboard();
-    initAutumnLeavesEngine();
+
+    // Если экран рюкзака уже был показан в этой сессии, запускаем фоновые эффекты сразу
+    if (sessionStorage.getItem('hw_splash_seen')) {
+      loadLeaderboard();
+      initAutumnLeavesEngine();
+    }
   </script>
 </body>
 </html>
