@@ -1,5 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
@@ -165,6 +165,18 @@ def get_tasks(user_id: int):
 @app.get("/api/materials/{material_id}/download")
 @app.get("/api/materials/{material_id}")
 def download_material(material_id: int, request: Request):
+    # 0. Проверяем, не является ли материал внешней ссылкой (видео, сайт, документ)
+    mat_check = get_material_by_id(material_id)
+    if mat_check:
+        cap = mat_check.get("caption") or ""
+        fid = mat_check.get("file_id") or ""
+        if cap.startswith("[LINK]"):
+            raw = cap[6:]
+            link_url = raw.split("::", 1)[0].strip() if "::" in raw else raw.strip()
+            return RedirectResponse(url=link_url, status_code=302)
+        elif fid.startswith(("http://", "https://")):
+            return RedirectResponse(url=fid, status_code=302)
+
     # 1. Проверяем быструю RAM память (моментальная отдача за ~0-1 мс)
     cached = _MATERIAL_CACHE.get(material_id)
 
@@ -337,6 +349,48 @@ def remove_material(material_id: int):
                 pass
     delete_material(material_id)
     return {"status": "ok"}
+
+class LinkMaterialRequest(BaseModel):
+    task_id: int
+    user_id: int
+    url: str
+    title: Optional[str] = ""
+
+class BatchLinksRequest(BaseModel):
+    task_id: int
+    user_id: int
+    links: List[Dict[str, str]]
+
+@app.post("/api/materials/link")
+def add_link_material(req: LinkMaterialRequest):
+    url = req.url.strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="URL cannot be empty")
+    if not url.startswith(("http://", "https://")):
+        url = "https://" + url
+    title = (req.title or "").strip()
+    caption = f"[LINK]{url}::{title}"
+    created = add_materials_batch(req.task_id, [{"file_id": url, "caption": caption}], req.user_id)
+    return {"status": "ok", "created": created}
+
+@app.post("/api/materials/links")
+def add_batch_links(req: BatchLinksRequest):
+    items = []
+    for l in req.links:
+        u = (l.get("url") or "").strip()
+        if not u:
+            continue
+        if not u.startswith(("http://", "https://")):
+            u = "https://" + u
+        t = (l.get("title") or "").strip()
+        items.append({
+            "file_id": u,
+            "caption": f"[LINK]{u}::{t}"
+        })
+    if items:
+        created = add_materials_batch(req.task_id, items, req.user_id)
+        return {"status": "ok", "created": created}
+    return {"status": "ok", "created": []}
 
 class UserSync(BaseModel):
     user_id: int

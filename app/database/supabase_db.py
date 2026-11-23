@@ -355,16 +355,41 @@ def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[st
             t_id = row["task_id"]
             u_info = row.get("users") or {}
             mat_id = row["id"]
-            mat_item = {
-                "id": mat_id,
-                "task_id": t_id,
-                "file_id": f"/api/materials/{mat_id}",
-                "url": f"/api/materials/{mat_id}",
-                "caption": row.get("caption") or "",
-                "uploader_id": row["uploader_id"],
-                "uploader_nick": u_info.get("telegram_nick") or f"@ученик_{row['uploader_id']}",
-                "uploader_name": u_info.get("full_name") or ""
-            }
+            caption = row.get("caption") or ""
+
+            if caption.startswith("[LINK]"):
+                raw = caption[6:]
+                if "::" in raw:
+                    link_url, link_title = raw.split("::", 1)
+                else:
+                    link_url, link_title = raw, ""
+                link_url = link_url.strip()
+                link_title = link_title.strip() or link_url
+                mat_item = {
+                    "id": mat_id,
+                    "task_id": t_id,
+                    "type": "link",
+                    "url": link_url,
+                    "title": link_title,
+                    "caption": link_title,
+                    "file_id": link_url,
+                    "uploader_id": row["uploader_id"],
+                    "uploader_nick": u_info.get("telegram_nick") or f"@ученик_{row['uploader_id']}",
+                    "uploader_name": u_info.get("full_name") or ""
+                }
+            else:
+                mat_item = {
+                    "id": mat_id,
+                    "task_id": t_id,
+                    "type": "image",
+                    "file_id": f"/api/materials/{mat_id}",
+                    "url": f"/api/materials/{mat_id}",
+                    "caption": caption,
+                    "uploader_id": row["uploader_id"],
+                    "uploader_nick": u_info.get("telegram_nick") or f"@ученик_{row['uploader_id']}",
+                    "uploader_name": u_info.get("full_name") or ""
+                }
+
             if t_id in result:
                 result[t_id].append(mat_item)
             else:

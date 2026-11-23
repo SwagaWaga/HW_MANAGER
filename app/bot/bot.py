@@ -85,7 +85,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.9.2"
+APP_VERSION = "2.9.3"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -155,6 +155,23 @@ class AntiSpamMiddleware(BaseMiddleware):
         chat = event.chat
         is_group = chat.type in ("group", "supergroup")
         user_id = user.id
+
+        # В групповых чатах проверяем, направлено ли сообщение боту (команда, упоминание, ответ боту или вопрос о ДЗ).
+        # Обычные разговоры одноклассников пропускаем без учёта в спам-фильтре, чтобы они не блокировали команды.
+        if is_group:
+            raw_text = (event.text or event.caption or "").strip()
+            is_targeted = False
+            if raw_text.startswith("/"):
+                is_targeted = True
+            elif "@my_hw_manager_bot" in raw_text.lower():
+                is_targeted = True
+            elif event.reply_to_message and event.reply_to_message.from_user and event.reply_to_message.from_user.is_bot:
+                is_targeted = True
+            elif any(kw in raw_text.lower() for kw in ("дз", "д/з", "домашка", "задали", "задано", "уроки")):
+                is_targeted = True
+
+            if not is_targeted:
+                return await handler(event, data)
 
         # Авто-очистка устаревших записей памяти
         if len(self.user_stats) > 1000:
@@ -704,12 +721,38 @@ async def send_single_task_card(
     author_name = task.get("author_name") or task.get("author_nick") or "ученик"
     materials = task.get("materials") or []
 
+    link_items = []
+    for m in materials:
+        m_type = m.get("type", "")
+        m_url = m.get("url") or m.get("file_id") or ""
+        m_cap = m.get("caption") or ""
+        if m_type == "link" or m_url.startswith(("http://", "https://")) or m_cap.startswith("[LINK]"):
+            u = m_url if m_url.startswith(("http://", "https://")) else ""
+            if not u and m_cap.startswith("[LINK]"):
+                raw = m_cap[6:]
+                u = raw.split("::", 1)[0].strip() if "::" in raw else raw.strip()
+            title = m.get("title") or m_cap
+            if title.startswith("[LINK]"):
+                raw = title[6:]
+                title = raw.split("::", 1)[1].strip() if "::" in raw else raw.strip()
+            title = title or "Открыть материал"
+            if u:
+                link_items.append({"url": u, "title": title})
+
     idx_str = f" [{index}/{total}]" if index and total and total > 1 else ""
     caption_lines = [
         f"{icon} <b>{html.escape(task_subject)}</b>{idx_str}",
         f"{date_badge}",
-        f"\n📝 <b>Задание:</b>\n{html.escape(desc) if desc else '<i>(см. прикрепленные фото)</i>'}",
+        f"\n📝 <b>Задание:</b>\n{html.escape(desc) if desc else '<i>(см. прикрепленные фото/ссылки)</i>'}",
     ]
+
+    if link_items:
+        caption_lines.append("\n🔗 <b>Материалы и ссылки:</b>")
+        for l in link_items:
+            u_clean = html.escape(l["url"])
+            t_clean = html.escape(l["title"])
+            caption_lines.append(f"• <a href=\"{u_clean}\">{t_clean}</a>")
+
     if author_name:
         caption_lines.append(f"\n👤 <i>Опубликовал: {html.escape(str(author_name))}</i>")
 
@@ -721,6 +764,18 @@ async def send_single_task_card(
         if p and p not in photo_paths:
             photo_paths.append(p)
 
+    # Формируем клавиатуру с кнопками ссылок + кнопка открытия портала
+    base_kb = get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
+    keyboard_rows = []
+    for l in link_items[:3]:
+        u = l["url"]
+        t = l["title"]
+        l_icon = "🎬 " if any(x in u.lower() for x in ("youtube", "youtu.be", "rutube", "vk.com/video")) else ("📄 " if any(x in u.lower() for x in ("docs.google", "drive.google", ".pdf")) else "🔗 ")
+        keyboard_rows.append([InlineKeyboardButton(text=f"{l_icon}{t[:28]}", url=u)])
+    if base_kb and base_kb.inline_keyboard:
+        keyboard_rows.extend(base_kb.inline_keyboard)
+    card_markup = InlineKeyboardMarkup(inline_keyboard=keyboard_rows)
+
     sent = False
     if photo_paths:
         try:
@@ -729,7 +784,7 @@ async def send_single_task_card(
                     message=message,
                     photo_path=photo_paths[0],
                     caption=caption,
-                    reply_markup=get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
+                    reply_markup=card_markup
                 )
                 sent = True
             else:
@@ -742,14 +797,15 @@ async def send_single_task_card(
                     for idx, p in enumerate(photo_paths[:10])
                 ]
                 await message.answer_media_group(media=media)
+                if card_markup and card_markup.inline_keyboard:
+                    await message.answer("👇 <b>Действия и материалы:</b>", reply_markup=card_markup, parse_mode="HTML")
                 sent = True
         except Exception as err:
             logger.warning(f"Error sending photos for task #{task.get('id')}: {err}")
             sent = False
 
     if not sent:
-        btn = get_portal_keyboard("🚀 Открыть в ДЗ Портале", chat_or_type=message)
-        await safe_reply(message, caption, reply_markup=btn)
+        await safe_reply(message, caption, reply_markup=card_markup)
 
 async def send_subject_homework(
     message: Message,

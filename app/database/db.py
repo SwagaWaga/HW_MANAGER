@@ -370,7 +370,7 @@ def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[st
     cursor = conn.cursor()
     placeholders = ",".join("?" for _ in task_ids)
     sql = f"""
-        SELECT m.id, m.task_id, m.caption, m.uploader_id,
+        SELECT m.id, m.task_id, m.file_id, m.caption, m.uploader_id,
                COALESCE(u.telegram_nick, '@ученик_' || m.uploader_id) as uploader_nick,
                COALESCE(u.full_name, '') as uploader_name
         FROM task_materials m
@@ -386,16 +386,54 @@ def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[st
     for r in rows:
         t_id = r["task_id"]
         mat_id = r["id"]
-        item = {
-            "id": mat_id,
-            "task_id": t_id,
-            "file_id": f"/api/materials/{mat_id}",
-            "url": f"/api/materials/{mat_id}",
-            "caption": r["caption"] or "",
-            "uploader_id": r["uploader_id"],
-            "uploader_nick": r["uploader_nick"],
-            "uploader_name": r["uploader_name"]
-        }
+        caption = r["caption"] or ""
+        file_id = r["file_id"] or ""
+
+        if caption.startswith("[LINK]"):
+            raw = caption[6:]
+            if "::" in raw:
+                link_url, link_title = raw.split("::", 1)
+            else:
+                link_url, link_title = raw, ""
+            link_url = link_url.strip()
+            link_title = link_title.strip() or link_url
+            item = {
+                "id": mat_id,
+                "task_id": t_id,
+                "type": "link",
+                "url": link_url,
+                "title": link_title,
+                "caption": link_title,
+                "file_id": link_url,
+                "uploader_id": r["uploader_id"],
+                "uploader_nick": r["uploader_nick"],
+                "uploader_name": r["uploader_name"]
+            }
+        elif file_id.startswith(("http://", "https://")):
+            item = {
+                "id": mat_id,
+                "task_id": t_id,
+                "type": "link",
+                "url": file_id,
+                "title": caption.strip() or file_id,
+                "caption": caption.strip() or file_id,
+                "file_id": file_id,
+                "uploader_id": r["uploader_id"],
+                "uploader_nick": r["uploader_nick"],
+                "uploader_name": r["uploader_name"]
+            }
+        else:
+            item = {
+                "id": mat_id,
+                "task_id": t_id,
+                "type": "image",
+                "file_id": f"/api/materials/{mat_id}",
+                "url": f"/api/materials/{mat_id}",
+                "caption": caption,
+                "uploader_id": r["uploader_id"],
+                "uploader_nick": r["uploader_nick"],
+                "uploader_name": r["uploader_name"]
+            }
         if t_id in result:
             result[t_id].append(item)
         else:
