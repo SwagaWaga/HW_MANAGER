@@ -86,7 +86,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.9.4"
+APP_VERSION = "2.9.5"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -504,6 +504,7 @@ async def safe_reply(
     Безопасная отправка сообщения.
     Автоматически адаптирует кнопки под тип чата (личный vs группа),
     и в случае любых ограничений Telegram отправляет сообщение без ошибок.
+    Никогда не роняет вызывающий хэндлер необработанным исключением.
     """
     if reply_markup is None:
         reply_markup = get_portal_keyboard(chat_or_type=message)
@@ -518,8 +519,17 @@ async def safe_reply(
                 InlineKeyboardButton(text="🎒 Открыть ДЗ Портал", url="https://t.me/my_hw_manager_bot?start=portal")
             ]])
             return await message.answer(text, parse_mode=parse_mode, reply_markup=fallback_kb)
-        except Exception:
-            return await message.answer(text, parse_mode=parse_mode)
+        except Exception as e2:
+            try:
+                return await message.answer(text, parse_mode=parse_mode)
+            except Exception as e3:
+                # Фолбэк на случай ошибки парсинга HTML-тегов Telegram
+                try:
+                    plain = re.sub(r'<[^>]+>', '', text)
+                    return await message.answer(plain)
+                except Exception as e4:
+                    logger.error(f"safe_reply completely failed in chat {message.chat.id}: {e4}")
+                    return None
 
 async def safe_send_photo(
     message: Message,
@@ -548,8 +558,16 @@ async def safe_send_photo(
                 parse_mode="HTML"
             )
         except Exception as e2:
-            logger.warning(f"Failed to send photo plain: {e2}")
-            return await safe_reply(message, caption)
+            try:
+                # Если ошибка в HTML caption
+                plain = re.sub(r'<[^>]+>', '', caption)
+                return await message.answer_photo(
+                    photo=FSInputFile(photo_path),
+                    caption=plain[:1024]
+                )
+            except Exception as e3:
+                logger.warning(f"Failed to send photo plain: {e3}")
+                return await safe_reply(message, caption, reply_markup=reply_markup)
 
 def format_plural_ru(n: int, one: str, few: str, many: str) -> str:
     """Русское склонение существительных после числительных."""
@@ -1546,15 +1564,19 @@ def build_settings_keyboard(prefs) -> InlineKeyboardMarkup:
         InlineKeyboardButton(text=label("notify_overdue", "⚠️", "Просроченные"), callback_data="toggle_notif:overdue")
     ])
 
+    rows.append([
+        InlineKeyboardButton(text="⚙️ Открыть Настройки в WebApp", web_app=WebAppInfo(url=WEB_APP_LAUNCH_URL))
+    ])
+
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 @dp.message(Command("settings", "уведомления", "notif"))
 async def handle_settings(message: Message):
     record_user_activity(message.from_user)
     prefs = get_notification_prefs(message.from_user.id)
-    await message.answer(
+    await safe_reply(
+        message,
         build_settings_text(prefs),
-        parse_mode="HTML",
         reply_markup=build_settings_keyboard(prefs)
     )
 
@@ -2520,6 +2542,22 @@ async def handle_text_fallback(message: Message):
         )
         btn = get_portal_keyboard("🚀 Открыть ДЗ Портал", chat_or_type=message)
         await safe_reply(message, text, reply_markup=btn)
+
+# --- Глобальный обработчик ошибок ---
+@dp.error()
+async def global_error_handler(event):
+    logger.exception(f"⚠️ Unhandled bot error: {getattr(event, 'exception', event)}")
+    try:
+        update = getattr(event, "update", None)
+        msg = getattr(update, "message", None) if update else None
+        if msg:
+            await safe_reply(
+                msg,
+                "⚠️ <b>Произошла временная ошибка при обработке команды.</b>\n"
+                "Пожалуйста, попробуйте ещё раз через пару секунд."
+            )
+    except Exception:
+        pass
 
 async def main():
     if not bot:

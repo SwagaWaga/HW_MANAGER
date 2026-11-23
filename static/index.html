@@ -1231,44 +1231,50 @@
   </div>
 
   <!-- ===== МОДАЛЬНОЕ ОКНО НАСТРОЕК (SETTINGS CONTROL CENTER) ===== -->
-  <div id="notif-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeNotifModal()">
-    <div class="bg-white dark:bg-[#0d1b2a] text-slate-900 dark:text-white w-full max-w-sm rounded-t-3xl sm:rounded-3xl p-5 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[90vh]">
+  <div id="notif-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50 transition-all" onclick="if(event.target===this)closeNotifModal()">
+    <div class="bg-white dark:bg-[#0c1824] text-slate-900 dark:text-white w-full max-w-md sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh]">
       
-      <!-- Заголовок -->
+      <!-- Заголовок с индикатором статуса и кнопкой закрытия -->
       <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 dark:border-white/10 shrink-0">
-        <div class="flex items-center gap-2.5">
-          <div class="w-9 h-9 rounded-xl bg-amber-400/20 flex items-center justify-center text-amber-500 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-amber-400/40 border border-amber-500/30 flex items-center justify-center text-amber-500 shadow-xs shrink-0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
               <circle cx="12" cy="12" r="3"/>
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
             </svg>
           </div>
           <div>
-            <h2 class="text-base font-black">Настройки</h2>
-            <p class="text-[11px] text-slate-500 dark:text-slate-400">Уведомления, оформление и профиль</p>
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-black tracking-tight">Центр настроек</h2>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span>Онлайн</span>
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400">Уведомления, персонализация и профиль</p>
           </div>
         </div>
-        <button onclick="closeNotifModal()" class="text-slate-400 hover:text-slate-700 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold">✕</button>
+        <button onclick="closeNotifModal()" class="text-slate-400 hover:text-slate-800 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold active:scale-95 transition">✕</button>
       </div>
 
       <!-- Вкладки настроек (3 удобных таба) -->
       <div class="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-white/5 rounded-2xl mb-3 shrink-0 border border-slate-200/60 dark:border-white/5">
-        <button type="button" id="settings-btn-notifs" onclick="switchSettingsTab('notifs')" class="flex-1 py-1.5 text-xs font-black rounded-xl bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 flex items-center justify-center gap-1">
+        <button type="button" id="settings-btn-notifs" onclick="switchSettingsTab('notifs')" class="flex-1 py-1.5 text-xs font-black rounded-xl bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5">
           <span>🔔</span>
           <span>Напоминания</span>
         </button>
-        <button type="button" id="settings-btn-appearance" onclick="switchSettingsTab('appearance')" class="flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1">
+        <button type="button" id="settings-btn-appearance" onclick="switchSettingsTab('appearance')" class="flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1.5">
           <span>🎨</span>
-          <span>Вид</span>
+          <span>Вид и звук</span>
         </button>
-        <button type="button" id="settings-btn-profile" onclick="switchSettingsTab('profile')" class="flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1">
+        <button type="button" id="settings-btn-profile" onclick="switchSettingsTab('profile')" class="flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1.5">
           <span>👤</span>
           <span>Профиль</span>
         </button>
       </div>
 
       <!-- Скроллируемая область вкладок -->
-      <div class="overflow-y-auto pr-1 flex-1">
+      <div class="overflow-y-auto pr-1 flex-1 space-y-4">
         
         <!-- ================= ВКЛАДКА 1: НАПОМИНАНИЯ ================= -->
         <div id="settings-pane-notifs" class="space-y-4">
@@ -1281,6 +1287,21 @@
             <span class="text-[10px] text-emerald-500/90 font-bold bg-emerald-500/15 px-2 py-0.5 rounded-full">Синхронизировано</span>
           </div>
 
+          <!-- МАСТЕР-БАННЕР СТАТУСА -->
+          <div class="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/25 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div class="flex items-center gap-2.5">
+              <span class="text-xl">🤖</span>
+              <div>
+                <span id="notif-summary-text" class="text-xs font-black block text-slate-900 dark:text-white">Загрузка расписания...</span>
+                <span class="text-[10.5px] text-slate-500 dark:text-slate-400">Личный бот присылает задания по вашему графику</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 self-end sm:self-auto">
+              <button type="button" onclick="toggleAllNotifs(true)" class="px-2.5 py-1 rounded-xl text-[10.5px] font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 active:scale-95 transition shadow-xs">Все ВКЛ</button>
+              <button type="button" onclick="toggleAllNotifs(false)" class="px-2.5 py-1 rounded-xl text-[10.5px] font-bold bg-slate-200/80 dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-rose-500 active:scale-95 transition">Пауза</button>
+            </div>
+          </div>
+
           <!-- СЕКЦИЯ 1: БАЗОВЫЕ ЧАСЫ НАПОМИНАНИЙ -->
           <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-3">
             <div class="flex items-center justify-between px-0.5">
@@ -1289,7 +1310,7 @@
                   <span class="text-amber-500">⏰</span>
                   <span>Базовые школьные часы</span>
                 </span>
-                <p class="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">Стандартное расписание напоминаний</p>
+                <p class="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">Стандартные моменты школьного дня</p>
               </div>
               <button type="button" onclick="resetNotifsToDefault()" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-400/20 text-amber-600 dark:text-amber-400 hover:bg-amber-400 hover:text-slate-950 transition active:scale-95 border border-amber-400/30">
                 ↺ Сбросить
@@ -1299,13 +1320,13 @@
             <!-- Сетка тумблеров базовых часов -->
             <div class="space-y-2">
               <!-- 08:00 -->
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs hover:border-amber-400/30 transition">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                  <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
                   </div>
                   <div>
-                    <span class="text-xs font-bold block text-slate-900 dark:text-white">08:00 · Утреннее</span>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">08:00 · Утренний бриф</span>
                     <span class="text-[10px] text-slate-500 dark:text-slate-400">Перед выходом в школу</span>
                   </div>
                 </div>
@@ -1316,14 +1337,14 @@
               </div>
 
               <!-- 16:00 -->
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs hover:border-amber-400/30 transition">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                  <div class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                   </div>
                   <div>
-                    <span class="text-xs font-bold block text-slate-900 dark:text-white">16:00 · Дневное</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">После окончания уроков</span>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">16:00 · После школы</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Когда вернулись домой</span>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -1333,14 +1354,14 @@
               </div>
 
               <!-- 18:00 -->
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs hover:border-amber-400/30 transition">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
                   </div>
                   <div>
-                    <span class="text-xs font-bold block text-slate-900 dark:text-white">18:00 · Вечернее</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Главный чек-лист на завтра</span>
+                    <span class="text-xs font-bold block text-slate-900 dark:text-white">18:00 · Главная вечерняя проверка</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Чек-лист всех уроков на завтра</span>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -1350,14 +1371,14 @@
               </div>
 
               <!-- Недельный дайджест -->
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs hover:border-amber-400/30 transition">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                   </div>
                   <div>
                     <span class="text-xs font-bold block text-slate-900 dark:text-white">Недельный дайджест</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Все Д/З на неделю (вс 18:00)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Все Д/З на неделю (каждое вс 18:00)</span>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -1376,7 +1397,7 @@
                   <span class="text-amber-500">✨</span>
                   <span>Своё персональное время</span>
                 </span>
-                <p class="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">Добавьте удобные для вас часы</p>
+                <p class="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">Добавьте удобные для вас часы напоминаний</p>
               </div>
             </div>
 
@@ -1387,20 +1408,20 @@
 
             <!-- Быстрый выбор в 1 касание (Presets) -->
             <div>
-              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1.5 px-0.5">Быстрый выбор в 1 клик:</span>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 block mb-1.5 px-0.5">Популярные часы (быстрый выбор):</span>
               <div class="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
                 <button type="button" id="quick-time-btn-0700" onclick="toggleQuickCustomTime('07:00')" class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/80 dark:border-white/10 transition active:scale-95 shrink-0">+ 07:00</button>
+                <button type="button" id="quick-time-btn-1430" onclick="toggleQuickCustomTime('14:30')" class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/80 dark:border-white/10 transition active:scale-95 shrink-0">+ 14:30</button>
                 <button type="button" id="quick-time-btn-1500" onclick="toggleQuickCustomTime('15:00')" class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/80 dark:border-white/10 transition active:scale-95 shrink-0">+ 15:00</button>
                 <button type="button" id="quick-time-btn-1900" onclick="toggleQuickCustomTime('19:00')" class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/80 dark:border-white/10 transition active:scale-95 shrink-0">+ 19:00</button>
                 <button type="button" id="quick-time-btn-2000" onclick="toggleQuickCustomTime('20:00')" class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/80 dark:border-white/10 transition active:scale-95 shrink-0">+ 20:00</button>
                 <button type="button" id="quick-time-btn-2100" onclick="toggleQuickCustomTime('21:00')" class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/80 dark:border-white/10 transition active:scale-95 shrink-0">+ 21:00</button>
-                <button type="button" id="quick-time-btn-2200" onclick="toggleQuickCustomTime('22:00')" class="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/80 dark:border-white/10 transition active:scale-95 shrink-0">+ 22:00</button>
               </div>
             </div>
 
             <!-- Ввод произвольного времени -->
             <div class="pt-2 border-t border-amber-500/20 dark:border-white/10 flex items-center gap-2">
-              <div class="flex items-center gap-1.5 bg-white dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 shadow-xs flex-1">
+              <div class="flex items-center gap-2 bg-white dark:bg-slate-800 px-3 py-2 rounded-xl border border-slate-200 dark:border-white/10 shadow-xs flex-1">
                 <span class="text-xs text-slate-400">🕒</span>
                 <input type="time" id="new-custom-time-input" value="07:30" class="bg-transparent text-slate-900 dark:text-white text-xs font-black outline-none w-full cursor-pointer">
               </div>
@@ -1417,9 +1438,9 @@
               <div>
                 <span class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
                   <span class="text-amber-500">📋</span>
-                  <span>Какие задания присылать</span>
+                  <span>Фильтр дедлайнов для бота</span>
                 </span>
-                <p class="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">Фильтр дедлайнов для бота</p>
+                <p class="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">Какие категории включать в сводку</p>
               </div>
               <div class="flex items-center gap-1">
                 <button type="button" onclick="setNotifTasksPreset('all')" class="px-2 py-0.5 rounded-lg text-[10.5px] font-bold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/60 dark:border-white/5 active:scale-95 transition">
@@ -1433,14 +1454,14 @@
 
             <div class="space-y-2">
               <!-- На сегодня -->
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs hover:border-amber-400/30 transition">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
+                  <div class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 14 14"/></svg>
                   </div>
                   <div>
                     <span class="text-xs font-bold block text-slate-900 dark:text-white">На сегодня</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Срочные (дедлайн сегодня)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Срочные (дедлайн наступил сегодня)</span>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -1450,14 +1471,14 @@
               </div>
 
               <!-- На завтра -->
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs hover:border-amber-400/30 transition">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                  <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                   </div>
                   <div>
                     <span class="text-xs font-bold block text-slate-900 dark:text-white">На завтра</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Уроки на следующий день</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Уроки на следующий учебный день</span>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -1467,14 +1488,14 @@
               </div>
 
               <!-- На послезавтра (за 2 дня) -->
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs hover:border-amber-400/30 transition">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <div class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   </div>
                   <div>
                     <span class="text-xs font-bold block text-slate-900 dark:text-white">На послезавтра</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Заблаговременно (за 2 дня)</span>
+                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Заблаговременно (за 2 дня до сдачи)</span>
                   </div>
                 </div>
                 <label class="relative inline-flex items-center cursor-pointer">
@@ -1484,10 +1505,10 @@
               </div>
 
               <!-- Просроченные (долги) -->
-              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs">
+              <div class="flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-200/70 dark:border-white/5 shadow-xs hover:border-amber-400/30 transition">
                 <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                  <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-500 flex items-center justify-center shrink-0">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
                   </div>
                   <div>
                     <span class="text-xs font-bold block text-slate-900 dark:text-white">Просроченные</span>
@@ -1501,158 +1522,212 @@
               </div>
             </div>
           </div>
-
-          <!-- СЕКЦИЯ 4: ТЕКУЩИЙ СТАТУС -->
-          <div class="p-3 rounded-2xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-between text-xs">
-            <div class="flex items-center gap-2 text-slate-700 dark:text-slate-200">
-              <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-              <span id="notif-summary-text" class="font-bold">Загрузка расписания...</span>
-            </div>
-            <span class="text-[10px] text-amber-600 dark:text-amber-400 font-bold">Бот готов</span>
-          </div>
         </div>
 
         <!-- ================= ВКЛАДКА 2: ОФОРМЛЕНИЕ И ВИД ================= -->
         <div id="settings-pane-appearance" class="hidden space-y-4">
-          <!-- Тема оформления -->
-          <div>
-            <div class="flex items-center justify-between mb-2 px-1">
-              <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">🎨 Тема интерфейса</span>
+          <!-- ТЕМА ОФОРМЛЕНИЯ: 3 ВАРИАНТА (ТЕМНАЯ, СВЕТЛАЯ, СИСТЕМНАЯ) -->
+          <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-2.5">
+            <div class="flex items-center justify-between px-0.5">
+              <span class="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                <span class="text-amber-500">🎨</span>
+                <span>Тема интерфейса</span>
+              </span>
+              <span id="theme-active-label" class="text-[10px] font-bold text-amber-500 bg-amber-400/10 px-2 py-0.5 rounded-full border border-amber-400/20">Тёмная</span>
             </div>
-            <div class="grid grid-cols-2 gap-2">
-              <button type="button" onclick="applyTheme('dark'); localStorage.setItem('school_theme', 'dark'); soundFx.playTap();" class="p-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-slate-900 text-white flex items-center justify-center gap-2 text-xs font-bold active:scale-95 transition shadow-sm">
-                <span>🌙</span>
-                <span>Тёмная</span>
+            
+            <div class="grid grid-cols-3 gap-2">
+              <!-- Тёмная -->
+              <button type="button" id="theme-card-dark" onclick="selectThemeMode('dark')" class="p-2.5 rounded-2xl border-2 border-amber-400 bg-slate-900 text-white flex flex-col items-center gap-1.5 text-center transition active:scale-95 shadow-sm relative group">
+                <div class="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-lg shadow-inner">🌙</div>
+                <span class="text-[11px] font-black">Тёмная</span>
+                <span class="text-[9px] text-slate-400 leading-tight">Глубокий синий</span>
+                <span id="theme-check-dark" class="w-2 h-2 rounded-full bg-amber-400 mt-0.5"></span>
               </button>
-              <button type="button" onclick="applyTheme('light'); localStorage.setItem('school_theme', 'light'); soundFx.playTap();" class="p-3 rounded-2xl border border-slate-200 dark:border-white/10 bg-white text-slate-900 flex items-center justify-center gap-2 text-xs font-bold active:scale-95 transition shadow-sm">
-                <span>☀️</span>
-                <span>Светлая</span>
+
+              <!-- Светлая -->
+              <button type="button" id="theme-card-light" onclick="selectThemeMode('light')" class="p-2.5 rounded-2xl border-2 border-slate-200 dark:border-white/10 bg-white text-slate-900 flex flex-col items-center gap-1.5 text-center transition active:scale-95 shadow-sm relative group">
+                <div class="w-8 h-8 rounded-xl bg-slate-100 flex items-center justify-center text-lg shadow-inner">☀️</div>
+                <span class="text-[11px] font-black">Светлая</span>
+                <span class="text-[9px] text-slate-500 leading-tight">Чистая белая</span>
+                <span id="theme-check-light" class="w-2 h-2 rounded-full bg-transparent mt-0.5"></span>
+              </button>
+
+              <!-- Авто/Системная -->
+              <button type="button" id="theme-card-auto" onclick="selectThemeMode('auto')" class="p-2.5 rounded-2xl border-2 border-slate-200 dark:border-white/10 bg-gradient-to-b from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 text-slate-900 dark:text-white flex flex-col items-center gap-1.5 text-center transition active:scale-95 shadow-sm relative group">
+                <div class="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-lg shadow-inner">📱</div>
+                <span class="text-[11px] font-black">Авто</span>
+                <span class="text-[9px] text-slate-500 dark:text-slate-400 leading-tight">Как в Telegram</span>
+                <span id="theme-check-auto" class="w-2 h-2 rounded-full bg-transparent mt-0.5"></span>
               </button>
             </div>
           </div>
 
-          <!-- Эффекты и звуки -->
-          <div>
-            <div class="flex items-center gap-1.5 mb-2 px-1">
-              <span class="text-[11px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">✨ Интерактивность</span>
-            </div>
-            <div class="space-y-2">
-              <!-- Осенний листопад -->
-              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
-                  </div>
-                  <div>
-                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Осенний листопад</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Плавные листья на фоне (без лагов)</span>
-                  </div>
+          <!-- ЗВУК И ГРОМКОСТЬ -->
+          <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                  <span id="sound-speaker-icon" class="text-sm">🔊</span>
                 </div>
+                <div>
+                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Звуки интерфейса</span>
+                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Приятные клики и переходы</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" onclick="testSoundEffect()" class="px-2.5 py-1 rounded-xl bg-amber-400/20 text-amber-600 dark:text-amber-400 text-[10.5px] font-bold active:scale-95 transition border border-amber-400/30">Тест 🎵</button>
                 <label class="relative inline-flex items-center cursor-pointer">
-                  <input type="checkbox" id="leaves-toggle" onchange="toggleAutumnLeavesSetting()" class="sr-only peer" checked>
+                  <input type="checkbox" id="sound-toggle" onchange="toggleSoundSetting()" class="sr-only peer" checked>
                   <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
                 </label>
               </div>
+            </div>
 
-              <!-- Звуки интерфейса -->
-              <div class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-2.5">
-                <div class="flex items-center justify-between">
-                  <div class="flex items-center gap-2.5">
-                    <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
-                    </div>
-                    <div>
-                      <span class="text-xs font-bold block text-slate-900 dark:text-white">Звуки интерфейса</span>
-                      <span class="text-[10px] text-slate-500 dark:text-slate-400">Приятные клики и отклики</span>
-                    </div>
-                  </div>
-                  <div class="flex items-center gap-2">
-                    <button type="button" onclick="testSoundEffect()" class="px-2 py-1 rounded-lg bg-amber-400/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold active:scale-95 transition" title="Проверить звук">Тест 🎵</button>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                      <input type="checkbox" id="sound-toggle" onchange="toggleSoundSetting()" class="sr-only peer" checked>
-                      <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-                    </label>
-                  </div>
-                </div>
-
-                <!-- Регулятор громкости звуков (Loudness Slider) -->
-                <div id="sound-volume-container" class="pt-2 border-t border-slate-200/60 dark:border-white/10 flex items-center gap-3">
-                  <span class="text-[11px] font-bold text-slate-600 dark:text-slate-300 shrink-0">Громкость:</span>
-                  <input type="range" id="sound-volume-slider" min="5" max="100" value="85"
-                    oninput="onSoundVolumeChange(this.value)"
-                    class="w-full accent-amber-500 h-1.5 bg-slate-200 dark:bg-white/10 rounded-lg cursor-pointer">
-                  <span id="sound-volume-label" class="text-[11px] font-mono font-bold text-amber-500 shrink-0 w-8 text-right">85%</span>
-                </div>
+            <!-- Регулятор громкости звуков (Loudness Slider) -->
+            <div id="sound-volume-container" class="pt-2 border-t border-slate-200/60 dark:border-white/10 space-y-1.5">
+              <div class="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                <span class="flex items-center gap-1.5">
+                  <span>Уровень громкости</span>
+                </span>
+                <span id="sound-volume-label" class="font-mono text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md text-[10.5px]">85%</span>
               </div>
+              <input type="range" id="sound-volume-slider" min="5" max="100" value="85"
+                oninput="onSoundVolumeChange(this.value)"
+                class="w-full accent-amber-500 h-2 bg-slate-200 dark:bg-slate-700 rounded-lg cursor-pointer">
+            </div>
+          </div>
 
-              <!-- Виброотклик -->
-              <div class="flex items-center justify-between p-2.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
-                <div class="flex items-center gap-2.5">
-                  <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-                  </div>
-                  <div>
-                    <span class="text-xs font-bold block text-slate-900 dark:text-white">Вибро-отклик</span>
-                    <span class="text-[10px] text-slate-500 dark:text-slate-400">Тактильная отдача Telegram</span>
-                  </div>
-                </div>
-                <button type="button" onclick="testHapticFeedback()" class="px-2 py-1 rounded-lg bg-amber-400/20 text-amber-600 dark:text-amber-400 text-[10px] font-bold active:scale-95 transition" title="Проверить вибрацию">Тест 📳</button>
+          <!-- ВИБРООТКЛИК И ТАКТИЛЬНАЯ ОТДАЧА -->
+          <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-purple-500/20 text-purple-500 flex items-center justify-center shrink-0">
+                <span class="text-sm">📳</span>
+              </div>
+              <div>
+                <span class="text-xs font-bold block text-slate-900 dark:text-white">Виброотклик (Haptics)</span>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400">Тактильная отдача в Telegram</span>
               </div>
             </div>
+            <div class="flex items-center gap-2">
+              <button type="button" onclick="testHapticFeedback()" class="px-2.5 py-1 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 text-[10.5px] font-bold active:scale-95 transition border border-purple-500/25">Тест</button>
+              <label class="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" id="haptics-toggle" onchange="toggleHapticsSetting()" class="sr-only peer" checked>
+                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+              </label>
+            </div>
+          </div>
+
+          <!-- ОСЕННИЙ ЛИСТОПАД -->
+          <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Осенний листопад</span>
+                  <span class="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">60 FPS</span>
+                </div>
+                <span class="text-[10px] text-slate-500 dark:text-slate-400">Плавная анимация листьев на фоне</span>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="leaves-toggle" onchange="toggleAutumnLeavesSetting()" class="sr-only peer" checked>
+              <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
+            </label>
           </div>
         </div>
 
         <!-- ================= ВКЛАДКА 3: ПРОФИЛЬ И СИСТЕМА ================= -->
         <div id="settings-pane-profile" class="hidden space-y-4">
           <!-- Карточка пользователя -->
-          <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/25 flex items-center gap-3">
+          <div class="p-4 rounded-2xl bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-transparent border border-amber-500/25 flex items-center gap-3.5">
             <div id="settings-profile-avatar" class="w-12 h-12 rounded-full overflow-hidden shrink-0 flex items-center justify-center ring-2 ring-amber-400/40 shadow-md bg-amber-400/20 text-amber-500">
               <!-- Avatar populated by JS -->
             </div>
             <div class="min-w-0 flex-1">
-              <h3 id="settings-profile-name" class="text-sm font-black text-slate-900 dark:text-white truncate">Ученик</h3>
+              <div class="flex items-center justify-between gap-2">
+                <h3 id="settings-profile-name" class="text-sm font-black text-slate-900 dark:text-white truncate">Ученик</h3>
+                <span class="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-600 dark:text-amber-400 border border-amber-400/30 shrink-0">10-А класс</span>
+              </div>
               <p id="settings-profile-nick" class="text-xs text-amber-600 dark:text-amber-400 font-mono truncate">@ник</p>
               <div class="flex items-center gap-2 mt-1">
-                <span class="text-[9.5px] font-bold px-2 py-0.5 rounded-full bg-slate-950/10 dark:bg-white/10 text-slate-700 dark:text-slate-300">10-А класс</span>
-                <span id="settings-profile-id" class="text-[9.5px] font-mono text-slate-400">ID: ...</span>
+                <span id="settings-profile-id" class="text-[10px] font-mono text-slate-400">ID: ...</span>
+                <button type="button" onclick="copyUserId()" class="text-[10px] font-bold text-amber-500 hover:text-amber-400 flex items-center gap-0.5 transition active:scale-95">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3 h-3"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                  <span>Копировать</span>
+                </button>
               </div>
             </div>
           </div>
 
-          <!-- Действия с данными -->
-          <div class="space-y-2">
-            <div class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide px-1">Синхронизация и кэш</div>
-
-            <button type="button" onclick="refreshAllAppData()" class="w-full p-3 rounded-2xl bg-slate-50 dark:bg-white/5 hover:bg-amber-400/15 border border-slate-200/80 dark:border-white/10 flex items-center justify-between transition active:scale-95 group">
-              <div class="flex items-center gap-2.5">
-                <div class="w-7 h-7 rounded-lg bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 group-hover:rotate-180 transition-transform duration-500"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          <!-- Сетка быстрых действий (2x2 Quick Actions) -->
+          <div class="space-y-1.5">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 px-1">Быстрые действия:</span>
+            <div class="grid grid-cols-2 gap-2">
+              <button type="button" onclick="refreshAllAppData()" class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 hover:bg-amber-400/15 border border-slate-200/80 dark:border-white/10 flex items-center gap-2.5 transition active:scale-95 group text-left">
+                <div class="w-8 h-8 rounded-xl bg-amber-400/20 text-amber-500 flex items-center justify-center shrink-0 group-hover:rotate-180 transition-transform duration-500">
+                  🔄
                 </div>
-                <div class="text-left">
-                  <span class="text-xs font-bold block text-slate-900 dark:text-white">Обновить данные и кэш</span>
-                  <span class="text-[10px] text-slate-500 dark:text-slate-400">Перезагрузить Д/З, расписание и лидеров</span>
+                <div>
+                  <span class="text-xs font-bold block text-slate-900 dark:text-white leading-tight">Обновить всё</span>
+                  <span class="text-[9.5px] text-slate-500 dark:text-slate-400 leading-tight">Синхронизация</span>
+                </div>
+              </button>
+
+              <a href="https://t.me/my_hw_manager_bot" target="_blank" class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 hover:bg-amber-400/15 border border-slate-200/80 dark:border-white/10 flex items-center gap-2.5 transition active:scale-95 group text-left">
+                <div class="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-500 flex items-center justify-center shrink-0">
+                  🤖
+                </div>
+                <div>
+                  <span class="text-xs font-bold block text-slate-900 dark:text-white leading-tight">Бот в Telegram</span>
+                  <span class="text-[9.5px] text-slate-500 dark:text-slate-400 leading-tight">@my_hw_manager_bot</span>
+                </div>
+              </a>
+
+              <button type="button" onclick="clearAppCache()" class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 hover:bg-rose-500/15 border border-slate-200/80 dark:border-white/10 flex items-center gap-2.5 transition active:scale-95 group text-left">
+                <div class="w-8 h-8 rounded-xl bg-rose-500/20 text-rose-500 flex items-center justify-center shrink-0">
+                  🧹
+                </div>
+                <div>
+                  <span class="text-xs font-bold block text-slate-900 dark:text-white leading-tight">Очистить кэш</span>
+                  <span class="text-[9.5px] text-slate-500 dark:text-slate-400 leading-tight">Сброс хранилища</span>
+                </div>
+              </button>
+
+              <div class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 flex items-center gap-2.5 text-left">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-500 flex items-center justify-center shrink-0">
+                  🎒
+                </div>
+                <div>
+                  <span class="text-xs font-bold block text-slate-900 dark:text-white leading-tight">10-А Класс</span>
+                  <span class="text-[9.5px] text-slate-500 dark:text-slate-400 leading-tight">Инженерный</span>
                 </div>
               </div>
-              <span class="text-xs text-amber-500 font-bold">🔄</span>
-            </button>
+            </div>
           </div>
 
-          <!-- Системная информация -->
-          <div class="p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-1.5 text-[11px]">
+          <!-- Системная диагностика -->
+          <div class="p-3.5 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 space-y-2 text-[11px]">
             <div class="flex items-center justify-between">
-              <span class="text-slate-500 dark:text-slate-400">Статус сети</span>
-              <span class="font-bold text-emerald-500 flex items-center gap-1">
+              <span class="text-slate-500 dark:text-slate-400">Статус сети и сервера</span>
+              <span class="font-bold text-emerald-500 flex items-center gap-1.5">
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Онлайн</span>
+                <span>Онлайн • Supabase Cloud</span>
               </span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
-              <span class="font-mono font-bold text-amber-500">v2.9.4</span>
+              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.9.5 Pro</span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-slate-500 dark:text-slate-400">Класс</span>
-              <span class="font-medium text-slate-700 dark:text-slate-300">10-А Инженерный</span>
+              <span class="text-slate-500 dark:text-slate-400">Часовой пояс расписания</span>
+              <span class="font-mono text-slate-700 dark:text-slate-300">Asia/Tashkent (UTC+5)</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-500 dark:text-slate-400">Платформа</span>
+              <span id="settings-platform-label" class="font-medium text-slate-700 dark:text-slate-300">Telegram WebApp</span>
             </div>
           </div>
         </div>
@@ -1660,8 +1735,9 @@
       </div>
 
       <!-- Нижняя плашка -->
-      <div class="mt-3 pt-2.5 border-t border-slate-200/80 dark:border-white/10 text-[11px] text-amber-700 dark:text-amber-300 text-center shrink-0">
-        💡 Настройки также доступны в боте командой <b class="font-mono">/settings</b>
+      <div class="mt-3 pt-2.5 border-t border-slate-200/80 dark:border-white/10 text-[11px] text-amber-700 dark:text-amber-300 text-center shrink-0 flex items-center justify-center gap-1">
+        <span>💡</span>
+        <span>Настройки также доступны прямо в боте командой <b class="font-mono font-bold">/settings</b></span>
       </div>
     </div>
   </div>
@@ -3334,31 +3410,53 @@
     document.getElementById('header-avatar-slot').innerHTML = renderAvatarElement(userId, 'w-12 h-12 text-sm');
     document.getElementById('user-greeting-name').innerText = userName;
 
-    // Переключение темы
+    // Управление темами: тёмная, светлая, авто (следовать системе / Telegram)
+    function getSystemTheme() {
+      if (tg?.colorScheme === 'light') return 'light';
+      if (tg?.colorScheme === 'dark') return 'dark';
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) return 'light';
+      return 'dark';
+    }
+
     function initTheme() {
-      const savedTheme = localStorage.getItem('school_theme') || (tg?.colorScheme === 'light' ? 'light' : 'dark');
-      applyTheme(savedTheme);
+      const savedTheme = localStorage.getItem('school_theme') || 'dark';
+      applyTheme(savedTheme, false);
+      if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+          if (localStorage.getItem('school_theme') === 'auto') {
+            applyTheme('auto', false);
+          }
+        });
+      }
     }
 
     function toggleTheme() {
-      const current = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-      const next = current === 'dark' ? 'light' : 'dark';
-      applyTheme(next);
-      localStorage.setItem('school_theme', next);
+      const saved = localStorage.getItem('school_theme') || 'dark';
+      let next = 'dark';
+      if (saved === 'dark') next = 'light';
+      else if (saved === 'light') next = 'auto';
+      else next = 'dark';
+      selectThemeMode(next);
     }
 
-    function applyTheme(theme) {
+    function applyTheme(themeMode, shouldSave = true) {
+      const mode = themeMode || 'dark';
+      if (shouldSave) {
+        localStorage.setItem('school_theme', mode);
+      }
+      const effectiveTheme = (mode === 'auto') ? getSystemTheme() : mode;
       const html = document.documentElement;
       const slot = document.getElementById('theme-icon-slot');
-      if (theme === 'light') {
+      if (effectiveTheme === 'light') {
         html.classList.remove('dark');
         html.classList.add('light');
-        slot.innerHTML = `<span class="w-5 h-5 text-amber-500 block">${ICONS.sun}</span>`;
+        if (slot) slot.innerHTML = `<span class="w-5 h-5 text-amber-500 block">${ICONS.sun}</span>`;
       } else {
         html.classList.remove('light');
         html.classList.add('dark');
-        slot.innerHTML = `<span class="w-5 h-5 text-amber-300 block">${ICONS.moon}</span>`;
+        if (slot) slot.innerHTML = `<span class="w-5 h-5 text-amber-300 block">${ICONS.moon}</span>`;
       }
+      updateThemeCardsUI(mode);
     }
     initTheme();
 
@@ -6877,14 +6975,20 @@
         volCont.style.opacity = newState ? '1' : '0.4';
         volCont.style.pointerEvents = newState ? 'auto' : 'none';
       }
-      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      triggerHaptic('light');
     }
 
     let soundVolDebounce = null;
     function onSoundVolumeChange(val) {
-      const pct = parseInt(val, 10) || 85;
+      const pct = Math.max(5, Math.min(100, parseInt(val, 10) || 85));
       const label = document.getElementById('sound-volume-label');
       if (label) label.innerText = `${pct}%`;
+      const icon = document.getElementById('sound-speaker-icon');
+      if (icon) {
+        if (pct <= 20) icon.innerText = '🔈';
+        else if (pct <= 70) icon.innerText = '🔉';
+        else icon.innerText = '🔊';
+      }
       soundFx.setVolume(pct / 100);
       clearTimeout(soundVolDebounce);
       soundVolDebounce = setTimeout(() => {
@@ -6892,8 +6996,133 @@
       }, 120);
     }
 
+    // --- Управление виброоткликом (Haptics) ---
+    function isHapticsEnabled() {
+      return localStorage.getItem('hw_haptics_enabled') !== 'false';
+    }
+
+    function initHapticsSetting() {
+      const toggle = document.getElementById('haptics-toggle');
+      if (toggle) toggle.checked = isHapticsEnabled();
+    }
+
+    function toggleHapticsSetting() {
+      const toggle = document.getElementById('haptics-toggle');
+      const enabled = toggle ? toggle.checked : true;
+      localStorage.setItem('hw_haptics_enabled', enabled ? 'true' : 'false');
+      soundFx.playTap();
+      if (enabled) {
+        triggerHaptic('success', true);
+        showToast('📳 Виброотклик включен', 'success');
+      } else {
+        showToast('🔕 Виброотклик отключен', 'info');
+      }
+    }
+
+    function triggerHaptic(type = 'light', force = false) {
+      if (!force && !isHapticsEnabled()) return;
+      try {
+        if (!tg?.HapticFeedback) return;
+        if (type === 'success' || type === 'error' || type === 'warning') {
+          tg.HapticFeedback.notificationOccurred(type);
+        } else if (type === 'selection') {
+          tg.HapticFeedback.selectionChanged();
+        } else {
+          tg.HapticFeedback.impactOccurred(type);
+        }
+      } catch (e) {}
+    }
+
+    // --- Переключение темы через 3 карточки ---
+    function selectThemeMode(mode) {
+      soundFx.playTap();
+      triggerHaptic('selection');
+      applyTheme(mode, true);
+      const name = mode === 'dark' ? 'Тёмная' : (mode === 'light' ? 'Светлая' : 'Автоматическая');
+      showToast(`🎨 Выбрана тема: ${name}`, 'info');
+    }
+
+    function updateThemeCardsUI(currentMode) {
+      const mode = currentMode || localStorage.getItem('school_theme') || 'dark';
+      const label = document.getElementById('theme-active-label');
+      if (label) {
+        if (mode === 'dark') label.innerText = 'Тёмная';
+        else if (mode === 'light') label.innerText = 'Светлая';
+        else label.innerText = 'Авто (Telegram)';
+      }
+
+      ['dark', 'light', 'auto'].forEach(m => {
+        const card = document.getElementById(`theme-card-${m}`);
+        const check = document.getElementById(`theme-check-${m}`);
+        if (!card) return;
+        if (m === mode) {
+          card.classList.remove('border-slate-200', 'dark:border-white/10');
+          card.classList.add('border-amber-400', 'ring-2', 'ring-amber-400/25');
+          if (check) check.className = 'w-2 h-2 rounded-full bg-amber-400 mt-0.5 shadow-xs';
+        } else {
+          card.classList.remove('border-amber-400', 'ring-2', 'ring-amber-400/25');
+          card.classList.add('border-slate-200', 'dark:border-white/10');
+          if (check) check.className = 'w-2 h-2 rounded-full bg-transparent mt-0.5';
+        }
+      });
+    }
+
+    // --- Массовое включение / отключение уведомлений ---
+    async function toggleAllNotifs(enable) {
+      soundFx.playTap();
+      triggerHaptic('success');
+      ['08', '16', '18', 'weekly', 'today', 'tomorrow', '2days', 'overdue'].forEach(id => {
+        const el = document.getElementById(`notif-toggle-${id}`);
+        if (el) el.checked = !!enable;
+      });
+      await saveAllNotifPrefs();
+      showToast(enable ? '🔔 Все напоминания включены' : '⏸️ Напоминания поставлены на паузу', 'info');
+    }
+
+    // --- Копирование ID пользователя ---
+    function copyUserId() {
+      soundFx.playTap();
+      triggerHaptic('selection');
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(String(userId));
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = String(userId);
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        showToast(`✓ ID скопирован: ${userId}`, 'success');
+      } catch (e) {
+        showToast(`Ваш ID: ${userId}`, 'info');
+      }
+    }
+
+    // --- Безопасная очистка кэша приложения ---
+    async function clearAppCache() {
+      soundFx.playTap();
+      triggerHaptic('warning');
+      try {
+        // Очищаем временные кэши данных, не трогая авторизацию и тему
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('hw_cache_') || key.startsWith('tasks_cache_') || key === 'cached_tasks_v1')) {
+            keysToRemove.push(key);
+          }
+        }
+        keysToRemove.forEach(k => localStorage.removeItem(k));
+        showToast('🧹 Кэш данных успешно очищен!', 'success');
+        await refreshAllAppData();
+      } catch (e) {
+        showToast('Кэш обновлен', 'info');
+      }
+    }
+
     async function toggleNotifPref(key) {
-      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      triggerHaptic('success');
       await saveAllNotifPrefs();
     }
 
@@ -6908,7 +7137,7 @@
       }
       renderCustomTimesList();
       soundFx.playTap();
-      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      triggerHaptic('success');
       await saveAllNotifPrefs();
     }
 
@@ -6924,12 +7153,103 @@
       addCustomTime(timeStr);
     }
 
+    function toggleQuickCustomTime(timeStr) {
+      if (userCustomTimes.includes(timeStr)) {
+        removeCustomTime(timeStr);
+      } else {
+        addCustomTime(timeStr);
+      }
+    }
+
     async function removeCustomTime(timeStr) {
       userCustomTimes = userCustomTimes.filter(t => t !== timeStr);
       renderCustomTimesList();
       soundFx.playTap();
-      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      triggerHaptic('light');
       await saveAllNotifPrefs();
+    }
+
+    function renderCustomTimesList() {
+      const list = document.getElementById('custom-times-list');
+      if (!list) return;
+      if (userCustomTimes.length === 0) {
+        list.innerHTML = '<span class="text-[11px] text-slate-400 dark:text-slate-500 italic py-0.5">Нет своего времени. Выберите из списка ниже или введите своё.</span>';
+      } else {
+        list.innerHTML = userCustomTimes.map(t => `
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-amber-400 text-slate-950 shadow-xs animate-fadeIn">
+            <span>⏰ ${t}</span>
+            <button type="button" onclick="removeCustomTime('${t}')" class="w-4 h-4 rounded-full bg-black/15 hover:bg-black/30 text-slate-950 flex items-center justify-center text-[10px] font-black transition">✕</button>
+          </span>
+        `).join('');
+      }
+
+      // Подсвечиваем активные пресетные кнопки
+      const presetIds = ['0700', '1430', '1500', '1900', '2000', '2100', '2200'];
+      const presetTimes = ['07:00', '14:30', '15:00', '19:00', '20:00', '21:00', '22:00'];
+      presetTimes.forEach((timeVal, idx) => {
+        const btnId = `quick-time-btn-${presetIds[idx]}`;
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        if (userCustomTimes.includes(timeVal)) {
+          btn.className = 'px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-400 text-slate-950 border border-amber-400 shadow-xs transition active:scale-95 shrink-0 flex items-center gap-1';
+          btn.innerHTML = `✓ ${timeVal}`;
+        } else {
+          btn.className = 'px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-amber-500 border border-slate-200/80 dark:border-white/10 transition active:scale-95 shrink-0';
+          btn.innerHTML = `+ ${timeVal}`;
+        }
+      });
+    }
+
+    function setNotifTasksPreset(preset) {
+      soundFx.playTap();
+      triggerHaptic('selection');
+      const ttd = document.getElementById('notif-toggle-today');
+      const ttm = document.getElementById('notif-toggle-tomorrow');
+      const t2d = document.getElementById('notif-toggle-2days');
+      const tod = document.getElementById('notif-toggle-overdue');
+      if (preset === 'urgent') {
+        if (ttd) ttd.checked = true;
+        if (ttm) ttm.checked = true;
+        if (t2d) t2d.checked = false;
+        if (tod) tod.checked = true;
+        showToast('⚡ Выбран пресет: Срочные задания', 'info');
+      } else {
+        if (ttd) ttd.checked = true;
+        if (ttm) ttm.checked = true;
+        if (t2d) t2d.checked = true;
+        if (tod) tod.checked = true;
+        showToast('📋 Выбран пресет: Все категории', 'info');
+      }
+      saveAllNotifPrefs();
+    }
+
+    function updateNotifSummaryText() {
+      const summary = document.getElementById('notif-summary-text');
+      if (!summary) return;
+      const t08 = document.getElementById('notif-toggle-08')?.checked ?? true;
+      const t16 = document.getElementById('notif-toggle-16')?.checked ?? true;
+      const t18 = document.getElementById('notif-toggle-18')?.checked ?? true;
+      const twk = document.getElementById('notif-toggle-weekly')?.checked ?? true;
+      let count = 0;
+      if (t08) count++;
+      if (t16) count++;
+      if (t18) count++;
+      if (twk) count++;
+      count += userCustomTimes.length;
+      if (count === 0) {
+        summary.innerText = 'Напоминания на паузе';
+      } else {
+        summary.innerText = `Активно ${count} ${formatPlural(count, 'время', 'времени', 'времён')} напоминаний`;
+      }
+    }
+
+    function formatPlural(n, one, few, many) {
+      const mod10 = n % 10;
+      const mod100 = n % 100;
+      if (mod100 >= 11 && mod100 <= 19) return many;
+      if (mod10 === 1) return one;
+      if (mod10 >= 2 && mod10 <= 4) return few;
+      return many;
     }
 
     async function saveAllNotifPrefs() {
@@ -7011,25 +7331,26 @@
       if (tod) tod.checked = true;
       userCustomTimes = [];
       renderCustomTimesList();
-      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      triggerHaptic('success');
       await saveAllNotifPrefs();
+      showToast('↺ Настройки сброшены на стандартные', 'info');
     }
 
     function switchSettingsTab(tabName) {
       soundFx.playTab();
-      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      triggerHaptic('selection');
       const tabs = ['notifs', 'appearance', 'profile'];
       tabs.forEach(t => {
         const btn = document.getElementById(`settings-btn-${t}`);
         const pane = document.getElementById(`settings-pane-${t}`);
         if (t === tabName) {
           if (btn) {
-            btn.className = 'flex-1 py-1.5 text-xs font-black rounded-xl bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 flex items-center justify-center gap-1';
+            btn.className = 'flex-1 py-1.5 text-xs font-black rounded-xl bg-amber-400 text-slate-950 shadow-sm transition active:scale-95 flex items-center justify-center gap-1.5';
           }
           if (pane) pane.classList.remove('hidden');
         } else {
           if (btn) {
-            btn.className = 'flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1';
+            btn.className = 'flex-1 py-1.5 text-xs font-semibold rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-white/5 transition active:scale-95 flex items-center justify-center gap-1.5';
           }
           if (pane) pane.classList.add('hidden');
         }
@@ -7048,11 +7369,16 @@
 
       const idEl = document.getElementById('settings-profile-id');
       if (idEl) idEl.innerText = `ID: ${userId}`;
+
+      const platformEl = document.getElementById('settings-platform-label');
+      if (platformEl) {
+        platformEl.innerText = (tg && tg.initData) ? 'Telegram WebApp' : 'Веб-браузер';
+      }
     }
 
     async function refreshAllAppData() {
       soundFx.playTap();
-      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      triggerHaptic('success');
       showToast('🔄 Обновление данных...', 'info');
       try {
         await Promise.all([
@@ -7073,9 +7399,9 @@
     function testHapticFeedback() {
       if (tg?.HapticFeedback) {
         tg.HapticFeedback.notificationOccurred('success');
-        showToast('📳 Вибро-отклик сработал!', 'info');
+        showToast('📳 Виброотклик Telegram сработал!', 'info');
       } else {
-        showToast('ℹ️ Вибро-отклик доступен в приложении Telegram', 'info');
+        showToast('ℹ️ Виброотклик активен на мобильных устройствах в Telegram', 'info');
       }
     }
 
@@ -7094,9 +7420,11 @@
       updateNotifSummaryText();
       loadNotifPrefs();
       populateSettingsProfile();
+      updateThemeCardsUI(localStorage.getItem('school_theme') || 'dark');
+      initHapticsSetting();
       modal.classList.remove('hidden');
       modal.classList.add('flex');
-      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+      triggerHaptic('light');
     }
 
     function closeNotifModal() {
