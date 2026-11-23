@@ -165,18 +165,6 @@ def get_tasks(user_id: int):
 @app.get("/api/materials/{material_id}/download")
 @app.get("/api/materials/{material_id}")
 def download_material(material_id: int, request: Request):
-    # 0. Проверяем, не является ли материал внешней ссылкой (видео, сайт, документ)
-    mat_check = get_material_by_id(material_id)
-    if mat_check:
-        cap = mat_check.get("caption") or ""
-        fid = mat_check.get("file_id") or ""
-        if cap.startswith("[LINK]"):
-            raw = cap[6:]
-            link_url = raw.split("::", 1)[0].strip() if "::" in raw else raw.strip()
-            return RedirectResponse(url=link_url, status_code=302)
-        elif fid.startswith(("http://", "https://")):
-            return RedirectResponse(url=fid, status_code=302)
-
     # 1. Проверяем быструю RAM память (моментальная отдача за ~0-1 мс)
     cached = _MATERIAL_CACHE.get(material_id)
 
@@ -205,6 +193,16 @@ def download_material(material_id: int, request: Request):
         mat = get_material_by_id(material_id)
         if not mat:
             raise HTTPException(status_code=404, detail="Material not found")
+
+        # Проверяем, не является ли материал внешней ссылкой (видео, сайт, документ)
+        cap = mat.get("caption") or ""
+        fid = mat.get("file_id") or ""
+        if cap.startswith("[LINK]"):
+            raw = cap[6:]
+            link_url = raw.split("::", 1)[0].strip() if "::" in raw else raw.strip()
+            return RedirectResponse(url=link_url, status_code=302)
+        elif fid.startswith(("http://", "https://")):
+            return RedirectResponse(url=fid, status_code=302)
 
         file_id = mat.get("file_id", "")
         caption = mat.get("caption") or f"material_{material_id}.jpg"

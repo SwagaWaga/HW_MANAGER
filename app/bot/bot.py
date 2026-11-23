@@ -1,5 +1,6 @@
 import os
 import re
+import time
 import asyncio
 import logging
 import html
@@ -85,7 +86,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.9.3"
+APP_VERSION = "2.9.4"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -163,7 +164,7 @@ class AntiSpamMiddleware(BaseMiddleware):
             is_targeted = False
             if raw_text.startswith("/"):
                 is_targeted = True
-            elif "@my_hw_manager_bot" in raw_text.lower():
+            elif "@" in raw_text and "hw" in raw_text.lower():
                 is_targeted = True
             elif event.reply_to_message and event.reply_to_message.from_user and event.reply_to_message.from_user.is_bot:
                 is_targeted = True
@@ -180,11 +181,6 @@ class AntiSpamMiddleware(BaseMiddleware):
                 uid: s for uid, s in self.user_stats.items()
                 if s.get("last_time", 0) > cutoff or s.get("banned_until", 0) > now
             }
-        if len(self.group_last_time) > 300:
-            cutoff = now - 60.0
-            self.group_last_time = {
-                cid: t for cid, t in self.group_last_time.items() if t > cutoff
-            }
 
         stats = self.user_stats.setdefault(user_id, {
             "last_time": 0.0,
@@ -195,54 +191,46 @@ class AntiSpamMiddleware(BaseMiddleware):
 
         # А) Проверка временного бана за спам
         if stats["banned_until"] > now:
-            # Полностью молча игнорируем любые сообщения
+            # Молча игнорируем спам пока действует бан
             return
 
-        # Б) Определение минимального интервала
-        limit_interval = 2.5 if is_group else 1.2
+        # Б) Определение минимального интервала между командами (1.0 сек для комфортной работы)
+        limit_interval = 1.0
         elapsed = now - stats["last_time"]
 
         # В) Обработка превышения скорости (спама)
         if elapsed < limit_interval:
             stats["spam_count"] += 1
-            stats["last_time"] = now
+            # ВАЖНО: не сдвигаем stats["last_time"] вперед, чтобы не запирать пользователя в бесконечной блокировке!
 
-            # Злостный спам (5+ раз подряд)
+            # Злостный спам (5+ раз подряд быстрее 1 секунды)
             if stats["spam_count"] >= 5:
-                stats["banned_until"] = now + 30.0
+                stats["banned_until"] = now + 25.0
+                stats["spam_count"] = 0
                 try:
-                    await event.reply(
+                    await safe_reply(
+                        event,
                         "⛔ <b>Слишком много запросов!</b>\n"
-                        "Бот временно отключен для вас на 30 секунд из-за спама.",
-                        parse_mode="HTML"
+                        "Пожалуйста, подождите 25 секунд перед следующей командой."
                     )
                 except Exception:
                     pass
                 return
 
-            # Предупреждение пользователю (не чаще одного раза в 8 секунд, чтобы не флудить)
-            if (now - stats["last_warned"]) > 8.0:
+            # Предупреждение пользователю (не чаще одного раза в 6 секунд, чтобы не засорять чат)
+            if (now - stats["last_warned"]) > 6.0:
                 stats["last_warned"] = now
-                remaining = max(1, int(limit_interval - elapsed + 0.5))
                 try:
-                    await event.reply(
-                        f"⏳ <b>Пожалуйста, не спамьте командами!</b>\n"
-                        f"Подождите {remaining} сек. перед следующим запросом.",
-                        parse_mode="HTML"
+                    await safe_reply(
+                        event,
+                        "⏳ <b>Пожалуйста, не спамьте командами!</b>\n"
+                        "Подождите секунду перед следующим запросом."
                     )
                 except Exception:
                     pass
 
             # Молча сбрасываем выполнение при спаме
             return
-
-        # Г) Защита группы от одновременного спама несколькими участниками
-        if is_group:
-            grp_last = self.group_last_time.get(chat.id, 0.0)
-            if (now - grp_last) < 1.2:
-                # Тихо пропускаем, чтобы не перегружать общий чат ответами
-                return
-            self.group_last_time[chat.id] = now
 
         # Успешный запрос в пределах лимита
         stats["spam_count"] = 0
@@ -1000,17 +988,34 @@ async def send_group_weekly_reminder(group: Dict[str, Any]):
         except Exception:
             pass
 
+_user_activity_cache: Dict[int, float] = {}
+
 def record_user_activity(from_user):
     if not from_user:
         return
+    now = time.time()
+    last_sync = _user_activity_cache.get(from_user.id, 0.0)
+    # Если пользователя уже синхронизировали в последние 10 минут — не спамим запросами к базе
+    if (now - last_sync) < 600.0:
+        return
+    _user_activity_cache[from_user.id] = now
+
     nick = f"@{from_user.username}" if from_user.username else (from_user.first_name or "Ученик")
     full_name = f"{from_user.first_name or ''} {from_user.last_name or ''}".strip()
-    upsert_user(from_user.id, telegram_nick=nick, full_name=full_name)
+
+    def _sync_worker():
+        try:
+            upsert_user(from_user.id, telegram_nick=nick, full_name=full_name)
+            from app.services.sync_service import sync_global_user
+            sync_global_user(from_user.id, telegram_nick=nick, full_name=full_name, source="telegram_bot")
+        except Exception:
+            pass
+
     try:
-        from app.services.sync_service import sync_global_user
-        sync_global_user(from_user.id, telegram_nick=nick, full_name=full_name, source="telegram_bot")
+        loop = asyncio.get_running_loop()
+        loop.run_in_executor(None, _sync_worker)
     except Exception:
-        pass
+        _sync_worker()
 
 def get_local_today() -> date:
     """Returns today's date in target timezone (Asia/Tashkent)."""
@@ -1949,9 +1954,26 @@ async def handle_tomorrow(message: Message, command: CommandObject = None):
     tasks = get_class_tasks_for_date(tomorrow_str, class_name="10-А")
 
     if not tasks:
+        upcoming_lines = []
+        try:
+            pending = get_pending_tasks(message.from_user.id if message.chat.type == "private" else 0, class_name="10-А")
+            upcoming_list = [t for t in pending if str(t.get("due_date", "")) > tomorrow_str][:3]
+            for t in upcoming_list:
+                s_name = t.get("subject", "Предмет")
+                d_date = t.get("due_date", "")
+                t_desc = str(t.get("description", "")).strip()
+                t_short = f" — {t_desc[:35]}..." if len(t_desc) > 35 else (f" — {t_desc}" if t_desc else "")
+                upcoming_lines.append(f"• <b>{html.escape(s_name)}</b> ({d_date}){html.escape(t_short)}")
+        except Exception:
+            pass
+
+        upcoming_block = ""
+        if upcoming_lines:
+            upcoming_block = "\n\n📌 <b>Ближайшие задания:</b>\n" + "\n".join(upcoming_lines)
+
         text = (
             f"🎉 <b>На завтра ({tomorrow_nom}, {tomorrow_label}) ничего не задано!</b>\n\n"
-            f"Все уроки на завтра сделаны или ещё не записаны. Отличный повод отдохнуть!\n"
+            f"Все уроки на завтра сделаны или ещё не записаны. Отличный повод отдохнуть!{upcoming_block}\n\n"
             f"Если учитель задал домашку — добавьте её через кнопку ниже."
         )
         btn = get_portal_keyboard("🎒 Открыть ДЗ Портал", chat_or_type=message)
@@ -2440,10 +2462,28 @@ async def handle_text_fallback(message: Message):
             day_title = "завтра"
 
         if not tasks:
+            upcoming_lines = []
+            try:
+                pending = get_pending_tasks(message.from_user.id if not is_group else 0, class_name="10-А")
+                target_str = today_str if day_title == "сегодня" else tomorrow_str
+                upcoming_list = [t for t in pending if str(t.get("due_date", "")) > target_str][:3]
+                for t in upcoming_list:
+                    s_name = t.get("subject", "Предмет")
+                    d_date = t.get("due_date", "")
+                    t_desc = str(t.get("description", "")).strip()
+                    t_short = f" — {t_desc[:35]}..." if len(t_desc) > 35 else (f" — {t_desc}" if t_desc else "")
+                    upcoming_lines.append(f"• <b>{html.escape(s_name)}</b> ({d_date}){html.escape(t_short)}")
+            except Exception:
+                pass
+
+            upcoming_block = ""
+            if upcoming_lines:
+                upcoming_block = "\n\n📌 <b>Ближайшие задания:</b>\n" + "\n".join(upcoming_lines)
+
             btn = get_portal_keyboard("🎒 Открыть ДЗ Портал", chat_or_type=message)
             await safe_reply(
                 message,
-                f"🎉 <b>На {day_title} уроков не задано!</b>\nОтдыхайте или загляните в ДЗ Портал 👇",
+                f"🎉 <b>На {day_title} уроков не задано!</b>{upcoming_block}\n\nОтдыхайте или загляните в ДЗ Портал 👇",
                 reply_markup=btn
             )
             return

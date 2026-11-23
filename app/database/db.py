@@ -328,8 +328,13 @@ def delete_all_tasks(user_id: int):
     conn.close()
 
 def get_today_tasks(user_id: int, date_str: str) -> List[Dict[str, Any]]:
-    tasks = get_pending_tasks(user_id)
-    return [t for t in tasks if str(t.get('due_date')) == str(date_str)]
+    tasks = [t for t in get_pending_tasks(user_id) if str(t.get('due_date')) == str(date_str)]
+    task_ids = [t['id'] for t in tasks if 'id' in t]
+    if task_ids:
+        materials_batch = get_materials_for_tasks_batch(task_ids)
+        for t in tasks:
+            t['materials'] = materials_batch.get(t['id'], [])
+    return tasks
 
 def get_overdue_tasks(user_id: int, today_str: str) -> List[Dict[str, Any]]:
     tasks = get_pending_tasks(user_id)
