@@ -1674,19 +1674,6 @@
               </label>
             </div>
           </div>
-              <div>
-                <span class="text-xs font-bold block text-slate-900 dark:text-white">Виброотклик (Haptics)</span>
-                <span class="text-[10px] text-slate-500 dark:text-slate-400">Тактильная отдача в Telegram</span>
-              </div>
-            </div>
-            <div class="flex items-center gap-2">
-              <button type="button" onclick="testHapticFeedback()" class="px-2.5 py-1 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 text-[10.5px] font-bold active:scale-95 transition border border-purple-500/25">Тест</button>
-              <label class="relative inline-flex items-center cursor-pointer">
-                <input type="checkbox" id="haptics-toggle" onchange="toggleHapticsSetting()" class="sr-only peer" checked>
-                <div class="w-10 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-400"></div>
-              </label>
-            </div>
-          </div>
 
           <!-- ОСЕННИЙ ЛИСТОПАД -->
           <div class="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10">
@@ -1789,7 +1776,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
-              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.9.8 Pro</span>
+              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.9.9 Pro</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Часовой пояс расписания</span>
@@ -7904,6 +7891,7 @@
       soundFx.playOpen();
       const modal = document.getElementById('notif-modal');
       if (!modal) return;
+      switchSettingsTab('notifs');
       updateCustomTimeStepperDisplay();
       updateNotifSummaryText();
       loadNotifPrefs();
