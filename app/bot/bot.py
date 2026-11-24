@@ -86,7 +86,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.9.5"
+APP_VERSION = "2.9.6"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -191,7 +191,18 @@ class AntiSpamMiddleware(BaseMiddleware):
 
         # А) Проверка временного бана за спам
         if stats["banned_until"] > now:
-            # Молча игнорируем спам пока действует бан
+            # Предупреждаем о remaining time только раз в 10 секунд, чтобы не засорять чат
+            if (now - stats["last_warned"]) > 10.0:
+                stats["last_warned"] = now
+                remaining = max(1, int(stats["banned_until"] - now))
+                try:
+                    await safe_reply(
+                        event,
+                        f"⛔ <b>Действует временная блокировка от спама.</b>\n"
+                        f"Пожалуйста, подождите ещё <b>{remaining} сек.</b> перед повторным запросом."
+                    )
+                except Exception:
+                    pass
             return
 
         # Б) Определение минимального интервала между командами (1.0 сек для комфортной работы)

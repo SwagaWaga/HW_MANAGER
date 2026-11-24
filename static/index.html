@@ -1719,7 +1719,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
-              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.9.5 Pro</span>
+              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.9.6 Pro</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Часовой пояс расписания</span>
@@ -2029,6 +2029,63 @@
           <span>Удалить задание</span>
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ===== МОДАЛЬНОЕ ОКНО КОММЕНТАРИЕВ И ОБСУЖДЕНИЯ Д/З (COMMENTS MODAL) ===== -->
+  <div id="comments-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50 transition-all" onclick="if(event.target===this)closeCommentsDrawer()">
+    <div class="bg-white dark:bg-[#0c1824] text-slate-900 dark:text-white w-full max-w-md sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 border-t-2 sm:border-2 border-slate-200 dark:border-white/10 shadow-2xl flex flex-col h-[85vh] sm:h-[80vh] max-h-[85vh] sm:max-h-[80vh]">
+      
+      <!-- Заголовок модального окна -->
+      <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-200 dark:border-white/10 shrink-0">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500/20 to-blue-500/30 border border-sky-500/30 flex items-center justify-center text-sky-500 shadow-xs shrink-0">
+            <span class="text-lg">💬</span>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 class="text-base font-black tracking-tight truncate">Обсуждение задания</h2>
+              <span id="comments-modal-count-badge" class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-500/15 text-sky-600 dark:text-sky-300 border border-sky-500/25 shrink-0">0</span>
+            </div>
+            <p id="comments-modal-subtitle" class="text-[11px] text-slate-500 dark:text-slate-400 truncate">Загрузка информации...</p>
+          </div>
+        </div>
+        <button onclick="closeCommentsDrawer()" class="text-slate-400 hover:text-slate-800 dark:hover:text-white w-8 h-8 rounded-full bg-slate-100 dark:bg-white/10 flex items-center justify-center text-sm font-bold active:scale-95 transition shrink-0">✕</button>
+      </div>
+
+      <!-- Карточка-превью самого задания -->
+      <div id="comments-task-preview" class="p-3 rounded-2xl bg-slate-100/80 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 mb-3 shrink-0 flex items-start gap-2.5">
+        <span id="comments-task-icon" class="text-xl shrink-0 mt-0.5">📝</span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-0.5">
+            <span id="comments-task-subject" class="text-xs font-bold text-slate-900 dark:text-white truncate">Предмет</span>
+            <span id="comments-task-date" class="text-[10.5px] font-medium text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.2 rounded-full border border-amber-500/20 shrink-0">Завтра</span>
+          </div>
+          <p id="comments-task-desc" class="text-xs text-slate-600 dark:text-slate-300 line-clamp-2 leading-snug break-words">Текст задания...</p>
+        </div>
+      </div>
+
+      <!-- Список комментариев со скроллом -->
+      <div id="comments-list-container" class="flex-1 overflow-y-auto min-h-0 space-y-2.5 pr-1 py-1">
+        <!-- Комментарии рендерятся динамически -->
+      </div>
+
+      <!-- Быстрые вопросы-подсказки (Chips) -->
+      <div class="py-2 shrink-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar border-t border-slate-200/60 dark:border-white/5">
+        <span class="text-[10px] text-slate-400 shrink-0 font-medium">Быстро:</span>
+        <button type="button" onclick="insertQuickComment('Какой номер?')" class="text-[11px] font-medium px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-sky-500/10 hover:text-sky-500 border border-slate-200 dark:border-white/10 transition shrink-0 active:scale-95">Какой номер?</button>
+        <button type="button" onclick="insertQuickComment('Только чётные?')" class="text-[11px] font-medium px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-sky-500/10 hover:text-sky-500 border border-slate-200 dark:border-white/10 transition shrink-0 active:scale-95">Только чётные?</button>
+        <button type="button" onclick="insertQuickComment('Стр. ?')" class="text-[11px] font-medium px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-sky-500/10 hover:text-sky-500 border border-slate-200 dark:border-white/10 transition shrink-0 active:scale-95">Стр. ?</button>
+        <button type="button" onclick="insertQuickComment('Спасибо! 🙏')" class="text-[11px] font-medium px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-white/5 hover:bg-sky-500/10 hover:text-sky-500 border border-slate-200 dark:border-white/10 transition shrink-0 active:scale-95">Спасибо! 🙏</button>
+      </div>
+
+      <!-- Форма отправки комментария -->
+      <form id="comment-form" onsubmit="event.preventDefault(); submitComment();" class="pt-2 shrink-0 flex items-center gap-2">
+        <input type="text" id="comment-input" maxlength="500" placeholder="Написать комментарий или вопрос..." class="flex-1 bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-sky-400 transition" autocomplete="off" />
+        <button type="submit" id="comment-submit-btn" class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-sky-500 to-blue-500 text-white flex items-center justify-center font-bold shadow-md shadow-sky-500/20 active:scale-90 transition shrink-0" title="Отправить">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 ml-0.5"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </form>
     </div>
   </div>
 
@@ -4034,6 +4091,11 @@
                     <span>${linkMaterials.length}</span>
                   </span>
                 ` : ''}
+                <!-- Кнопка комментариев / обсуждения в заголовке карточки -->
+                <button type="button" onclick="openCommentsDrawer(${t.id})" class="inline-flex items-center gap-1 text-[11px] font-semibold ${(t.comments_count > 0) ? 'text-sky-500 dark:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 border-sky-500/25' : 'text-slate-400 dark:text-slate-400 bg-slate-100/80 dark:bg-white/5 hover:bg-slate-200/60 dark:hover:bg-white/10 border-slate-200/60 dark:border-white/10'} active:scale-95 px-2.5 py-0.5 rounded-full border transition shrink-0" title="Обсуждение задания">
+                  <span>💬</span>
+                  <span>${(t.comments_count > 0) ? t.comments_count : '<span class="hidden sm:inline">Обсудить</span>'}</span>
+                </button>
               </div>
             </div>
 
@@ -4080,6 +4142,12 @@
                     <span>Автор</span>
                   </button>
                 `}
+
+                <!-- Кнопка "Обсудить" (Комментарии) -->
+                <button type="button" onclick="openCommentsDrawer(${t.id})" class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100/90 dark:bg-white/[0.04] hover:bg-sky-500/15 text-slate-500 dark:text-slate-400 hover:text-sky-600 dark:hover:text-sky-300 border border-slate-200/80 dark:border-white/[0.08] hover:border-sky-500/30 transition-all active:scale-95 text-[11px] font-medium" title="Обсуждение задания">
+                  <span>💬</span>
+                  <span>${(t.comments_count > 0) ? t.comments_count : 'Обсудить'}</span>
+                </button>
 
                 <!-- Бейдж: кто и когда вносил изменения -->
                 ${hasBeenEdited ? `
@@ -4848,6 +4916,246 @@
         setTimeout(() => {
           openEditModal(tId);
         }, 150);
+      }
+    }
+
+    // ========================================================
+    // 💬 ОБСУЖДЕНИЕ И КОММЕНТАРИИ К Д/З (TASK COMMENTS SYSTEM)
+    // ========================================================
+    let activeCommentTaskId = null;
+    let commentsLoading = false;
+
+    function openCommentsDrawer(taskId) {
+      soundFx.playOpen();
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+
+      activeCommentTaskId = taskId;
+      const task = (allTasks || []).find(t => t.id === taskId);
+      const modal = document.getElementById('comments-modal');
+      if (!modal) return;
+
+      // Заполняем карточку-превью задания
+      if (task) {
+        const safeSubject = escapeHtml(task.subject || 'Предмет');
+        const safeDesc = escapeHtml(task.description || '');
+        const subjElem = document.getElementById('comments-task-subject');
+        const descElem = document.getElementById('comments-task-desc');
+        const dateElem = document.getElementById('comments-task-date');
+        const subtitleElem = document.getElementById('comments-modal-subtitle');
+        if (subjElem) subjElem.textContent = safeSubject;
+        if (descElem) descElem.textContent = safeDesc || 'Без описания';
+        if (dateElem) dateElem.textContent = task.due_date || '';
+        if (subtitleElem) subtitleElem.textContent = `${safeSubject} · Срок: ${task.due_date || 'не указан'}`;
+        const icon = (subjectStyles[task.subject] && subjectStyles[task.subject].icon) ? subjectStyles[task.subject].icon : '📝';
+        const iconContainer = document.getElementById('comments-task-icon');
+        if (iconContainer) iconContainer.innerHTML = (typeof icon === 'string' && icon.startsWith('<')) ? icon : `<span>${icon}</span>`;
+      }
+
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+
+      loadComments(taskId);
+      setTimeout(() => {
+        const inp = document.getElementById('comment-input');
+        if (inp) inp.focus();
+      }, 150);
+    }
+
+    function closeCommentsDrawer() {
+      soundFx.playClose();
+      const modal = document.getElementById('comments-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+      activeCommentTaskId = null;
+    }
+
+    function insertQuickComment(text) {
+      const inp = document.getElementById('comment-input');
+      if (!inp) return;
+      inp.value = text;
+      inp.focus();
+      if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+    }
+
+    function formatCommentTime(ts) {
+      if (!ts) return '';
+      try {
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return ts;
+        const now = new Date();
+        const diffMs = now - d;
+        const diffMins = Math.floor(diffMs / 60000);
+        if (diffMins < 1) return 'только что';
+        if (diffMins < 60) return `${diffMins} мин назад`;
+        const diffHours = Math.floor(diffMins / 60);
+        if (diffHours < 24 && now.getDate() === d.getDate()) {
+          return `сегодня в ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+        }
+        return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+      } catch (e) {
+        return ts;
+      }
+    }
+
+    async function loadComments(taskId) {
+      const container = document.getElementById('comments-list-container');
+      const badge = document.getElementById('comments-modal-count-badge');
+      if (!container) return;
+
+      commentsLoading = true;
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+          <div class="w-6 h-6 border-2 border-sky-400 border-t-transparent rounded-full animate-spin mb-2"></div>
+          <span class="text-xs">Загрузка комментариев...</span>
+        </div>
+      `;
+
+      try {
+        const resp = await fetch(`/api/tasks/${taskId}/comments`);
+        if (!resp.ok) throw new Error('Ошибка загрузки');
+        const data = await resp.json();
+        const comments = data.comments || [];
+
+        if (badge) badge.textContent = comments.length;
+
+        // Синхронизируем локальный счетчик задания
+        const t = (allTasks || []).find(item => item.id === taskId);
+        if (t) {
+          t.comments_count = comments.length;
+        }
+
+        if (comments.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-10 px-4 text-slate-400">
+              <div class="text-3xl mb-2">💬</div>
+              <p class="text-xs font-bold text-slate-700 dark:text-slate-300">Пока нет вопросов и обсуждений</p>
+              <p class="text-[11px] text-slate-400 mt-1 max-w-[220px] mx-auto">Спросите у одноклассников страницу, номер или уточните условия задания!</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = comments.map(c => {
+          const isMyComment = Boolean(c.user_id && c.user_id == userId);
+          const canDelete = isMyComment || (typeof userRole !== 'undefined' && userRole === 'admin');
+          const authorTitle = c.author_name || c.author_nick || (c.user_id ? `Ученик #${c.user_id}` : 'Одноклассник');
+          const timeStr = formatCommentTime(c.created_at);
+          const safeText = escapeHtml(c.text || '');
+          const avatarHTML = renderAvatarElement(c.user_id, 'w-6 h-6 text-[10px]');
+
+          return `
+            <div id="comment-item-${c.id}" class="flex gap-2.5 p-2.5 rounded-2xl ${isMyComment ? 'bg-sky-500/10 border border-sky-500/20' : 'bg-slate-100/80 dark:bg-white/5 border border-slate-200/60 dark:border-white/5'} transition">
+              <div class="shrink-0 mt-0.5">${avatarHTML}</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-1 mb-1">
+                  <div class="flex items-center gap-1.5 min-w-0">
+                    <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(authorTitle)}</span>
+                    ${isMyComment ? '<span class="text-[9.5px] font-bold text-sky-500 dark:text-sky-400">(вы)</span>' : ''}
+                  </div>
+                  <div class="flex items-center gap-1 shrink-0">
+                    <span class="text-[10px] text-slate-400">${timeStr}</span>
+                    ${canDelete ? `
+                      <button type="button" onclick="deleteComment(${c.id})" class="text-slate-400 hover:text-rose-500 p-0.5 rounded transition active:scale-90" title="Удалить комментарий">
+                        <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+                <p class="text-xs text-slate-800 dark:text-slate-200 break-words leading-relaxed">${safeText}</p>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        // Скроллим вниз к последним комментариям
+        container.scrollTop = container.scrollHeight;
+      } catch (err) {
+        console.error('Error loading comments:', err);
+        container.innerHTML = `
+          <div class="text-center py-8 text-rose-500 text-xs">
+            Не удалось загрузить обсуждение. Попробуйте еще раз.
+          </div>
+        `;
+      } finally {
+        commentsLoading = false;
+      }
+    }
+
+    async function submitComment() {
+      if (!activeCommentTaskId) return;
+      const input = document.getElementById('comment-input');
+      const submitBtn = document.getElementById('comment-submit-btn');
+      if (!input) return;
+
+      const text = input.value.trim();
+      if (!text) {
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-50');
+
+      try {
+        const payload = {
+          user_id: Number(userId) || 0,
+          text: text,
+          author_name: userName || '',
+          author_nick: userNick || ''
+        };
+
+        const resp = await fetch(`/api/tasks/${activeCommentTaskId}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) throw new Error('Ошибка отправки комментария');
+        const resData = await resp.json();
+
+        input.value = '';
+        soundFx.playSuccess();
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+
+        await loadComments(activeCommentTaskId);
+
+        // Обновляем бейдж комментариев на карточке без перезагрузки всей страницы
+        renderTasks();
+      } catch (err) {
+        console.error('Submit comment error:', err);
+        showToast('Не удалось отправить комментарий', 'error');
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('opacity-50');
+      }
+    }
+
+    async function deleteComment(commentId) {
+      if (!confirm('Удалить этот комментарий?')) return;
+      soundFx.playDelete();
+      if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+      const el = document.getElementById(`comment-item-${commentId}`);
+      if (el) el.classList.add('opacity-30', 'pointer-events-none');
+
+      try {
+        const resp = await fetch(`/api/comments/${commentId}`, { method: 'DELETE' });
+        if (!resp.ok) {
+          // fallback to POST
+          await fetch(`/api/comments/${commentId}/delete`, { method: 'POST' });
+        }
+        showToast('Комментарий удален', 'info');
+        if (activeCommentTaskId) {
+          await loadComments(activeCommentTaskId);
+          renderTasks();
+        }
+      } catch (err) {
+        console.error('Delete comment error:', err);
+        showToast('Не удалось удалить комментарий', 'error');
+        if (el) el.classList.remove('opacity-30', 'pointer-events-none');
       }
     }
 

@@ -1,6 +1,8 @@
 import os
+import json
 import logging
 from typing import Optional, List, Dict, Any
+from datetime import datetime, timezone
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -356,6 +358,9 @@ def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[st
             u_info = row.get("users") or {}
             mat_id = row["id"]
             caption = row.get("caption") or ""
+
+            if caption.startswith("[COMMENT]"):
+                continue
 
             if caption.startswith("[LINK]"):
                 raw = caption[6:]
@@ -918,3 +923,129 @@ def get_upcoming_tasks_for_subject(
     except Exception as e:
         logger.error(f"Error in Supabase get_upcoming_tasks_for_subject: {e}")
         return []
+
+# ─────────────────────────────────────────────────────────────
+# КОММЕНТАРИИ К ДОМАШНИМ ЗАДАНИЯМ (TASK COMMENTS)
+# ─────────────────────────────────────────────────────────────
+
+def add_task_comment(task_id: int, user_id: int, text: str, author_name: Optional[str] = None, author_nick: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    client = get_supabase_client()
+    if not client:
+        return None
+    try:
+        from datetime import datetime as _dt, timezone as _tz
+        now_iso = _dt.now(_tz.utc).isoformat()
+        payload = {
+            "text": text.strip(),
+            "author_name": (author_name or "").strip(),
+            "author_nick": (author_nick or "").strip(),
+            "created_at": now_iso
+        }
+        caption = f"[COMMENT]{json.dumps(payload, ensure_ascii=False)}"
+        row = {
+            "task_id": task_id,
+            "file_id": "comment",
+            "caption": caption,
+            "uploader_id": user_id
+        }
+        res = client.table("task_materials").insert(row).execute()
+        if res.data and len(res.data) > 0:
+            inserted = res.data[0]
+            c_id = inserted["id"]
+            return {
+                "id": c_id,
+                "task_id": task_id,
+                "user_id": user_id,
+                "text": text.strip(),
+                "author_name": author_name or "",
+                "author_nick": author_nick or f"@{user_id}",
+                "author_role": "student",
+                "created_at": now_iso
+            }
+        return None
+    except Exception as e:
+        logger.error(f"Error in Supabase add_task_comment: {e}")
+        return None
+
+def get_task_comments(task_id: int) -> List[Dict[str, Any]]:
+    client = get_supabase_client()
+    if not client:
+        return []
+    try:
+        res = client.table("task_materials").select(
+            "id, task_id, caption, uploader_id, created_at, users(telegram_nick, full_name, role)"
+        ).eq("task_id", task_id).ilike("caption", "[COMMENT]%").order("id").execute()
+
+        comments = []
+        for r in (res.data or []):
+            caption = r.get("caption") or ""
+            raw_json = caption[9:]  # remove "[COMMENT]"
+            try:
+                data = json.loads(raw_json)
+            except Exception:
+                data = {"text": raw_json}
+
+            u_info = r.get("users") or {}
+            c_nick = data.get("author_nick") or u_info.get("telegram_nick") or f"@ученик_{r['uploader_id']}"
+            c_name = data.get("author_name") or u_info.get("full_name") or "Ученик"
+            c_role = u_info.get("role") or "student"
+            c_time = data.get("created_at") or r.get("created_at") or ""
+
+            comments.append({
+                "id": r["id"],
+                "task_id": r["task_id"],
+                "user_id": r["uploader_id"],
+                "text": data.get("text", ""),
+                "author_name": c_name,
+                "author_nick": c_nick,
+                "author_role": c_role,
+                "created_at": c_time
+            })
+        return comments
+    except Exception as e:
+        logger.error(f"Error in Supabase get_task_comments: {e}")
+        return []
+
+def get_comments_count_batch(task_ids: List[int]) -> Dict[int, int]:
+    if not task_ids:
+        return {}
+    client = get_supabase_client()
+    if not client:
+        return {tid: 0 for tid in task_ids}
+    try:
+        res = client.table("task_materials").select(
+            "id, task_id, caption"
+        ).in_("task_id", task_ids).ilike("caption", "[COMMENT]%").execute()
+
+        counts = {tid: 0 for tid in task_ids}
+        for r in (res.data or []):
+            t_id = r.get("task_id")
+            if t_id in counts:
+                counts[t_id] += 1
+        return counts
+    except Exception as e:
+        logger.error(f"Error in Supabase get_comments_count_batch: {e}")
+        return {tid: 0 for tid in task_ids}
+
+def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
+    client = get_supabase_client()
+    if not client:
+        return False
+    try:
+        if isinstance(comment_id, dict):
+            comment_id = comment_id.get("id", 0)
+        comment_id = int(comment_id)
+        if user_id > 0:
+            user_res = client.table("users").select("role").eq("id", user_id).limit(1).execute()
+            is_admin = bool(user_res.data and user_res.data[0].get("role") == "admin")
+            if not is_admin:
+                chk = client.table("task_materials").select("uploader_id").eq("id", comment_id).limit(1).execute()
+                if not chk.data or chk.data[0].get("uploader_id") != user_id:
+                    logger.warning(f"Unauthorized comment deletion attempt by user {user_id}")
+                    return False
+        client.table("task_materials").delete().eq("id", comment_id).execute()
+        return True
+    except Exception as e:
+        logger.error(f"Error in Supabase delete_task_comment: {e}")
+        return False
+

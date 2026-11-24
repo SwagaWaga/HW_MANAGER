@@ -22,7 +22,11 @@ try:
         get_notification_prefs,
         upsert_notification_prefs,
         get_leaderboard,
-        cleanup_old_tasks
+        cleanup_old_tasks,
+        add_task_comment,
+        get_task_comments,
+        get_comments_count_batch,
+        delete_task_comment
     )
 except ImportError:
     from db import (
@@ -43,7 +47,11 @@ except ImportError:
         get_notification_prefs,
         upsert_notification_prefs,
         get_leaderboard,
-        cleanup_old_tasks
+        cleanup_old_tasks,
+        add_task_comment,
+        get_task_comments,
+        get_comments_count_batch,
+        delete_task_comment
     )
 import uuid
 import os
@@ -153,11 +161,13 @@ def get_tasks(user_id: int):
     # 2. Не возвращает тяжелый base64 в списке заданий, сокращая трафик с 10 МБ до ~2 КБ
     task_ids = [row["id"] for row in rows]
     materials_by_task = get_materials_for_tasks_batch(task_ids)
+    comments_count_by_task = get_comments_count_batch(task_ids)
 
     results = []
     for row in rows:
         task_dict = dict(row)
         task_dict['materials'] = materials_by_task.get(row['id'], [])
+        task_dict['comments_count'] = comments_count_by_task.get(row['id'], 0)
         results.append(task_dict)
 
     return results
@@ -389,6 +399,45 @@ def add_batch_links(req: BatchLinksRequest):
         created = add_materials_batch(req.task_id, items, req.user_id)
         return {"status": "ok", "created": created}
     return {"status": "ok", "created": []}
+
+# --- Комментарии к домашним заданиям ---
+class CommentCreate(BaseModel):
+    user_id: int
+    text: str
+    author_name: Optional[str] = None
+    author_nick: Optional[str] = None
+
+@app.get("/api/tasks/{task_id}/comments")
+def api_get_task_comments(task_id: int):
+    comments = get_task_comments(task_id)
+    return {"status": "ok", "comments": comments}
+
+@app.post("/api/tasks/{task_id}/comments")
+def api_add_task_comment(task_id: int, data: CommentCreate):
+    txt = (data.text or "").strip()
+    if not txt:
+        raise HTTPException(status_code=400, detail="Comment text cannot be empty")
+    if len(txt) > 2000:
+        raise HTTPException(status_code=400, detail="Comment is too long (max 2000 chars)")
+
+    created = add_task_comment(
+        task_id=task_id,
+        user_id=data.user_id,
+        text=txt,
+        author_name=data.author_name,
+        author_nick=data.author_nick
+    )
+    if not created:
+        raise HTTPException(status_code=500, detail="Failed to save comment")
+    return {"status": "ok", "comment": created}
+
+@app.delete("/api/comments/{comment_id}")
+@app.post("/api/comments/{comment_id}/delete")
+def api_delete_task_comment(comment_id: int, user_id: int = 0):
+    success = delete_task_comment(comment_id, user_id=user_id)
+    if not success:
+        raise HTTPException(status_code=403, detail="Cannot delete comment")
+    return {"status": "deleted", "id": comment_id}
 
 class UserSync(BaseModel):
     user_id: int

@@ -59,6 +59,18 @@ def init_db():
     """)
 
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS task_comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        author_name TEXT,
+        author_nick TEXT,
+        text TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS user_notification_prefs (
         user_id INTEGER PRIMARY KEY,
         notify_08 INTEGER DEFAULT 1,
@@ -393,6 +405,9 @@ def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[st
         mat_id = r["id"]
         caption = r["caption"] or ""
         file_id = r["file_id"] or ""
+
+        if caption.startswith("[COMMENT]"):
+            continue
 
         if caption.startswith("[LINK]"):
             raw = caption[6:]
@@ -976,5 +991,144 @@ def get_upcoming_tasks_for_subject(
     except Exception as e:
         logger.error(f"Error in get_upcoming_tasks_for_subject: {e}")
         return []
+
+# ─────────────────────────────────────────────────────────────
+# КОММЕНТАРИИ К ДОМАШНИМ ЗАДАНИЯМ (TASK COMMENTS)
+# ─────────────────────────────────────────────────────────────
+
+def add_task_comment(task_id: int, user_id: int, text: str, author_name: Optional[str] = None, author_nick: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Добавляет новый комментарий к заданию."""
+    res_supa = None
+    if is_using_supabase():
+        res_supa = supabase_db.add_task_comment(task_id, user_id, text, author_name, author_nick)
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO task_comments (task_id, user_id, author_name, author_nick, text) VALUES (?, ?, ?, ?, ?)",
+            (task_id, user_id, author_name or "", author_nick or "", text.strip())
+        )
+        local_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        if res_supa:
+            return res_supa
+
+        return {
+            "id": local_id,
+            "task_id": task_id,
+            "user_id": user_id,
+            "text": text.strip(),
+            "author_name": author_name or "",
+            "author_nick": author_nick or f"@{user_id}",
+            "author_role": "student",
+            "created_at": ""
+        }
+    except Exception as e:
+        logger.error(f"Error in SQLite add_task_comment: {e}")
+        return res_supa
+
+def get_task_comments(task_id: int) -> List[Dict[str, Any]]:
+    """Возвращает все комментарии к заданию."""
+    if is_using_supabase():
+        supa_comments = supabase_db.get_task_comments(task_id)
+        if supa_comments is not None and len(supa_comments) > 0:
+            return supa_comments
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        sql = """
+            SELECT c.id, c.task_id, c.user_id, c.text, c.created_at,
+                   COALESCE(NULLIF(c.author_name, ''), u.full_name, 'Ученик') as author_name,
+                   COALESCE(NULLIF(c.author_nick, ''), u.telegram_nick, '@ученик_' || c.user_id) as author_nick,
+                   COALESCE(u.role, 'student') as author_role
+            FROM task_comments c
+            LEFT JOIN users u ON c.user_id = u.id
+            WHERE c.task_id = ?
+            ORDER BY c.id ASC
+        """
+        cursor.execute(sql, (task_id,))
+        rows = cursor.fetchall()
+        comments = [dict(r) for r in rows]
+        conn.close()
+        return comments
+    except Exception as e:
+        logger.error(f"Error in SQLite get_task_comments: {e}")
+        return []
+
+def get_comments_count_batch(task_ids: List[int]) -> Dict[int, int]:
+    """Возвращает количество комментариев для списка заданий {task_id: count}."""
+    if not task_ids:
+        return {}
+    if is_using_supabase():
+        return supabase_db.get_comments_count_batch(task_ids)
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        cursor = conn.cursor()
+        placeholders = ",".join("?" for _ in task_ids)
+        sql = f"""
+            SELECT task_id, COUNT(*) as cnt
+            FROM task_comments
+            WHERE task_id IN ({placeholders})
+            GROUP BY task_id
+        """
+        cursor.execute(sql, task_ids)
+        rows = cursor.fetchall()
+        counts = {tid: 0 for tid in task_ids}
+        for tid, cnt in rows:
+            counts[tid] = cnt
+        conn.close()
+        return counts
+    except Exception as e:
+        logger.error(f"Error in SQLite get_comments_count_batch: {e}")
+        return {tid: 0 for tid in task_ids}
+
+def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
+    """Удаляет комментарий."""
+    if isinstance(comment_id, dict):
+        comment_id = comment_id.get("id", 0)
+    try:
+        comment_id = int(comment_id)
+    except (ValueError, TypeError):
+        return False
+
+    if is_using_supabase():
+        res = supabase_db.delete_task_comment(comment_id, user_id)
+        if res:
+            try:
+                conn = sqlite3.connect(DB_NAME, timeout=15.0)
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM task_comments WHERE id = ?", (comment_id,))
+                conn.commit()
+                conn.close()
+            except Exception:
+                pass
+            return True
+
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=15.0)
+        cursor = conn.cursor()
+        if user_id > 0:
+            cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
+            u_row = cursor.fetchone()
+            is_admin = bool(u_row and u_row[0] == "admin")
+            if not is_admin:
+                cursor.execute("SELECT user_id FROM task_comments WHERE id = ?", (comment_id,))
+                c_row = cursor.fetchone()
+                if not c_row or c_row[0] != user_id:
+                    conn.close()
+                    return False
+        cursor.execute("DELETE FROM task_comments WHERE id = ?", (comment_id,))
+        conn.commit()
+        conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"Error in SQLite delete_task_comment: {e}")
+        return False
 
 init_db()
