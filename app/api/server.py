@@ -59,6 +59,7 @@ import base64
 import hashlib
 import asyncio
 import logging
+from urllib.parse import quote
 
 logger = logging.getLogger("server")
 
@@ -97,6 +98,46 @@ async def run_periodic_cleanup_loop():
 # Устраняет повторные сетевые запросы к БД и отдает материалы за 0-2 миллисекунды
 _MATERIAL_CACHE: Dict[int, Dict[str, Any]] = {}
 
+_MIME_TO_EXT: Dict[str, str] = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+}
+
+def _detect_mime_from_bytes(data: bytes) -> str:
+    """Определяет MIME-тип изображения по сигнатуре байтов при fallback."""
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if data.startswith(b"RIFF") and data[8:12] == b"WEBP":
+        return "image/webp"
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "image/gif"
+    return "image/jpeg"
+
+def build_content_disposition(filename: str, media_type: str = "image/jpeg", material_id: int = 0) -> str:
+    """
+    Формирует RFC 6266/5987 Content-Disposition с безопасным ASCII fallback и UTF-8 filename*.
+    Исключает UnicodeEncodeError ('latin-1' codec can't encode...) для кириллических имен файлов (например, скриншотов с ПК).
+    """
+    default_ext = _MIME_TO_EXT.get((media_type or "").lower(), ".jpg")
+    clean = (filename or f"material_{material_id}{default_ext}").replace("\r", " ").replace("\n", " ").replace('"', "'").strip()
+    stem, ext = os.path.splitext(clean)
+    if not ext or ext.lower() not in (".jpg", ".jpeg", ".png", ".webp", ".gif"):
+        ext = default_ext
+        clean_full = f"{clean}{ext}" if clean else f"material_{material_id}{ext}"
+        stem = clean
+    else:
+        clean_full = clean
+    ascii_stem = stem.encode("ascii", "ignore").decode("ascii")
+    ascii_stem = "".join(c if (c.isalnum() or c in " -_.") else "_" for c in ascii_stem).strip(" ._-\t")
+    if not ascii_stem:
+        ascii_stem = f"material_{material_id}"
+    ascii_name = f"{ascii_stem}{ext}"
+    utf8_encoded = quote(clean_full, safe="")
+    return f'inline; filename="{ascii_name}"; filename*=UTF-8\'\'{utf8_encoded}'
+
 def optimize_image_bytes(image_bytes: bytes, max_dim: int = 1600, quality: int = 80) -> tuple[bytes, str]:
     """
     Интеллектуальная оптимизация и сжатие загружаемых фото:
@@ -106,12 +147,16 @@ def optimize_image_bytes(image_bytes: bytes, max_dim: int = 1600, quality: int =
     - Экономит до 90% диска и трафика Supabase.
     """
     try:
-        from PIL import Image, ImageOps
+        from PIL import Image, ImageOps, ImageFile
         import io
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
         with Image.open(io.BytesIO(image_bytes)) as img:
             img = ImageOps.exif_transpose(img)
-            if img.mode in ("RGBA", "P"):
-                img = img.convert("RGB")
+            if img.mode in ("RGBA", "LA", "P"):
+                rgba = img.convert("RGBA")
+                bg = Image.new("RGB", rgba.size, (255, 255, 255))
+                bg.paste(rgba, mask=rgba.split()[3])
+                img = bg
             elif img.mode != "RGB":
                 img = img.convert("RGB")
             w, h = img.size
@@ -122,7 +167,7 @@ def optimize_image_bytes(image_bytes: bytes, max_dim: int = 1600, quality: int =
             return buf.getvalue(), "image/jpeg"
     except Exception as e:
         print(f"Image optimization note: {e}")
-        return image_bytes, "image/jpeg"
+        return image_bytes, _detect_mime_from_bytes(image_bytes)
 
 @app.get("/")
 def route():
@@ -180,8 +225,8 @@ def download_material(material_id: int, request: Request):
 
     # 2. Если нет в RAM, проверяем диск uploads/ (отдача за 1-3 мс)
     if not cached:
-        for ext, mime in [(".jpg", "image/jpeg"), (".png", "image/png"), (".webp", "image/webp")]:
-            disk_path = f"uploads/cached_{material_id}{ext}"
+        for ext, mime in [(".jpg", "image/jpeg"), (".png", "image/png"), (".webp", "image/webp"), (".gif", "image/gif")]:
+            disk_path = os.path.join(_uploads_dir, f"cached_{material_id}{ext}")
             if os.path.exists(disk_path):
                 try:
                     with open(disk_path, "rb") as f:
@@ -216,7 +261,7 @@ def download_material(material_id: int, request: Request):
 
         file_id = mat.get("file_id", "")
         caption = mat.get("caption") or f"material_{material_id}.jpg"
-        filename = caption if (caption.endswith(".jpg") or caption.endswith(".png") or caption.endswith(".jpeg") or caption.endswith(".webp")) else f"{caption}.jpg"
+        filename = caption if caption.lower().endswith((".jpg", ".png", ".jpeg", ".webp", ".gif")) else f"{caption}.jpg"
 
         content = None
         media_type = "image/jpeg"
@@ -230,18 +275,22 @@ def download_material(material_id: int, request: Request):
                 raise HTTPException(status_code=500, detail=f"Failed to decode image data: {e}")
         else:
             clean_path = file_id.lstrip("/")
-            base_upload_dir = os.path.abspath("uploads")
-            abs_clean_path = os.path.abspath(clean_path)
+            candidate_path = os.path.join(_root_dir, clean_path) if not os.path.isabs(clean_path) else clean_path
+            base_upload_dir = os.path.abspath(_uploads_dir)
+            abs_clean_path = os.path.abspath(candidate_path)
             if not (abs_clean_path == base_upload_dir or abs_clean_path.startswith(base_upload_dir + os.sep)):
                 raise HTTPException(status_code=403, detail="Forbidden access")
-            if os.path.exists(clean_path):
+            if os.path.exists(abs_clean_path):
                 try:
-                    with open(clean_path, "rb") as f:
+                    with open(abs_clean_path, "rb") as f:
                         content = f.read()
-                    if clean_path.endswith(".png"):
+                    lower_p = abs_clean_path.lower()
+                    if lower_p.endswith(".png"):
                         media_type = "image/png"
-                    elif clean_path.endswith(".webp"):
+                    elif lower_p.endswith(".webp"):
                         media_type = "image/webp"
+                    elif lower_p.endswith(".gif"):
+                        media_type = "image/gif"
                 except Exception as e:
                     raise HTTPException(status_code=500, detail=f"Failed to read file: {e}")
 
@@ -249,8 +298,8 @@ def download_material(material_id: int, request: Request):
             raise HTTPException(status_code=404, detail="File content not found")
 
         etag = f'"{hashlib.md5(content).hexdigest()}"'
-        ext = ".png" if media_type == "image/png" else ".jpg"
-        save_path = f"uploads/cached_{material_id}{ext}"
+        ext = _MIME_TO_EXT.get(media_type.lower(), ".jpg")
+        save_path = os.path.join(_uploads_dir, f"cached_{material_id}{ext}")
         try:
             with open(save_path, "wb") as f:
                 f.write(content)
@@ -277,11 +326,16 @@ def download_material(material_id: int, request: Request):
         )
 
     # 5. Отдаем изображение с правильными заголовками inline и долгосрочным кэшем (30 дней)
+    content_disp = build_content_disposition(
+        cached.get("filename", ""),
+        media_type=cached.get("media_type", "image/jpeg"),
+        material_id=material_id,
+    )
     return Response(
         content=cached["content"],
         media_type=cached["media_type"],
         headers={
-            "Content-Disposition": f'inline; filename="{cached["filename"]}"',
+            "Content-Disposition": content_disp,
             "Cache-Control": "public, max-age=2592000, immutable",
             "ETag": cached["etag"]
         }
@@ -348,8 +402,8 @@ def remove_task(task_id: int, user_id: Optional[int] = None, data: Optional[Task
 def remove_material(material_id: int):
     # Очищаем кэш в RAM и на диске
     _MATERIAL_CACHE.pop(material_id, None)
-    for ext in [".jpg", ".png", ".webp", ".jpeg"]:
-        disk_path = f"uploads/cached_{material_id}{ext}"
+    for ext in [".jpg", ".png", ".webp", ".jpeg", ".gif"]:
+        disk_path = os.path.join(_uploads_dir, f"cached_{material_id}{ext}")
         if os.path.exists(disk_path):
             try:
                 os.remove(disk_path)
@@ -464,7 +518,7 @@ async def upload_photos(
     photo: Optional[UploadFile] = File(None)
 ):
     try:
-        os.makedirs("uploads", exist_ok=True)
+        os.makedirs(_uploads_dir, exist_ok=True)
         all_incoming: List[UploadFile] = []
         if photos:
             all_incoming.extend(photos)
@@ -476,21 +530,21 @@ async def upload_photos(
         items_contents = []
 
         for p in all_incoming:
-            raw_name = p.filename or "photo.jpg"
-            ext = os.path.splitext(raw_name)[1].lower()
-            if not ext or ext not in [".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"]:
-                ext = ".jpg"
-            
+            raw_name = (p.filename or "photo.jpg").strip() or "photo.jpg"
             raw_contents = await p.read()
+            if not raw_contents:
+                continue
+
             # Оптимизация и сжатие фото
             contents, mime = optimize_image_bytes(raw_contents, max_dim=1600, quality=80)
-            ext = ".jpg"
+            ext = _MIME_TO_EXT.get(mime.lower(), ".jpg")
             unique_name = f"{task_id}_{uuid.uuid4().hex[:8]}{ext}"
             file_path = f"uploads/{unique_name}"
+            disk_file_path = os.path.join(_uploads_dir, unique_name)
 
             # 1. Сохраняем на локальный диск
             try:
-                with open(file_path, "wb") as f:
+                with open(disk_file_path, "wb") as f:
                     f.write(contents)
             except Exception as disk_err:
                 print(f"Disk write warning: {disk_err}")
@@ -506,6 +560,8 @@ async def upload_photos(
 
         if batch_items:
             created_ids = add_materials_batch(task_id, batch_items, user_id)
+            if created_ids is False:
+                raise HTTPException(status_code=500, detail="Failed to save uploaded photos to database")
             # Моментально прогреваем кэш в RAM и на диске для новых материалов
             if isinstance(created_ids, list):
                 for idx, mat_id in enumerate(created_ids):
@@ -519,8 +575,8 @@ async def upload_photos(
                             "filename": c_name
                         }
                         try:
-                            c_ext = ".png" if c_mime == "image/png" else ".jpg"
-                            with open(f"uploads/cached_{mat_id}{c_ext}", "wb") as f:
+                            c_ext = _MIME_TO_EXT.get(c_mime.lower(), ".jpg")
+                            with open(os.path.join(_uploads_dir, f"cached_{mat_id}{c_ext}"), "wb") as f:
                                 f.write(c_bytes)
                         except Exception:
                             pass
@@ -528,6 +584,8 @@ async def upload_photos(
         # Возвращаем url первого файла для обратной совместимости + список всех
         first_url = uploaded_results[0]["url"] if uploaded_results else ""
         return {"status": "ok", "url": first_url, "uploaded": uploaded_results}
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Error in /api/upload: {e}")
         raise HTTPException(status_code=500, detail=str(e))

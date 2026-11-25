@@ -86,7 +86,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.9.9"
+APP_VERSION = "2.9.10"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")

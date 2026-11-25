@@ -1776,7 +1776,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
-              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.9.9 Pro</span>
+              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.9.10 Pro</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Часовой пояс расписания</span>
@@ -3329,41 +3329,47 @@
       img.src = objectUrl;
     }
 
-    async function handlePhotoSelected(input) {
-      const errorDiv = document.getElementById('file-error-msg');
+    function isSupportedImageFile(file) {
+      if (!file) return false;
+      return (file.type && file.type.startsWith('image/')) ||
+             /\.(jpe?g|jfif|png|webp|avif|tiff?|heic|heif|bmp|gif)$/i.test(file.name || '') ||
+             file.type === '';
+    }
+
+    async function processPhotoFiles(incomingFiles, isEdit = false) {
+      const errorDiv = document.getElementById(isEdit ? 'edit-file-error-msg' : 'file-error-msg');
       if (errorDiv) {
         errorDiv.classList.add('hidden');
         errorDiv.innerText = '';
       }
 
-      if (!input.files || input.files.length === 0) return;
-      const incomingFiles = Array.from(input.files);
-
+      if (!incomingFiles || incomingFiles.length === 0) return;
       const maxLimit = 10;
-      if (selectedPhotos.length + incomingFiles.length > maxLimit) {
-        if (errorDiv) {
-          errorDiv.innerText = `⚠️ Максимум можно прикрепить до ${maxLimit} страниц к одному заданию!`;
-          errorDiv.classList.remove('hidden');
-        }
+      const targetArray = isEdit ? editSelectedPhotos : selectedPhotos;
+      const currentTotal = isEdit ? (editTaskExistingMaterials.length + editSelectedPhotos.length) : selectedPhotos.length;
+
+      if (currentTotal + incomingFiles.length > maxLimit && errorDiv) {
+        errorDiv.innerText = `⚠️ Максимум можно прикрепить до ${maxLimit} страниц к одному заданию!`;
+        errorDiv.classList.remove('hidden');
       }
 
-      const availableSlots = Math.max(0, maxLimit - selectedPhotos.length);
+      const availableSlots = Math.max(0, maxLimit - currentTotal);
       const filesToProcess = incomingFiles.slice(0, availableSlots);
+      let addedCount = 0;
 
       for (const file of filesToProcess) {
-        const isImg = (file.type && file.type.startsWith('image/')) || 
-                      /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name || '') ||
-                      file.type === '';
-        if (!isImg) continue;
+        if (!isSupportedImageFile(file)) continue;
 
         await new Promise((resolve) => {
           // 1440px обеспечивает идеальную резкость формул при весе всего ~200-300 КБ и минимальной нагрузке на RAM
           compressImage(file, 1440, 0.82, function(compressedBlob, previewData) {
             let processedFile;
             let sizeStr = '';
+            const pageNum = (isEdit ? (editTaskExistingMaterials.length + editSelectedPhotos.length) : selectedPhotos.length) + 1;
 
             if (compressedBlob) {
-              const safeFileName = (file.name || `page_${selectedPhotos.length + 1}.jpg`).replace(/\.[^/.]+$/, "") + ".jpg";
+              const baseName = (file.name || `${isEdit ? 'edit_' : ''}page_${pageNum}.jpg`).replace(/\.[^/.]+$/, "");
+              const safeFileName = `${baseName}.jpg`;
               processedFile = new File([compressedBlob], safeFileName, { type: "image/jpeg" });
               sizeStr = `${Math.round(compressedBlob.size / 1024)} КБ`;
             } else {
@@ -3372,22 +3378,64 @@
               sizeStr = `${(file.size / (1024 * 1024)).toFixed(1)} МБ`;
             }
 
-            selectedPhotos.push({
+            targetArray.push({
               file: processedFile,
               previewUrl: previewData,
               sizeText: sizeStr
             });
+            addedCount++;
             resolve();
           });
         });
       }
 
+      if (isEdit) {
+        renderEditNewPhotos();
+      } else {
+        renderPhotoPreviews();
+      }
+      if (addedCount > 0 && tg?.HapticFeedback) {
+        tg.HapticFeedback.notificationOccurred('success');
+      }
+      return addedCount;
+    }
+
+    async function handlePhotoSelected(input) {
+      if (!input || !input.files || input.files.length === 0) return;
+      const incomingFiles = Array.from(input.files);
+      await processPhotoFiles(incomingFiles, false);
       // Сбрасываем input value, чтобы можно было повторно выбрать тот же файл или добавить ещё
       input.value = '';
-
-      renderPhotoPreviews();
-      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
     }
+
+    // Поддержка вставки скриншотов с ноутбука через Ctrl+V в окне добавления / редактирования Д/З
+    document.addEventListener('paste', async function(e) {
+      const addModal = document.getElementById('add-modal');
+      const editModal = document.getElementById('edit-modal');
+      const isAddOpen = addModal && !addModal.classList.contains('hidden');
+      const isEditOpen = editModal && !editModal.classList.contains('hidden');
+      if (!isAddOpen && !isEditOpen) return;
+
+      const items = Array.from(e.clipboardData?.items || []);
+      const pastedImages = [];
+      for (const item of items) {
+        if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
+          const f = item.getAsFile();
+          if (f) {
+            const ext = (item.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+            const namedFile = new File([f], f.name && f.name !== 'image.png' ? f.name : `screenshot_${Date.now()}.${ext}`, { type: f.type });
+            pastedImages.push(namedFile);
+          }
+        }
+      }
+      if (pastedImages.length > 0) {
+        e.preventDefault();
+        const count = await processPhotoFiles(pastedImages, isEditOpen);
+        if (count > 0) {
+          showToast(`✓ Добавлено из буфера: ${count} фото`, 'success');
+        }
+      }
+    });
 
     function renderPhotoPreviews() {
       const container = document.getElementById('photos-preview-container');
@@ -4449,9 +4497,11 @@
             });
             if (!uploadRes.ok) {
               console.error('Ошибка загрузки фото:', await uploadRes.text());
+              showToast('⚠️ Задание создано, но фото не загрузились', 'warning');
             }
           } catch(upErr) {
             console.error('Сетевая ошибка при загрузке фото:', upErr);
+            showToast('⚠️ Сетевая ошибка при загрузке фото', 'warning');
           }
         }
 
@@ -4682,62 +4732,10 @@
     }
 
     async function handleEditPhotoSelected(input) {
-      const errorDiv = document.getElementById('edit-file-error-msg');
-      if (errorDiv) {
-        errorDiv.classList.add('hidden');
-        errorDiv.innerText = '';
-      }
-
-      if (!input.files || input.files.length === 0) return;
+      if (!input || !input.files || input.files.length === 0) return;
       const incomingFiles = Array.from(input.files);
-
-      const maxLimit = 10;
-      const currentTotal = editTaskExistingMaterials.length + editSelectedPhotos.length;
-      if (currentTotal + incomingFiles.length > maxLimit) {
-        if (errorDiv) {
-          errorDiv.innerText = `⚠️ Максимум можно прикрепить до ${maxLimit} страниц к одному заданию!`;
-          errorDiv.classList.remove('hidden');
-        }
-      }
-
-      const availableSlots = Math.max(0, maxLimit - currentTotal);
-      const filesToProcess = incomingFiles.slice(0, availableSlots);
-
-      for (const file of filesToProcess) {
-        const isImg = (file.type && file.type.startsWith('image/')) || 
-                      /\.(jpe?g|png|webp|heic|heif|bmp|gif)$/i.test(file.name || '') ||
-                      file.type === '';
-        if (!isImg) continue;
-
-        await new Promise((resolve) => {
-          compressImage(file, 1440, 0.82, function(compressedBlob, previewData) {
-            let processedFile;
-            let sizeStr = '';
-
-            const pageNum = editTaskExistingMaterials.length + editSelectedPhotos.length + 1;
-            if (compressedBlob) {
-              const safeFileName = (file.name || `edit_page_${pageNum}.jpg`).replace(/\.[^/.]+$/, "") + ".jpg";
-              processedFile = new File([compressedBlob], safeFileName, { type: "image/jpeg" });
-              sizeStr = `${Math.round(compressedBlob.size / 1024)} КБ`;
-            } else {
-              processedFile = file;
-              previewData = URL.createObjectURL(file);
-              sizeStr = `${(file.size / (1024 * 1024)).toFixed(1)} МБ`;
-            }
-
-            editSelectedPhotos.push({
-              file: processedFile,
-              previewUrl: previewData,
-              sizeText: sizeStr
-            });
-            resolve();
-          });
-        });
-      }
-
-      renderEditNewPhotos();
+      await processPhotoFiles(incomingFiles, true);
       input.value = '';
-      if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
     }
 
     function openEditModal(taskId) {
@@ -4898,9 +4896,11 @@
             });
             if (!uploadRes.ok) {
               console.error('Ошибка загрузки новых фото:', await uploadRes.text());
+              showToast('⚠️ Не удалось загрузить новые фото', 'warning');
             }
           } catch (upErr) {
             console.error('Сетевая ошибка при загрузке новых фото:', upErr);
+            showToast('⚠️ Сетевая ошибка при загрузке фото', 'warning');
           }
         }
 
