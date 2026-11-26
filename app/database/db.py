@@ -410,62 +410,19 @@ def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[st
     result: Dict[int, List[Dict[str, Any]]] = {tid: [] for tid in task_ids}
     for r in rows:
         t_id = r["task_id"]
-        mat_id = r["id"]
         caption = r["caption"] or ""
-        file_id = r["file_id"] or ""
-
         if caption.startswith("[COMMENT]"):
             continue
-
-        if caption.startswith("[LINK]"):
-            raw = caption[6:]
-            if "::" in raw:
-                link_url, link_title = raw.split("::", 1)
-            else:
-                link_url, link_title = raw, ""
-            link_url = link_url.strip()
-            link_title = link_title.strip() or link_url
-            item = {
-                "id": mat_id,
-                "task_id": t_id,
-                "type": "link",
-                "url": link_url,
-                "title": link_title,
-                "caption": link_title,
-                "file_id": link_url,
-                "uploader_id": r["uploader_id"],
-                "uploader_nick": r["uploader_nick"],
-                "uploader_name": r["uploader_name"]
-            }
-        elif file_id.startswith(("http://", "https://")):
-            item = {
-                "id": mat_id,
-                "task_id": t_id,
-                "type": "link",
-                "url": file_id,
-                "title": caption.strip() or file_id,
-                "caption": caption.strip() or file_id,
-                "file_id": file_id,
-                "uploader_id": r["uploader_id"],
-                "uploader_nick": r["uploader_nick"],
-                "uploader_name": r["uploader_name"]
-            }
-        else:
-            item = {
-                "id": mat_id,
-                "task_id": t_id,
-                "type": "image",
-                "file_id": f"/api/materials/{mat_id}",
-                "url": f"/api/materials/{mat_id}",
-                "caption": caption,
-                "uploader_id": r["uploader_id"],
-                "uploader_nick": r["uploader_nick"],
-                "uploader_name": r["uploader_name"]
-            }
-        if t_id in result:
-            result[t_id].append(item)
-        else:
-            result[t_id] = [item]
+        item = supabase_db.build_material_item(
+            mat_id=r["id"],
+            task_id=t_id,
+            caption=caption,
+            uploader_id=r["uploader_id"],
+            uploader_nick=r["uploader_nick"],
+            uploader_name=r["uploader_name"],
+            file_id=r["file_id"] or "",
+        )
+        result.setdefault(t_id, []).append(item)
     return result
 
 def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:

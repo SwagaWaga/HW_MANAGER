@@ -343,6 +343,87 @@ def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
     batch = get_materials_for_tasks_batch([task_id])
     return batch.get(task_id, [])
 
+def build_material_item(
+    mat_id: int,
+    task_id: int,
+    caption: str,
+    uploader_id: Any,
+    uploader_nick: str,
+    uploader_name: str,
+    file_id: str = "",
+) -> Dict[str, Any]:
+    """Формирует нормализованный словарь материала (ссылка, документ или фото) без дублирования логики."""
+    cap = caption or ""
+    if cap.startswith("[LINK]"):
+        raw = cap[6:]
+        link_url, link_title = raw.split("::", 1) if "::" in raw else (raw, "")
+        link_url = link_url.strip()
+        link_title = link_title.strip() or link_url
+        return {
+            "id": mat_id,
+            "task_id": task_id,
+            "type": "link",
+            "url": link_url,
+            "title": link_title,
+            "caption": link_title,
+            "file_id": link_url,
+            "uploader_id": uploader_id,
+            "uploader_nick": uploader_nick,
+            "uploader_name": uploader_name,
+        }
+    if file_id.startswith(("http://", "https://")):
+        title = cap.strip() or file_id
+        return {
+            "id": mat_id,
+            "task_id": task_id,
+            "type": "link",
+            "url": file_id,
+            "title": title,
+            "caption": title,
+            "file_id": file_id,
+            "uploader_id": uploader_id,
+            "uploader_nick": uploader_nick,
+            "uploader_name": uploader_name,
+        }
+    if cap.startswith("[FILE]"):
+        raw_f = cap[6:]
+        f_size = 0
+        if "::" in raw_f:
+            fname, size_str = raw_f.rsplit("::", 1)
+            try:
+                f_size = max(0, int(size_str.strip()))
+            except ValueError:
+                fname = raw_f
+        else:
+            fname = raw_f
+        fname = fname.strip() or f"file_{mat_id}"
+        return {
+            "id": mat_id,
+            "task_id": task_id,
+            "type": "file",
+            "file_id": f"/api/materials/{mat_id}",
+            "url": f"/api/materials/{mat_id}",
+            "download_url": f"/api/materials/{mat_id}/download",
+            "filename": fname,
+            "title": fname,
+            "caption": fname,
+            "size": f_size,
+            "uploader_id": uploader_id,
+            "uploader_nick": uploader_nick,
+            "uploader_name": uploader_name,
+        }
+    return {
+        "id": mat_id,
+        "task_id": task_id,
+        "type": "image",
+        "file_id": f"/api/materials/{mat_id}",
+        "url": f"/api/materials/{mat_id}",
+        "caption": cap,
+        "uploader_id": uploader_id,
+        "uploader_nick": uploader_nick,
+        "uploader_name": uploader_name,
+    }
+
 def get_materials_and_comments_batch(task_ids: List[int]) -> Tuple[Dict[int, List[Dict[str, Any]]], Dict[int, int]]:
     """Одним запросом получает материалы и счётчики комментариев для списка заданий."""
     if not task_ids:
@@ -369,41 +450,14 @@ def get_materials_and_comments_batch(task_ids: List[int]) -> Tuple[Dict[int, Lis
                 continue
 
             u_info = row.get("users") or {}
-            mat_id = row["id"]
-
-            if caption.startswith("[LINK]"):
-                raw = caption[6:]
-                if "::" in raw:
-                    link_url, link_title = raw.split("::", 1)
-                else:
-                    link_url, link_title = raw, ""
-                link_url = link_url.strip()
-                link_title = link_title.strip() or link_url
-                mat_item = {
-                    "id": mat_id,
-                    "task_id": t_id,
-                    "type": "link",
-                    "url": link_url,
-                    "title": link_title,
-                    "caption": link_title,
-                    "file_id": link_url,
-                    "uploader_id": row["uploader_id"],
-                    "uploader_nick": u_info.get("telegram_nick") or f"@ученик_{row['uploader_id']}",
-                    "uploader_name": u_info.get("full_name") or ""
-                }
-            else:
-                mat_item = {
-                    "id": mat_id,
-                    "task_id": t_id,
-                    "type": "image",
-                    "file_id": f"/api/materials/{mat_id}",
-                    "url": f"/api/materials/{mat_id}",
-                    "caption": caption,
-                    "uploader_id": row["uploader_id"],
-                    "uploader_nick": u_info.get("telegram_nick") or f"@ученик_{row['uploader_id']}",
-                    "uploader_name": u_info.get("full_name") or ""
-                }
-
+            mat_item = build_material_item(
+                mat_id=row["id"],
+                task_id=t_id,
+                caption=caption,
+                uploader_id=row["uploader_id"],
+                uploader_nick=u_info.get("telegram_nick") or f"@ученик_{row['uploader_id']}",
+                uploader_name=u_info.get("full_name") or "",
+            )
             materials.setdefault(t_id, []).append(mat_item)
         return materials, comment_counts
     except Exception as e:

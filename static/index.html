@@ -1108,7 +1108,7 @@
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Версия приложения</span>
-              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.10.0 Pro</span>
+              <span class="font-mono font-bold text-amber-500 bg-amber-400/15 px-2 py-0.5 rounded-md">v2.11.0 Pro</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-slate-500 dark:text-slate-400">Часовой пояс расписания</span>
@@ -1238,6 +1238,32 @@
           </div>
 
           <div id="file-error-msg" class="text-[11px] text-rose-500 font-medium mt-1.5 hidden"></div>
+        </div>
+
+        <!-- Прикрепление файлов и документов (PDF, Word, презентации, архивы, код) -->
+        <div class="pt-2 border-t border-slate-200/60 dark:border-white/10">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-cyan-500"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span>Файлы (PDF, Word, ZIP...)</span>
+            </label>
+            <span id="files-count-badge" class="hidden text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
+              0 / 5
+            </span>
+          </div>
+
+          <input type="file" id="modal-doc-files" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt,.md,.csv,.zip,.rar,.7z,.tar,.gz,.py,.js,.ts,.html,.css,.cpp,.c,.h,.java,.json,.xml,.sql,.ipynb" multiple onchange="handleDocFilesSelected(this, false)" style="position:absolute;top:0;left:0;opacity:0;width:0.1px;height:0.1px;overflow:hidden;z-index:-1;" />
+
+          <div id="files-preview-container" class="hidden mb-2 space-y-1.5 max-h-40 overflow-y-auto"></div>
+
+          <label for="modal-doc-files" ondragover="handleDocFilesDragOver(event, true)" ondragleave="handleDocFilesDragOver(event, false)" ondrop="handleDocFilesDrop(event, false)" class="cursor-pointer py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/15 active:scale-95 border border-dashed border-cyan-500/35 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-between gap-2 transition shadow-xs select-none">
+            <span class="flex items-center gap-2 min-w-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+              <span class="truncate">Прикрепить файлы</span>
+            </span>
+            <span class="text-[10px] font-medium opacity-75 shrink-0">до 10 МБ · макс. 5</span>
+          </label>
+          <div id="doc-file-error-msg" class="text-[11px] text-rose-500 font-medium mt-1.5 hidden"></div>
         </div>
 
         <!-- Внешние ссылки и материалы (видео, сайты, документы) -->
@@ -1380,6 +1406,33 @@
           <div id="edit-file-error-msg" class="text-[11px] text-rose-500 font-medium mt-1.5 hidden"></div>
         </div>
 
+        <!-- Файлы и документы в окне редактирования -->
+        <div class="pt-2 border-t border-slate-200/60 dark:border-white/10">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-cyan-500"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              <span>Файлы (PDF, Word, ZIP...)</span>
+            </label>
+            <span id="edit-files-count-badge" class="hidden text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-300 border border-cyan-500/30">
+              0 / 5
+            </span>
+          </div>
+
+          <input type="file" id="edit-doc-files" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.odt,.ods,.odp,.rtf,.txt,.md,.csv,.zip,.rar,.7z,.tar,.gz,.py,.js,.ts,.html,.css,.cpp,.c,.h,.java,.json,.xml,.sql,.ipynb" multiple onchange="handleDocFilesSelected(this, true)" style="position:absolute;top:0;left:0;opacity:0;width:0.1px;height:0.1px;overflow:hidden;z-index:-1;" />
+
+          <div id="edit-existing-files-container" class="hidden mb-2 space-y-1.5 max-h-40 overflow-y-auto"></div>
+          <div id="edit-new-files-container" class="hidden mb-2 space-y-1.5 max-h-40 overflow-y-auto"></div>
+
+          <label for="edit-doc-files" ondragover="handleDocFilesDragOver(event, true)" ondragleave="handleDocFilesDragOver(event, false)" ondrop="handleDocFilesDrop(event, true)" class="cursor-pointer py-2.5 px-3 rounded-xl bg-cyan-500/10 hover:bg-cyan-500/15 active:scale-95 border border-dashed border-cyan-500/35 text-cyan-700 dark:text-cyan-300 font-bold text-xs flex items-center justify-between gap-2 transition shadow-xs select-none">
+            <span class="flex items-center gap-2 min-w-0">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+              <span class="truncate">Прикрепить ещё файлы</span>
+            </span>
+            <span class="text-[10px] font-medium opacity-75 shrink-0">до 10 МБ · макс. 5</span>
+          </label>
+          <div id="edit-doc-file-error-msg" class="text-[11px] text-rose-500 font-medium mt-1.5 hidden"></div>
+        </div>
+
         <!-- Внешние ссылки в окне редактирования -->
         <div class="pt-2 border-t border-slate-200/60 dark:border-white/10">
           <div class="flex items-center justify-between mb-1.5">
@@ -1475,6 +1528,9 @@
           </div>
           <div id="comments-task-photos-grid" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5"></div>
         </div>
+
+        <!-- Прикреплённые файлы задания (если есть) -->
+        <div id="comments-task-files-container" class="hidden flex flex-wrap gap-1.5 pt-1 border-t border-slate-200/50 dark:border-white/5"></div>
 
         <!-- Ссылки задания (если есть) -->
         <div id="comments-task-links-container" class="hidden flex flex-wrap gap-1.5 pt-1 border-t border-slate-200/50 dark:border-white/5"></div>
@@ -2057,17 +2113,392 @@
     }
 
     let selectedPhotos = []; // Массив выбранных страниц: [{ file: File, previewUrl: string, sizeText: string }]
+    let selectedFiles = []; // Массив выбранных документов для создания: [{ file: File, name: string, size: number, sizeText: string }]
+    let editSelectedFiles = []; // Массив новых документов для редактирования
     let selectedLinks = []; // Массив внешних ссылок для создания: [{ url: string, title: string }]
     let editSelectedLinks = []; // Массив новых ссылок для редактирования: [{ url: string, title: string }]
 
-    function isMaterialLink(m) {
+    const MAX_DOC_FILE_BYTES = 10 * 1024 * 1024; // 10 МБ
+    const MAX_DOC_FILES_PER_TASK = 5;
+    const BLOCKED_DOC_EXTS = new Set([
+      'exe', 'bat', 'cmd', 'com', 'msi', 'sh', 'vbs', 'vbe',
+      'jse', 'wsf', 'wsh', 'ps1', 'scr', 'dll', 'pif', 'apk',
+      'jar', 'cpl', 'hta', 'reg'
+    ]);
+
+    function isMaterialFile(m) {
       if (!m) return false;
+      if (m.type === 'file') return true;
+      const cap = String(m.caption || '');
+      return cap.startsWith('[FILE]');
+    }
+
+    function isMaterialLink(m) {
+      if (!m || isMaterialFile(m)) return false;
       if (m.type === 'link') return true;
       if (m.type === 'image') return false;
       const cap = m.caption || '';
       if (cap.startsWith('[LINK]')) return true;
       const u = m.url || m.file_id || '';
       return (u.startsWith('http://') || u.startsWith('https://')) && !u.includes('/api/materials/');
+    }
+
+    function formatFileSize(bytes) {
+      const b = Number(bytes) || 0;
+      if (b <= 0) return '';
+      if (b < 1024) return `${b} Б`;
+      if (b < 1024 * 1024) return `${Math.max(1, Math.round(b / 1024))} КБ`;
+      return `${(b / (1024 * 1024)).toFixed(1)} МБ`;
+    }
+
+    function getFileBadgeInfo(filename) {
+      const clean = String(filename || '').trim();
+      const dotIdx = clean.lastIndexOf('.');
+      const ext = dotIdx > 0 ? clean.slice(dotIdx + 1).toLowerCase() : '';
+      const shortExt = ext ? ext.slice(0, 4).toUpperCase() : 'FILE';
+
+      if (ext === 'pdf') {
+        return {
+          extLabel: 'PDF',
+          pillClass: 'bg-rose-500/20 text-rose-600 dark:text-rose-300 border-rose-500/30',
+          cardClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-300 border-rose-500/25',
+        };
+      }
+      if (['doc', 'docx', 'odt', 'rtf'].includes(ext)) {
+        return {
+          extLabel: shortExt,
+          pillClass: 'bg-blue-500/20 text-blue-600 dark:text-blue-300 border-blue-500/30',
+          cardClass: 'bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/25',
+        };
+      }
+      if (['ppt', 'pptx', 'odp'].includes(ext)) {
+        return {
+          extLabel: shortExt,
+          pillClass: 'bg-orange-500/20 text-orange-600 dark:text-orange-300 border-orange-500/30',
+          cardClass: 'bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/25',
+        };
+      }
+      if (['xls', 'xlsx', 'ods', 'csv'].includes(ext)) {
+        return {
+          extLabel: shortExt,
+          pillClass: 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 border-emerald-500/30',
+          cardClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/25',
+        };
+      }
+      if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) {
+        return {
+          extLabel: shortExt,
+          pillClass: 'bg-violet-500/20 text-violet-600 dark:text-violet-300 border-violet-500/30',
+          cardClass: 'bg-violet-500/10 text-violet-700 dark:text-violet-300 border-violet-500/25',
+        };
+      }
+      if (['py', 'js', 'ts', 'html', 'htm', 'css', 'cpp', 'c', 'h', 'java', 'json', 'xml', 'sql', 'ipynb', 'md'].includes(ext)) {
+        return {
+          extLabel: shortExt,
+          pillClass: 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border-cyan-500/30',
+          cardClass: 'bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/25',
+        };
+      }
+      return {
+        extLabel: shortExt,
+        pillClass: 'bg-slate-500/20 text-slate-700 dark:text-slate-300 border-slate-400/30',
+        cardClass: 'bg-slate-500/10 text-slate-700 dark:text-slate-200 border-slate-400/25',
+      };
+    }
+
+    function getMaterialFileMeta(m) {
+      let filename = m?.filename || m?.title || '';
+      let size = Number(m?.size) || 0;
+      const cap = String(m?.caption || '');
+      if (cap.startsWith('[FILE]')) {
+        const raw = cap.slice(6);
+        const sepIdx = raw.lastIndexOf('::');
+        if (sepIdx !== -1) {
+          filename = filename || raw.slice(0, sepIdx).trim();
+          if (!size) size = Number(raw.slice(sepIdx + 2).trim()) || 0;
+        } else {
+          filename = filename || raw.trim();
+        }
+      }
+      filename = filename || `file_${m?.id || 'doc'}`;
+      const id = m?.id || null;
+      const downloadUrl = m?.download_url || (id ? `/api/materials/${id}/download` : (m?.url || m?.file_id || ''));
+      return {
+        id,
+        filename,
+        size,
+        sizeText: formatFileSize(size),
+        downloadUrl,
+      };
+    }
+
+    function _triggerBrowserFileDownload(dlPath, absUrl, filename) {
+      const platform = String(window.Telegram?.WebApp?.platform || '').toLowerCase();
+      if (['ios', 'android', 'android_x'].includes(platform) && window.Telegram?.WebApp?.openLink) {
+        try {
+          window.Telegram.WebApp.openLink(absUrl);
+          return;
+        } catch (e) {
+          console.warn('tg.openLink download fallback:', e);
+        }
+      }
+      const a = document.createElement('a');
+      a.href = dlPath;
+      if (filename) a.download = filename;
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+
+    function downloadMaterialFile(materialId, filename = '', directUrl = '') {
+      const dlPath = directUrl || (materialId ? `/api/materials/${materialId}/download` : '');
+      if (!dlPath) return;
+      const absUrl = dlPath.startsWith('http://') || dlPath.startsWith('https://')
+        ? dlPath
+        : `${window.location.origin}${dlPath.startsWith('/') ? '' : '/'}${dlPath}`;
+
+      if (window.Telegram?.WebApp?.downloadFile && (!window.Telegram.WebApp.isVersionAtLeast || window.Telegram.WebApp.isVersionAtLeast('8.0'))) {
+        try {
+          window.Telegram.WebApp.downloadFile({ url: absUrl, file_name: filename || 'document' }, (accepted) => {
+            if (!accepted) {
+              _triggerBrowserFileDownload(dlPath, absUrl, filename);
+            }
+          });
+          return;
+        } catch (e) {
+          console.warn('tg.downloadFile failed:', e);
+        }
+      }
+      _triggerBrowserFileDownload(dlPath, absUrl, filename);
+      showToast(`⬇️ Скачивание: ${filename || 'файл'}`, 'info');
+    }
+
+    function downloadMaterialFileFromEl(el) {
+      if (!el) return;
+      const matId = Number(el.dataset.matId) || 0;
+      const filename = el.dataset.fileName || '';
+      const directUrl = el.dataset.fileUrl || '';
+      downloadMaterialFile(matId, filename, directUrl);
+    }
+
+    function renderDocFileChipRow({ filename, sizeText, removeOnClick, cardOverrideClass = '' }) {
+      const info = getFileBadgeInfo(filename);
+      const rowClass = cardOverrideClass || info.cardClass;
+      return `
+        <div class="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border ${rowClass} text-xs">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="px-1.5 py-0.5 rounded-md border text-[9.5px] font-black font-mono shrink-0 ${info.pillClass}">${escapeHtml(info.extLabel)}</span>
+            <span class="font-bold truncate max-w-[170px] sm:max-w-[230px]">${escapeHtml(filename)}</span>
+            ${sizeText ? `<span class="text-[10px] opacity-75 font-mono shrink-0">${escapeHtml(sizeText)}</span>` : ''}
+          </div>
+          <button type="button" onclick="${removeOnClick}" class="w-5 h-5 rounded-full hover:bg-black/10 dark:hover:bg-white/10 flex items-center justify-center font-bold text-slate-500 hover:text-rose-500 transition shrink-0" title="Удалить файл">✕</button>
+        </div>
+      `;
+    }
+
+    function renderTaskFilesHTML(fileMaterials, compact = false) {
+      if (!fileMaterials || fileMaterials.length === 0) return '';
+      return fileMaterials.map(m => {
+        const meta = getMaterialFileMeta(m);
+        const info = getFileBadgeInfo(meta.filename);
+        const padClass = compact ? 'px-2.5 py-1 rounded-lg' : 'px-3 py-1.5 rounded-xl';
+        const maxWClass = compact ? 'max-w-[140px]' : 'max-w-[165px] sm:max-w-[215px]';
+        return `
+          <button type="button" onclick="downloadMaterialFileFromEl(this)" data-mat-id="${Number(meta.id) || 0}" data-file-name="${escapeHtml(meta.filename)}" data-file-url="${escapeHtml(meta.downloadUrl)}" class="inline-flex items-center gap-1.5 ${padClass} text-xs font-bold border ${info.cardClass} hover:opacity-85 active:scale-95 transition shadow-2xs max-w-full" title="Скачать ${escapeHtml(meta.filename)}">
+            <span class="px-1.5 py-0.5 rounded border text-[9px] font-black font-mono shrink-0 ${info.pillClass}">${escapeHtml(info.extLabel)}</span>
+            <span class="truncate ${maxWClass}">${escapeHtml(meta.filename)}</span>
+            ${meta.sizeText ? `<span class="text-[10px] opacity-75 font-mono shrink-0">${escapeHtml(meta.sizeText)}</span>` : ''}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 opacity-80 shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function renderDocFilesPreview(isEdit = false) {
+      if (!isEdit) {
+        const container = document.getElementById('files-preview-container');
+        const badge = document.getElementById('files-count-badge');
+        if (!container) return;
+        if (selectedFiles.length === 0) {
+          container.classList.add('hidden');
+          container.innerHTML = '';
+          if (badge) badge.classList.add('hidden');
+          return;
+        }
+        container.classList.remove('hidden');
+        if (badge) {
+          badge.innerText = `${selectedFiles.length} / ${MAX_DOC_FILES_PER_TASK}`;
+          badge.classList.remove('hidden');
+        }
+        container.innerHTML = selectedFiles.map((f, idx) =>
+          renderDocFileChipRow({
+            filename: f.name,
+            sizeText: f.sizeText,
+            removeOnClick: `removeDocFile(${idx}, false)`,
+          })
+        ).join('');
+        return;
+      }
+
+      const existContainer = document.getElementById('edit-existing-files-container');
+      const newContainer = document.getElementById('edit-new-files-container');
+      const badge = document.getElementById('edit-files-count-badge');
+      const existingFiles = editTaskExistingMaterials.filter(m => isMaterialFile(m));
+      const totalCount = existingFiles.length + editSelectedFiles.length;
+
+      if (badge) {
+        if (totalCount > 0) {
+          badge.innerText = `${totalCount} / ${MAX_DOC_FILES_PER_TASK}`;
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+
+      if (existContainer) {
+        if (existingFiles.length > 0) {
+          existContainer.classList.remove('hidden');
+          existContainer.innerHTML = existingFiles.map(m => {
+            const meta = getMaterialFileMeta(m);
+            return renderDocFileChipRow({
+              filename: meta.filename,
+              sizeText: meta.sizeText,
+              removeOnClick: `removeEditExistingFile(${Number(m.id)})`,
+              cardOverrideClass: 'border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/5 text-slate-800 dark:text-slate-100',
+            });
+          }).join('');
+        } else {
+          existContainer.classList.add('hidden');
+          existContainer.innerHTML = '';
+        }
+      }
+
+      if (newContainer) {
+        if (editSelectedFiles.length > 0) {
+          newContainer.classList.remove('hidden');
+          newContainer.innerHTML = editSelectedFiles.map((f, idx) =>
+            renderDocFileChipRow({
+              filename: f.name,
+              sizeText: f.sizeText,
+              removeOnClick: `removeDocFile(${idx}, true)`,
+            })
+          ).join('');
+        } else {
+          newContainer.classList.add('hidden');
+          newContainer.innerHTML = '';
+        }
+      }
+    }
+
+    function processDocFiles(incomingFiles, isEdit = false) {
+      const errorDiv = document.getElementById(isEdit ? 'edit-doc-file-error-msg' : 'doc-file-error-msg');
+      if (errorDiv) {
+        errorDiv.classList.add('hidden');
+        errorDiv.innerText = '';
+      }
+      if (!incomingFiles || incomingFiles.length === 0) return 0;
+
+      const targetArray = isEdit ? editSelectedFiles : selectedFiles;
+      const existingCount = isEdit ? editTaskExistingMaterials.filter(m => isMaterialFile(m)).length : 0;
+      let currentTotal = existingCount + targetArray.length;
+      const errors = [];
+      let addedCount = 0;
+
+      for (const file of incomingFiles) {
+        if (!file) continue;
+        const name = (file.name || `document_${Date.now()}`).trim();
+        const dotIdx = name.lastIndexOf('.');
+        const ext = dotIdx > 0 ? name.slice(dotIdx + 1).toLowerCase() : '';
+
+        if (BLOCKED_DOC_EXTS.has(ext)) {
+          errors.push(`Формат .${ext} запрещён по соображениям безопасности`);
+          continue;
+        }
+        if (file.size <= 0) {
+          errors.push(`Файл «${name}» пуст`);
+          continue;
+        }
+        if (file.size > MAX_DOC_FILE_BYTES) {
+          errors.push(`Файл «${name}» больше 10 МБ`);
+          continue;
+        }
+        if (currentTotal >= MAX_DOC_FILES_PER_TASK) {
+          errors.push(`Максимум ${MAX_DOC_FILES_PER_TASK} файлов на одно задание`);
+          break;
+        }
+        const alreadyExists = targetArray.some(item => item.name === name && item.size === file.size);
+        if (alreadyExists) continue;
+
+        targetArray.push({
+          file,
+          name,
+          size: file.size,
+          sizeText: formatFileSize(file.size),
+        });
+        currentTotal++;
+        addedCount++;
+      }
+
+      if (errors.length > 0 && errorDiv) {
+        errorDiv.innerText = `⚠️ ${errors[0]}`;
+        errorDiv.classList.remove('hidden');
+        showToast(errors[0], 'warning');
+      }
+
+      renderDocFilesPreview(isEdit);
+      if (addedCount > 0) {
+        soundFx.playSuccess();
+        if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+      }
+      return addedCount;
+    }
+
+    function handleDocFilesSelected(input, isEdit = false) {
+      if (!input || !input.files || input.files.length === 0) return;
+      processDocFiles(Array.from(input.files), isEdit);
+      input.value = '';
+    }
+
+    function handleDocFilesDragOver(event, isActive) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.currentTarget) {
+        event.currentTarget.classList.toggle('bg-cyan-500/25', isActive);
+      }
+    }
+
+    function handleDocFilesDrop(event, isEdit = false) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.currentTarget) {
+        event.currentTarget.classList.remove('bg-cyan-500/25');
+      }
+      const dropped = Array.from(event.dataTransfer?.files || []);
+      if (dropped.length > 0) {
+        const imgs = dropped.filter(f => isSupportedImageFile(f) && (f.type || '').startsWith('image/'));
+        const docs = dropped.filter(f => !imgs.includes(f));
+        if (imgs.length > 0) processPhotoFiles(imgs, isEdit);
+        if (docs.length > 0) processDocFiles(docs, isEdit);
+      }
+    }
+
+    function removeDocFile(index, isEdit = false) {
+      const targetArray = isEdit ? editSelectedFiles : selectedFiles;
+      if (index >= 0 && index < targetArray.length) {
+        targetArray.splice(index, 1);
+        renderDocFilesPreview(isEdit);
+        if (tg?.HapticFeedback) tg.HapticFeedback.selectionChanged();
+      }
+    }
+
+    function removeEditExistingFile(materialId) {
+      if (!editDeletedMaterialIds.includes(materialId)) {
+        editDeletedMaterialIds.push(materialId);
+      }
+      editTaskExistingMaterials = editTaskExistingMaterials.filter(m => m.id !== materialId);
+      renderDocFilesPreview(true);
+      showToast('Файл будет удалён при сохранении', 'info');
     }
 
     function getLinkBadgeInfo(url) {
@@ -2678,7 +3109,8 @@
       if (!incomingFiles || incomingFiles.length === 0) return;
       const maxLimit = 10;
       const targetArray = isEdit ? editSelectedPhotos : selectedPhotos;
-      const currentTotal = isEdit ? (editTaskExistingMaterials.length + editSelectedPhotos.length) : selectedPhotos.length;
+      const existingPhotosCount = isEdit ? editTaskExistingMaterials.filter(m => !isMaterialLink(m) && !isMaterialFile(m)).length : 0;
+      const currentTotal = isEdit ? (existingPhotosCount + editSelectedPhotos.length) : selectedPhotos.length;
 
       if (currentTotal + incomingFiles.length > maxLimit && errorDiv) {
         errorDiv.innerText = `⚠️ Максимум можно прикрепить до ${maxLimit} страниц к одному заданию!`;
@@ -2750,13 +3182,17 @@
 
       const items = Array.from(e.clipboardData?.items || []);
       const pastedImages = [];
+      const pastedDocs = [];
       for (const item of items) {
-        if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
+        if (item.kind === 'file') {
           const f = item.getAsFile();
-          if (f) {
+          if (!f) continue;
+          if (item.type && item.type.startsWith('image/')) {
             const ext = (item.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
             const namedFile = new File([f], f.name && f.name !== 'image.png' ? f.name : `screenshot_${Date.now()}.${ext}`, { type: f.type });
             pastedImages.push(namedFile);
+          } else {
+            pastedDocs.push(f);
           }
         }
       }
@@ -2765,6 +3201,13 @@
         const count = await processPhotoFiles(pastedImages, isEditOpen);
         if (count > 0) {
           showToast(`✓ Добавлено из буфера: ${count} фото`, 'success');
+        }
+      }
+      if (pastedDocs.length > 0) {
+        e.preventDefault();
+        const docCount = processDocFiles(pastedDocs, isEditOpen);
+        if (docCount > 0) {
+          showToast(`✓ Добавлено файлов из буфера: ${docCount}`, 'success');
         }
       }
     });
@@ -2838,16 +3281,22 @@
         }
       });
       selectedPhotos = [];
+      selectedFiles = [];
       selectedLinks = [];
       const camInput = document.getElementById('modal-photo-camera');
       const galInput = document.getElementById('modal-photo-gallery');
+      const docInput = document.getElementById('modal-doc-files');
       const linkUrlInput = document.getElementById('link-url-input');
       const linkTitleInput = document.getElementById('link-title-input');
+      const docErrDiv = document.getElementById('doc-file-error-msg');
       if (camInput) camInput.value = '';
       if (galInput) galInput.value = '';
+      if (docInput) docInput.value = '';
       if (linkUrlInput) linkUrlInput.value = '';
       if (linkTitleInput) linkTitleInput.value = '';
+      if (docErrDiv) docErrDiv.classList.add('hidden');
       renderPhotoPreviews();
+      renderDocFilesPreview(false);
       renderAddLinksPreview();
       if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
     }
@@ -3470,7 +3919,8 @@
             badge: 'bg-slate-100 dark:bg-white/10 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-white/10' 
           };
 
-          const photoMaterials = (t.materials || []).filter(m => !isMaterialLink(m));
+          const photoMaterials = (t.materials || []).filter(m => !isMaterialLink(m) && !isMaterialFile(m));
+          const fileMaterials = (t.materials || []).filter(m => isMaterialFile(m));
           const linkMaterials = (t.materials || []).filter(m => isMaterialLink(m));
           const matCount = photoMaterials.length;
           const authorAvatarHTML = renderAvatarElement(t.user_id, 'w-6 h-6 text-[10px]');
@@ -3501,6 +3951,13 @@
                 `;
               }).join('')}
             </div>
+          </div>
+        ` : '';
+
+        // Список прикреплённых документов, презентаций, архивов и файлов кода
+        const filesHTML = fileMaterials.length > 0 ? `
+          <div class="my-2 pt-1.5 border-t border-slate-100 dark:border-white/5 flex flex-wrap gap-1.5">
+            ${renderTaskFilesHTML(fileMaterials, false)}
           </div>
         ` : '';
 
@@ -3548,6 +4005,12 @@
                     <span>${matCount === 1 ? '1 фото' : `${matCount} фото`}</span>
                   </button>
                 ` : ''}
+                ${fileMaterials.length > 0 ? `
+                  <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-cyan-600 dark:text-cyan-300 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-500/20" title="${fileMaterials.length} прикрепленных файлов">
+                    <span>📎</span>
+                    <span>${fileMaterials.length}</span>
+                  </span>
+                ` : ''}
                 ${linkMaterials.length > 0 ? `
                   <span class="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-500 dark:text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/20" title="${linkMaterials.length} прикрепленных ссылок">
                     <span>🔗</span>
@@ -3578,6 +4041,9 @@
 
             <!-- Превью прикрепленных страниц -->
             ${photoGalleryHTML}
+
+            <!-- Прикрепленные документы и файлы -->
+            ${filesHTML}
 
             <!-- Прикрепленные ссылки и материалы -->
             ${linksHTML}
@@ -3778,6 +4244,33 @@
       }
     }
 
+    async function uploadDocFilesForTask(targetTaskId, docItems) {
+      if (!docItems || docItems.length === 0 || !targetTaskId) return true;
+      const formData = new FormData();
+      formData.append('task_id', targetTaskId);
+      formData.append('user_id', userId);
+      for (const item of docItems) {
+        formData.append('files', item.file);
+      }
+      try {
+        const res = await fetch('/api/materials/files', {
+          method: 'POST',
+          body: formData
+        });
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          console.error('Ошибка загрузки файлов:', errData);
+          showToast(`⚠️ ${errData.detail || 'Не удалось загрузить файлы'}`, 'warning');
+          return false;
+        }
+        return true;
+      } catch (upErr) {
+        console.error('Сетевая ошибка при загрузке файлов:', upErr);
+        showToast('⚠️ Сетевая ошибка при загрузке файлов', 'warning');
+        return false;
+      }
+    }
+
     async function submitNewTask() {
       const subject = document.getElementById('modal-subject').value;
       const dueDate = document.getElementById('modal-date').value;
@@ -3858,6 +4351,11 @@
           }
         }
 
+        if (selectedFiles.length > 0 && createdTaskId) {
+          submitBtn.innerText = `Загрузка файлов (${selectedFiles.length})...`;
+          await uploadDocFilesForTask(createdTaskId, selectedFiles);
+        }
+
         clearAllPhotos();
         document.getElementById('modal-desc').value = '';
         document.getElementById('desc-char-count').innerText = '0 / 1500';
@@ -3893,9 +4391,10 @@
     // РЕДАКТИРОВАНИЕ И УДАЛЕНИЕ ЗАДАНИЯ
     // ========================================================
     function updateEditPhotoCountBadge() {
-      const badge = document.getElementById('edit-photo-count-badge');
+      const badge = document.getElementById('edit-photos-count-badge');
       if (badge) {
-        const total = editTaskExistingMaterials.length + editSelectedPhotos.length;
+        const existingPhotosCount = editTaskExistingMaterials.filter(m => !isMaterialLink(m) && !isMaterialFile(m)).length;
+        const total = existingPhotosCount + editSelectedPhotos.length;
         badge.innerText = `${total} / 10`;
       }
     }
@@ -3978,12 +4477,13 @@
       const grid = document.getElementById('edit-existing-photos-grid');
       if (!container || !grid) return;
 
-      if (editTaskExistingMaterials.length === 0) {
+      const existingPhotos = editTaskExistingMaterials.filter(m => !isMaterialLink(m) && !isMaterialFile(m));
+      if (existingPhotos.length === 0) {
         container.classList.add('hidden');
         grid.innerHTML = '';
       } else {
         container.classList.remove('hidden');
-        grid.innerHTML = editTaskExistingMaterials.map((m, idx) => {
+        grid.innerHTML = existingPhotos.map((m, idx) => {
           const imgUrl = m.url || m.file_id || m.material_url || '';
           return `
             <div class="relative group rounded-xl overflow-hidden border border-slate-300 dark:border-white/10 bg-slate-900 aspect-[3/4] flex flex-col justify-between p-1.5 shadow-sm">
@@ -4093,8 +4593,13 @@
       editTaskId = taskId;
       editDeletedMaterialIds = [];
       editSelectedPhotos = [];
+      editSelectedFiles = [];
       editSelectedLinks = [];
       editTaskExistingMaterials = (task.materials || []).map(m => ({ ...m }));
+      const editDocErr = document.getElementById('edit-doc-file-error-msg');
+      if (editDocErr) editDocErr.classList.add('hidden');
+      const editDocInput = document.getElementById('edit-doc-files');
+      if (editDocInput) editDocInput.value = '';
 
       document.getElementById('edit-task-id').value = task.id;
       document.getElementById('edit-modal-subject').value = task.subject || '';
@@ -4109,6 +4614,7 @@
       updateEditDateButtons(task.due_date || getISODate(1));
       renderEditExistingPhotos();
       renderEditNewPhotos();
+      renderDocFilesPreview(true);
       renderEditLinks();
 
       const modal = document.getElementById('edit-modal');
@@ -4134,6 +4640,7 @@
         }
       });
       editSelectedPhotos = [];
+      editSelectedFiles = [];
       editSelectedLinks = [];
       editDeletedMaterialIds = [];
       editTaskExistingMaterials = [];
@@ -4143,6 +4650,8 @@
       if (camInput) camInput.value = '';
       const galInput = document.getElementById('edit-photo-gallery');
       if (galInput) galInput.value = '';
+      const docInput = document.getElementById('edit-doc-files');
+      if (docInput) docInput.value = '';
       const linkUrlInput = document.getElementById('edit-link-url-input');
       const linkTitleInput = document.getElementById('edit-link-title-input');
       if (linkUrlInput) linkUrlInput.value = '';
@@ -4256,6 +4765,12 @@
           } catch (linkErr) {
             console.error('Ошибка добавления новых ссылок:', linkErr);
           }
+        }
+
+        // 5. Загружаем новые прикрепленные файлы
+        if (editSelectedFiles.length > 0) {
+          submitBtn.innerText = `Загрузка файлов (${editSelectedFiles.length})...`;
+          await uploadDocFilesForTask(editTaskId, editSelectedFiles);
         }
 
         closeEditModal();
@@ -4385,7 +4900,7 @@
         }
 
         // Рендеринг прикрепленных фотографий задания (страницы учебника / тетради)
-        const photoMaterials = (task.materials || []).filter(m => !isMaterialLink(m));
+        const photoMaterials = (task.materials || []).filter(m => !isMaterialLink(m) && !isMaterialFile(m));
         const photosContainer = document.getElementById('comments-task-photos-container');
         const photosGrid = document.getElementById('comments-task-photos-grid');
         const photosTitle = document.getElementById('comments-task-photos-title');
@@ -4414,6 +4929,19 @@
           } else {
             photosGrid.innerHTML = '';
             photosContainer.classList.add('hidden');
+          }
+        }
+
+        // Рендеринг прикрепленных файлов (если есть)
+        const fileMaterials = (task.materials || []).filter(m => isMaterialFile(m));
+        const filesContainer = document.getElementById('comments-task-files-container');
+        if (filesContainer) {
+          if (fileMaterials.length > 0) {
+            filesContainer.innerHTML = renderTaskFilesHTML(fileMaterials, true);
+            filesContainer.classList.remove('hidden');
+          } else {
+            filesContainer.innerHTML = '';
+            filesContainer.classList.add('hidden');
           }
         }
 
@@ -4452,7 +4980,13 @@
                   const pContainer = document.getElementById('comments-task-photos-container');
                   const pGrid = document.getElementById('comments-task-photos-grid');
                   const pTitle = document.getElementById('comments-task-photos-title');
-                  const pMats = fresh.materials.filter(m => !isMaterialLink(m));
+                  const pMats = fresh.materials.filter(m => !isMaterialLink(m) && !isMaterialFile(m));
+                  const fMats = fresh.materials.filter(m => isMaterialFile(m));
+                  const fContainer = document.getElementById('comments-task-files-container');
+                  if (fContainer && fMats.length > 0) {
+                    fContainer.innerHTML = renderTaskFilesHTML(fMats, true);
+                    fContainer.classList.remove('hidden');
+                  }
                   if (pMats.length > 0 && pContainer && pGrid) {
                     if (pTitle) pTitle.textContent = pMats.length === 1 ? 'Страница задания:' : `Страницы задания (${pMats.length} фото):`;
                     pGrid.innerHTML = pMats.map((m, idx) => {
@@ -4688,7 +5222,7 @@
     function openTaskMaterials(taskId) {
       const task = allTasks.find(t => t.id === taskId);
       if (!task || !task.materials || task.materials.length === 0) return;
-      const photos = task.materials.filter(m => !isMaterialLink(m));
+      const photos = task.materials.filter(m => !isMaterialLink(m) && !isMaterialFile(m));
       if (photos.length > 0) {
         openPhotoGallery(photos, 0, taskId);
       }
@@ -4697,7 +5231,7 @@
     function openTaskPhoto(taskId, index = 0) {
       const task = allTasks.find(t => t.id === taskId);
       if (!task || !task.materials || task.materials.length === 0) return;
-      const photos = task.materials.filter(m => !isMaterialLink(m));
+      const photos = task.materials.filter(m => !isMaterialLink(m) && !isMaterialFile(m));
       if (photos.length > 0) {
         const pIdx = Math.min(index, photos.length - 1);
         openPhotoGallery(photos, pIdx, taskId);

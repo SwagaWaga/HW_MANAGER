@@ -86,7 +86,7 @@ WEB_APP_URL = (
 ).rstrip('/')
 
 # Версия приложения для мгновенного сброса кэша Telegram WebView
-APP_VERSION = "2.10.0"
+APP_VERSION = "2.11.0"
 WEB_APP_LAUNCH_URL = f"{WEB_APP_URL}?v={APP_VERSION}"
 
 TARGET_TZ_NAME = os.getenv("BOT_TIMEZONE", "Asia/Tashkent")
@@ -669,12 +669,125 @@ def get_subject_family(subject_name: str) -> List[str]:
             return v
     return [s_clean]
 
+def is_file_material(m: Dict[str, Any]) -> bool:
+    """Проверяет, является ли материал загруженным документом/архивом/файлом кода."""
+    if not m:
+        return False
+    if m.get("type") == "file":
+        return True
+    cap = str(m.get("caption") or "")
+    return cap.startswith("[FILE]")
+
+
+def is_link_material(m: Dict[str, Any]) -> bool:
+    """Проверяет, является ли материал внешней ссылкой."""
+    if not m or is_file_material(m):
+        return False
+    if m.get("type") == "link":
+        return True
+    m_url = str(m.get("url") or m.get("file_id") or "")
+    m_cap = str(m.get("caption") or "")
+    return m_cap.startswith("[LINK]") or (
+        m_url.startswith(("http://", "https://")) and "/api/materials/" not in m_url
+    )
+
+
+def parse_file_material_meta(m: Dict[str, Any]) -> Tuple[str, int]:
+    """Извлекает имя файла и размер в байтах из материала типа file."""
+    cap = str(m.get("caption") or "")
+    filename = str(m.get("filename") or m.get("title") or "").strip()
+    try:
+        size_bytes = int(m.get("size") or 0)
+    except Exception:
+        size_bytes = 0
+
+    if cap.startswith("[FILE]"):
+        raw = cap[6:]
+        if "::" in raw:
+            f_part, s_part = raw.rsplit("::", 1)
+            filename = filename or f_part.strip()
+            if not size_bytes:
+                try:
+                    size_bytes = int(s_part.strip())
+                except Exception:
+                    size_bytes = 0
+        else:
+            filename = filename or raw.strip()
+
+    filename = os.path.basename(filename) or f"file_{m.get('id') or 'doc'}.bin"
+    return filename, size_bytes
+
+
+def format_file_size_ru(size_bytes: int) -> str:
+    """Форматирует размер файла для отображения в Telegram."""
+    if not size_bytes or size_bytes <= 0:
+        return ""
+    if size_bytes < 1024:
+        return f"{size_bytes} Б"
+    if size_bytes < 1024 * 1024:
+        return f"{max(1, round(size_bytes / 1024))} КБ"
+    return f"{size_bytes / (1024 * 1024):.1f} МБ"
+
+
+def format_materials_badge(mats: List[Dict[str, Any]]) -> str:
+    """Формирует компактный бейдж прикрепленных фото, файлов и ссылок для дайджеста."""
+    if not mats:
+        return ""
+    photos_c = 0
+    files_c = 0
+    links_c = 0
+    for m in mats:
+        if is_file_material(m):
+            files_c += 1
+        elif is_link_material(m):
+            links_c += 1
+        else:
+            photos_c += 1
+    parts = []
+    if photos_c:
+        parts.append(f"📷 {photos_c}")
+    if files_c:
+        parts.append(f"📎 {files_c}")
+    if links_c:
+        parts.append(f"🔗 {links_c}")
+    return f" [{', '.join(parts)}]" if parts else ""
+
+
+def _fetch_material_by_id(mat_id: int) -> Optional[Dict[str, Any]]:
+    """Загружает запись материала из БД с поддержкой обоих вариантов импорта."""
+    try:
+        from app.database.db import get_material_by_id
+    except ImportError:
+        from db import get_material_by_id
+    return get_material_by_id(mat_id)
+
+
+def _find_local_upload_candidate(raw_f: str) -> Optional[str]:
+    """Ищет существующий непустой файл по относительному или uploads-пути."""
+    if not raw_f or raw_f.startswith(("data:", "http://", "https://", "/api/materials/")):
+        return None
+    clean_name = os.path.basename(raw_f)
+    candidates = [
+        raw_f,
+        os.path.join("uploads", raw_f),
+        os.path.join("uploads", clean_name),
+        os.path.join(os.getcwd(), "uploads", clean_name),
+    ]
+    for c in candidates:
+        if os.path.isfile(c) and os.path.getsize(c) > 0:
+            return c
+    return None
+
+
 def resolve_material_file(m: Dict[str, Any]) -> Optional[str]:
     """
     Гарантированно возвращает локальный путь к файлу изображения.
     Если файла нет на диске (например, после деплоя контейнера Render),
     извлекает его из базы данных и кэширует в uploads/.
     """
+    if is_link_material(m) or is_file_material(m):
+        return None
+
     mat_id = m.get("id")
     if mat_id:
         for ext in (".jpg", ".png", ".jpeg", ".webp"):
@@ -684,23 +797,14 @@ def resolve_material_file(m: Dict[str, Any]) -> Optional[str]:
 
     # Проверяем пути file_id / url
     raw_f = m.get("file_id") or m.get("url") or ""
-    if raw_f and not raw_f.startswith("data:"):
-        clean_name = os.path.basename(raw_f)
-        candidates = [
-            raw_f,
-            os.path.join("uploads", raw_f),
-            os.path.join("uploads", clean_name),
-            os.path.join(os.getcwd(), "uploads", clean_name)
-        ]
-        for c in candidates:
-            if os.path.isfile(c) and os.path.getsize(c) > 0:
-                return c
+    local_candidate = _find_local_upload_candidate(raw_f)
+    if local_candidate:
+        return local_candidate
 
     # Если на диске нет — достаем из БД и сохраняем
     if mat_id:
         try:
-            from app.database.db import get_material_by_id
-            mat = get_material_by_id(mat_id)
+            mat = _fetch_material_by_id(mat_id)
             if mat and mat.get("file_id"):
                 fid = mat["file_id"]
                 if fid.startswith("data:"):
@@ -716,6 +820,54 @@ def resolve_material_file(m: Dict[str, Any]) -> Optional[str]:
                     return fid
         except Exception as e:
             logger.warning(f"Error resolving material #{mat_id}: {e}")
+
+    return None
+
+
+def resolve_document_file(m: Dict[str, Any]) -> Optional[Tuple[str, str]]:
+    """
+    Возвращает кортеж (disk_path, clean_filename) для прикрепленного документа/архива.
+    При холодном старте контейнера декодирует base64 из БД и сохраняет в uploads/.
+    """
+    if not is_file_material(m):
+        return None
+
+    filename, _ = parse_file_material_meta(m)
+    _, ext = os.path.splitext(filename)
+    safe_ext = "".join(c for c in ext.lower() if c.isalnum() or c == ".")
+    if not (safe_ext.startswith(".") and 2 <= len(safe_ext) <= 12):
+        safe_ext = ".bin"
+
+    mat_id = m.get("id")
+    if mat_id:
+        for prefix in ("cached_file_", "cached_doc_"):
+            disk_p = os.path.join("uploads", f"{prefix}{mat_id}{safe_ext}")
+            if os.path.isfile(disk_p) and os.path.getsize(disk_p) > 0:
+                return disk_p, filename
+
+    raw_f = m.get("file_id") or m.get("url") or ""
+    local_candidate = _find_local_upload_candidate(raw_f)
+    if local_candidate:
+        return local_candidate, filename
+
+    if mat_id:
+        try:
+            mat = _fetch_material_by_id(mat_id)
+            if mat and mat.get("file_id"):
+                fid = mat["file_id"]
+                if fid.startswith("data:"):
+                    _, b64_str = fid.split(",", 1)
+                    data = base64.b64decode(b64_str)
+                    os.makedirs("uploads", exist_ok=True)
+                    disk_p = os.path.join("uploads", f"cached_doc_{mat_id}{safe_ext}")
+                    with open(disk_p, "wb") as f:
+                        f.write(data)
+                    return disk_p, filename
+                local_db_file = _find_local_upload_candidate(fid)
+                if local_db_file:
+                    return local_db_file, filename
+        except Exception as e:
+            logger.warning(f"Error resolving document #{mat_id}: {e}")
 
     return None
 
@@ -739,11 +891,15 @@ async def send_single_task_card(
     materials = task.get("materials") or []
 
     link_items = []
+    file_items = []
+    photo_materials = []
     for m in materials:
-        m_type = m.get("type", "")
-        m_url = m.get("url") or m.get("file_id") or ""
-        m_cap = m.get("caption") or ""
-        if m_type == "link" or m_url.startswith(("http://", "https://")) or m_cap.startswith("[LINK]"):
+        if is_file_material(m):
+            fname, fsize = parse_file_material_meta(m)
+            file_items.append({"filename": fname, "size": fsize, "material": m})
+        elif is_link_material(m):
+            m_url = m.get("url") or m.get("file_id") or ""
+            m_cap = m.get("caption") or ""
             u = m_url if m_url.startswith(("http://", "https://")) else ""
             if not u and m_cap.startswith("[LINK]"):
                 raw = m_cap[6:]
@@ -755,13 +911,22 @@ async def send_single_task_card(
             title = title or "Открыть материал"
             if u:
                 link_items.append({"url": u, "title": title})
+        else:
+            photo_materials.append(m)
 
     idx_str = f" [{index}/{total}]" if index and total and total > 1 else ""
     caption_lines = [
         f"{icon} <b>{html.escape(task_subject)}</b>{idx_str}",
         f"{date_badge}",
-        f"\n📝 <b>Задание:</b>\n{html.escape(desc) if desc else '<i>(см. прикрепленные фото/ссылки)</i>'}",
+        f"\n📝 <b>Задание:</b>\n{html.escape(desc) if desc else '<i>(см. прикрепленные материалы)</i>'}",
     ]
+
+    if file_items:
+        caption_lines.append("\n📎 <b>Прикреплённые файлы:</b>")
+        for f_item in file_items:
+            sz_label = format_file_size_ru(f_item["size"])
+            sz_suffix = f" ({sz_label})" if sz_label else ""
+            caption_lines.append(f"• {html.escape(f_item['filename'])}{html.escape(sz_suffix)}")
 
     if link_items:
         caption_lines.append("\n🔗 <b>Материалы и ссылки:</b>")
@@ -776,7 +941,7 @@ async def send_single_task_card(
     caption = "\n".join(caption_lines)
 
     photo_paths = []
-    for m in materials:
+    for m in photo_materials:
         p = resolve_material_file(m)
         if p and p not in photo_paths:
             photo_paths.append(p)
@@ -823,6 +988,22 @@ async def send_single_task_card(
 
     if not sent:
         await safe_reply(message, caption, reply_markup=card_markup)
+
+    # Отправляем прикреплённые файлы/документы следом за карточкой
+    for f_item in file_items:
+        try:
+            resolved_doc = await asyncio.to_thread(resolve_document_file, f_item["material"])
+            if resolved_doc:
+                doc_path, doc_name = resolved_doc
+                sz_label = format_file_size_ru(f_item["size"])
+                sz_suffix = f" ({sz_label})" if sz_label else ""
+                await message.answer_document(
+                    document=FSInputFile(doc_path, filename=doc_name),
+                    caption=f"📎 <b>{html.escape(task_subject)}</b> — {html.escape(doc_name)}{html.escape(sz_suffix)}",
+                    parse_mode="HTML",
+                )
+        except Exception as doc_err:
+            logger.warning(f"Error sending document {f_item.get('filename')} for task #{task.get('id')}: {doc_err}")
 
 async def send_subject_homework(
     message: Message,
@@ -942,7 +1123,7 @@ async def send_group_daily_reminder(group: Dict[str, Any]):
             icon = get_subject_icon(subj)
             desc = str(t.get('description', '')).strip()
             mats = t.get('materials') or []
-            mat_badge = f" [📷 {len(mats)}]" if mats else ""
+            mat_badge = format_materials_badge(mats)
             lines.append(f"{idx}. {icon} <b>{html.escape(subj)}</b>{mat_badge}: {html.escape(desc)}")
 
         lines.append("\n💡 <i>Спросите: «Что по алгебре?» или отправьте <code>/dz [предмет]</code>, чтобы посмотреть фото страниц.</i>")
@@ -996,7 +1177,7 @@ async def send_group_weekly_reminder(group: Dict[str, Any]):
             icon = get_subject_icon(subj)
             desc = str(t.get('description', '')).strip()
             mats = t.get('materials') or []
-            mat_badge = f" [📷 {len(mats)}]" if mats else ""
+            mat_badge = format_materials_badge(mats)
             lines.append(f"  • {icon} <b>{html.escape(subj)}</b>{mat_badge}: {html.escape(desc)}")
         lines.append("")
 
@@ -2371,12 +2552,25 @@ async def handle_materials(message: Message, command: CommandObject):
     materials = get_materials_for_task(task_id)
 
     if not materials:
-        await safe_reply(message, f"К заданию #{task_id} пока не прикреплено фотоматериалов.", reply_markup=get_portal_keyboard(chat_or_type=message))
+        await safe_reply(message, f"К заданию #{task_id} пока не прикреплено материалов.", reply_markup=get_portal_keyboard(chat_or_type=message))
     else:
-        text = f"📎 <b>Материалы к заданию #{task_id} ({len(materials)} шт.):</b>\n"
-        for m in materials:
-            text += f"- [{m['file_id']}] {m.get('caption', '')} (Автор: {m.get('uploader_nick', '')})\n"
-        await safe_reply(message, text, reply_markup=get_portal_keyboard(chat_or_type=message))
+        text_lines = [f"📎 <b>Материалы к заданию #{task_id} ({len(materials)} шт.):</b>"]
+        for idx, m in enumerate(materials, start=1):
+            nick = html.escape(str(m.get('uploader_nick') or ''))
+            if is_file_material(m):
+                fname, fsize = parse_file_material_meta(m)
+                sz = format_file_size_ru(fsize)
+                sz_str = f" ({sz})" if sz else ""
+                text_lines.append(f"• 📎 <b>{html.escape(fname)}</b>{html.escape(sz_str)} — {nick}")
+            elif is_link_material(m):
+                cap = str(m.get('caption') or '')
+                raw = cap[6:] if cap.startswith("[LINK]") else cap
+                title = raw.split("::", 1)[1].strip() if "::" in raw else (m.get('title') or raw or 'Ссылка')
+                text_lines.append(f"• 🔗 {html.escape(title)} — {nick}")
+            else:
+                cap = str(m.get('caption') or f'Фото #{idx}')
+                text_lines.append(f"• 📷 {html.escape(cap)} — {nick}")
+        await safe_reply(message, "\n".join(text_lines), reply_markup=get_portal_keyboard(chat_or_type=message))
 
 @dp.message(Command("help"))
 async def handle_help(message: Message):
