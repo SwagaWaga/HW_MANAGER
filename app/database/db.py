@@ -1,6 +1,6 @@
 import sqlite3
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 
 try:
     from app.database import supabase_db
@@ -371,6 +371,14 @@ def add_materials_batch(task_id: int, items: List[Dict[str, str]], uploader_id: 
     conn.commit()
     conn.close()
     return created_ids
+
+def get_materials_and_comments_batch(task_ids: List[int]) -> Tuple[Dict[int, List[Dict[str, Any]]], Dict[int, int]]:
+    """Возвращает материалы и счётчики комментариев для списка заданий за минимальное число запросов."""
+    if not task_ids:
+        return {}, {}
+    if is_using_supabase():
+        return supabase_db.get_materials_and_comments_batch(task_ids)
+    return get_materials_for_tasks_batch(task_ids), get_comments_count_batch(task_ids)
 
 def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
     batch = get_materials_for_tasks_batch([task_id])

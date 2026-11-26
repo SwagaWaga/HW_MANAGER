@@ -1,7 +1,8 @@
 import os
 import json
 import logging
-from typing import Optional, List, Dict, Any
+from concurrent.futures import ThreadPoolExecutor
+from typing import Optional, List, Dict, Any, Tuple
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -160,33 +161,37 @@ def get_pending_tasks(user_id: int, class_name: str = "10-А") -> List[Dict[str,
     if not client:
         return []
 
-    try:
-        # 1. Fetch completed task IDs for this user
+    def _fetch_completions():
         comp_res = client.table("user_completions").select("task_id").eq("user_id", user_id).execute()
-        completed_ids = [row["task_id"] for row in (comp_res.data or [])]
+        return {row["task_id"] for row in (comp_res.data or [])}
 
-        # 2. Query tasks with author info
-        res_data = []
+    def _fetch_tasks():
         try:
-            query = client.table("tasks").select("*, users!tasks_user_id_fkey(telegram_nick, full_name, role)")
-            if completed_ids:
-                query = query.not_.in_("id", completed_ids)
-            res = query.order("due_date", desc=False).execute()
-            res_data = res.data or []
+            res = client.table("tasks").select(
+                "*, users!tasks_user_id_fkey(telegram_nick, full_name, role)"
+            ).order("due_date", desc=False).execute()
+            return res.data or []
         except Exception as e:
             logger.warning(f"Note: get_pending_tasks with relation skipped ({e}), falling back to direct select")
-            query = client.table("tasks").select("*")
-            if completed_ids:
-                query = query.not_.in_("id", completed_ids)
-            res = query.order("due_date", desc=False).execute()
-            res_data = res.data or []
+            res = client.table("tasks").select("*").order("due_date", desc=False).execute()
+            return res.data or []
+
+    try:
+        # Выполняем оба независимых запроса параллельно (~2x быстрее)
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            f_comp = pool.submit(_fetch_completions)
+            f_tasks = pool.submit(_fetch_tasks)
+            completed_ids = f_comp.result()
+            res_data = f_tasks.result()
 
         tasks = []
         for row in res_data:
+            if row["id"] in completed_ids:
+                continue
             u_info = row.get("users") or {}
             author_nick = u_info.get("telegram_nick") or f"@ученик_{row.get('user_id')}"
             author_name = u_info.get("full_name") or ""
-            
+
             task_dict = {
                 "id": row["id"],
                 "user_id": row.get("user_id"),
@@ -338,29 +343,33 @@ def get_materials_for_task(task_id: int) -> List[Dict[str, Any]]:
     batch = get_materials_for_tasks_batch([task_id])
     return batch.get(task_id, [])
 
-def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[str, Any]]]:
+def get_materials_and_comments_batch(task_ids: List[int]) -> Tuple[Dict[int, List[Dict[str, Any]]], Dict[int, int]]:
+    """Одним запросом получает материалы и счётчики комментариев для списка заданий."""
     if not task_ids:
-        return {}
+        return {}, {}
     client = get_supabase_client()
     if not client:
-        return {tid: [] for tid in task_ids}
+        return {tid: [] for tid in task_ids}, {tid: 0 for tid in task_ids}
 
     try:
         # Быстрый пакетный запрос БЕЗ огромного base64 file_id!
-        # Снижает трафик и задержку на 99.8%!
         res = client.table("task_materials").select(
             "id, task_id, caption, uploader_id, users(telegram_nick, full_name)"
         ).in_("task_id", task_ids).order("id").execute()
 
-        result: Dict[int, List[Dict[str, Any]]] = {tid: [] for tid in task_ids}
+        materials: Dict[int, List[Dict[str, Any]]] = {tid: [] for tid in task_ids}
+        comment_counts: Dict[int, int] = {tid: 0 for tid in task_ids}
+
         for row in (res.data or []):
             t_id = row["task_id"]
-            u_info = row.get("users") or {}
-            mat_id = row["id"]
             caption = row.get("caption") or ""
 
             if caption.startswith("[COMMENT]"):
+                comment_counts[t_id] = comment_counts.get(t_id, 0) + 1
                 continue
+
+            u_info = row.get("users") or {}
+            mat_id = row["id"]
 
             if caption.startswith("[LINK]"):
                 raw = caption[6:]
@@ -395,14 +404,15 @@ def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[st
                     "uploader_name": u_info.get("full_name") or ""
                 }
 
-            if t_id in result:
-                result[t_id].append(mat_item)
-            else:
-                result[t_id] = [mat_item]
-        return result
+            materials.setdefault(t_id, []).append(mat_item)
+        return materials, comment_counts
     except Exception as e:
-        logger.error(f"Error in Supabase get_materials_for_tasks_batch: {e}")
-        return {tid: [] for tid in task_ids}
+        logger.error(f"Error in Supabase get_materials_and_comments_batch: {e}")
+        return {tid: [] for tid in task_ids}, {tid: 0 for tid in task_ids}
+
+def get_materials_for_tasks_batch(task_ids: List[int]) -> Dict[int, List[Dict[str, Any]]]:
+    materials, _ = get_materials_and_comments_batch(task_ids)
+    return materials
 
 def get_material_by_id(material_id: int) -> Optional[Dict[str, Any]]:
     client = get_supabase_client()
@@ -611,12 +621,16 @@ def get_leaderboard(class_name: str = "10-А", force_refresh: bool = False) -> L
         return cached.get("data", []) if cached else []
     try:
         from collections import Counter
-        users_res = client.table("users").select("id, telegram_nick, full_name, role, class_name").execute()
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            f_users = pool.submit(lambda: client.table("users").select("id, telegram_nick, full_name, role, class_name").execute())
+            f_tasks = pool.submit(lambda: client.table("tasks").select("user_id").execute())
+            f_mats = pool.submit(lambda: client.table("task_materials").select("uploader_id").execute())
+            f_comps = pool.submit(lambda: client.table("user_completions").select("user_id").execute())
+            users_res = f_users.result()
+            tasks_res = f_tasks.result()
+            materials_res = f_mats.result()
+            comps_res = f_comps.result()
         users_map = {u["id"]: u for u in (users_res.data or [])}
-
-        tasks_res = client.table("tasks").select("user_id").execute()
-        materials_res = client.table("task_materials").select("uploader_id").execute()
-        comps_res = client.table("user_completions").select("user_id").execute()
 
         t_counts = Counter(t["user_id"] for t in (tasks_res.data or []))
         m_counts = Counter(m["uploader_id"] for m in (materials_res.data or []))

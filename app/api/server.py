@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Request
 from fastapi.responses import FileResponse, Response, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 try:
@@ -15,6 +16,7 @@ try:
         delete_material,
         get_materials_for_task,
         get_materials_for_tasks_batch,
+        get_materials_and_comments_batch,
         get_material_by_id,
         upsert_user,
         get_user,
@@ -40,6 +42,7 @@ except ImportError:
         delete_material,
         get_materials_for_task,
         get_materials_for_tasks_batch,
+        get_materials_and_comments_batch,
         get_material_by_id,
         upsert_user,
         get_user,
@@ -64,6 +67,8 @@ from urllib.parse import quote
 logger = logging.getLogger("server")
 
 app = FastAPI()
+# Сжимает HTML/JSON ответы в ~5-6 раз (изображения/видео уже исключены по умолчанию)
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
 
 _root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _uploads_dir = os.path.join(_root_dir, "uploads")
@@ -87,7 +92,7 @@ async def run_periodic_cleanup_loop():
     """Фоновый цикл автоочистки устаревших заданий (> 30 дней) каждые 12 часов."""
     while True:
         try:
-            cleaned = cleanup_old_tasks(days=30)
+            cleaned = await asyncio.to_thread(cleanup_old_tasks, 30)
             if cleaned > 0:
                 logger.info(f"🧹 [Auto-Cleanup] Успешно удалено {cleaned} устаревших заданий старше 30 дней")
         except Exception as e:
@@ -202,11 +207,10 @@ def get_tasks(user_id: int):
     if not rows:
         return []
 
-    # 1. Быстрый пакетный запрос всех материалов одним запросом (вместо N+1 запросов!)
+    # 1. Единый быстрый запрос для материалов И счётчиков комментариев
     # 2. Не возвращает тяжелый base64 в списке заданий, сокращая трафик с 10 МБ до ~2 КБ
     task_ids = [row["id"] for row in rows]
-    materials_by_task = get_materials_for_tasks_batch(task_ids)
-    comments_count_by_task = get_comments_count_batch(task_ids)
+    materials_by_task, comments_count_by_task = get_materials_and_comments_batch(task_ids)
 
     results = []
     for row in rows:
