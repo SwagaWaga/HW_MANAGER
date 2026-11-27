@@ -1,0 +1,63 @@
+{
+  "id": "/?source=pwa",
+  "name": "ДЗ Портал • 10-А Класс",
+  "short_name": "ДЗ 10-А",
+  "description": "Трекер и менеджер домашнего задания 10-А класса: задания, расписание, материалы и рейтинг.",
+  "lang": "ru",
+  "dir": "ltr",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0d223b",
+  "theme_color": "#2d86d8",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "/static/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/static/pwa/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Добавить Д/З",
+      "short_name": "Добавить",
+      "description": "Создать новое домашнее задание",
+      "url": "/?action=add&source=pwa-shortcut",
+      "icons": [
+        {
+          "src": "/static/pwa/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "Расписание уроков",
+      "short_name": "Расписание",
+      "description": "Открыть расписание 10-А класса",
+      "url": "/?action=schedule&source=pwa-shortcut",
+      "icons": [
+        {
+          "src": "/static/pwa/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    }
+  ]
+}

@@ -2,17 +2,25 @@
 <html lang="ru" class="dark">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0d223b" id="pwa-theme-color" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ДЗ 10-А" />
+  <meta name="application-name" content="ДЗ Портал" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/static/pwa/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/pwa/icon-192.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <title>ДЗ Портал • 10-й Класс</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdn.tailwindcss.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
   <noscript><link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" /></noscript>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script>
     tailwind.config = {
       darkMode: 'class',
@@ -65,7 +73,8 @@
     }
 
     #autumn-leaves-canvas {
-      opacity: 0.78;
+      contain: strict;
+      will-change: transform;
     }
 
     /* Полное скрытие полос прокрутки на всех браузерах и ОС */
@@ -138,15 +147,14 @@
 
     :where(html.dark) .glossy-card,
     :where(html.dark) .hybrid-card {
-      background: #142b47;
-      border: 1px solid rgba(125, 211, 252, 0.10);
-      box-shadow: 0 12px 28px -12px rgba(3, 10, 24, 0.60);
+      background: #132a47;
+      border: none;
+      box-shadow: 0 10px 26px -12px rgba(3, 10, 24, 0.55);
     }
 
     :where(html.dark) .glossy-card:hover,
     :where(html.dark) .hybrid-card:hover {
-      background: #183456;
-      border-color: rgba(125, 211, 252, 0.18);
+      background: #173254;
     }
 
     :where(html.light) .glossy-card,
@@ -173,66 +181,46 @@
 
     :where(html.dark) .modal-sheet .hybrid-card {
       background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      border: none;
       box-shadow: none;
     }
 
     .hybrid-hero {
-      border-width: 1px;
-      border-style: solid;
-      transition: background-color 0.2s ease, box-shadow 0.2s ease;
+      border: none;
+      transition: background-color 0.2s ease;
     }
     :where(html.dark) .hybrid-hero {
-      background: rgba(255, 255, 255, 0.095);
-      border-color: rgba(255, 255, 255, 0.10);
+      background: rgba(255, 255, 255, 0.075);
       box-shadow: none;
     }
     :where(html.light) .hybrid-hero {
       background: rgba(255, 255, 255, 0.16);
-      border-color: rgba(255, 255, 255, 0.20);
-      box-shadow: 0 8px 24px -10px rgba(10, 35, 68, 0.18);
+      box-shadow: none;
     }
 
     .hybrid-bento-sky,
     .hybrid-bento-amber {
-      border-width: 1px;
-      border-style: solid;
-      transition: transform 0.14s ease, background-color 0.14s ease, border-color 0.14s ease;
+      border: none;
+      transition: transform 0.14s ease, background-color 0.14s ease;
     }
 
-    :where(html.dark) .hybrid-bento-sky {
-      background: rgba(56, 189, 248, 0.14);
-      border-color: rgba(125, 211, 252, 0.16);
-    }
-    :where(html.dark) .hybrid-bento-sky:hover {
-      background: rgba(56, 189, 248, 0.22);
-      transform: translateY(-1px);
-    }
-
-    :where(html.light) .hybrid-bento-sky {
-      background: rgba(56, 178, 255, 0.28);
-      border-color: rgba(255, 255, 255, 0.20);
-    }
-    :where(html.light) .hybrid-bento-sky:hover {
-      background: rgba(56, 178, 255, 0.38);
-      transform: translateY(-1px);
-    }
-
+    :where(html.dark) .hybrid-bento-sky,
     :where(html.dark) .hybrid-bento-amber {
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.16) 0%, rgba(232, 93, 42, 0.13) 100%);
-      border-color: rgba(251, 191, 36, 0.16);
+      background: rgba(255, 255, 255, 0.075);
     }
+    :where(html.dark) .hybrid-bento-sky:hover,
     :where(html.dark) .hybrid-bento-amber:hover {
-      background: linear-gradient(135deg, rgba(245, 158, 11, 0.24) 0%, rgba(232, 93, 42, 0.20) 100%);
+      background: rgba(255, 255, 255, 0.125);
       transform: translateY(-1px);
     }
 
+    :where(html.light) .hybrid-bento-sky,
     :where(html.light) .hybrid-bento-amber {
-      background: linear-gradient(135deg, rgba(247, 172, 26, 0.30) 0%, rgba(232, 93, 42, 0.24) 100%);
-      border-color: rgba(255, 255, 255, 0.20);
+      background: rgba(255, 255, 255, 0.16);
     }
+    :where(html.light) .hybrid-bento-sky:hover,
     :where(html.light) .hybrid-bento-amber:hover {
-      background: linear-gradient(135deg, rgba(247, 172, 26, 0.40) 0%, rgba(232, 93, 42, 0.32) 100%);
+      background: rgba(255, 255, 255, 0.24);
       transform: translateY(-1px);
     }
 
@@ -281,9 +269,15 @@
     #tasks-container {
       contain: layout style;
     }
+
+    #tasks-container > .hybrid-card {
+      content-visibility: auto;
+      contain-intrinsic-size: auto 168px;
+      contain: layout style paint;
+    }
   </style>
 </head>
-<body class="px-3.5 sm:px-4 pt-2.5 pb-24 max-w-2xl mx-auto select-none transition-colors duration-200">
+<body class="px-3.5 sm:px-4 max-w-2xl mx-auto select-none transition-colors duration-200" style="padding-top: max(0.625rem, env(safe-area-inset-top)); padding-bottom: calc(6rem + env(safe-area-inset-bottom));">
 
   <!-- АППАРАТНЫЙ ФОН ПРИЛОЖЕНИЯ (ВЫДЕЛЕННЫЙ GPU LAYER) -->
   <div id="app-bg"></div>
@@ -295,95 +289,143 @@
   <!-- МИНИМАЛИСТИЧНАЯ ШАПКА И УЛЬТРА-ЧИСТЫЙ ВЕРХ               -->
   <!-- ======================================================== -->
   <header class="mb-2.5">
-    <div class="flex items-center justify-between gap-3 mb-2.5 pt-0.5">
+    <div id="pwa-offline-banner" class="hidden mb-2 px-3 py-1.5 rounded-full bg-white/[0.16] text-white text-[11.5px] font-semibold flex items-center justify-center gap-2">
+      <span class="w-2 h-2 rounded-full bg-amber-300 shrink-0"></span>
+      <span>Оффлайн-режим • показаны сохранённые задания</span>
+    </div>
+    <div class="flex items-center justify-between gap-2 mb-2.5 pt-0.5">
       <div class="flex items-center gap-2.5 min-w-0">
         <div id="header-avatar-slot" class="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center shadow-xs ring-2 ring-white/25 shrink-0"></div>
         <div class="min-w-0">
-          <h1 id="user-greeting-name" class="text-[16px] sm:text-lg font-extrabold tracking-tight text-white truncate leading-tight">Ученик</h1>
-          <p class="text-[11.5px] text-white/80 font-medium truncate leading-none mt-1">
-            <span>10-А инж</span> · <span id="school-date" class="capitalize"></span>
+          <h1 id="user-greeting-name" class="text-[15.5px] sm:text-lg font-extrabold tracking-tight text-white truncate leading-tight">Ученик</h1>
+          <p class="text-[11px] text-white/75 font-medium truncate leading-none mt-1">
+            <span>10-А</span> · <span id="school-date" class="capitalize"></span>
           </p>
         </div>
       </div>
 
       <div class="flex items-center gap-1.5 shrink-0">
-        <button onclick="openSettingsModal()" class="w-9 h-9 rounded-full bg-white/[0.16] hover:bg-white/[0.25] dark:bg-white/[0.12] dark:hover:bg-white/[0.20] text-white flex items-center justify-center transition active:scale-90 group" title="Настройки и профиль">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-[18px] h-[18px] group-hover:rotate-45 transition-transform duration-300">
+        <button id="pwa-install-header-btn" onclick="triggerPwaInstall()" class="hidden px-2.5 sm:px-3 h-8 sm:h-9 rounded-full bg-white text-[#145594] hover:bg-white/95 dark:bg-white/[0.14] dark:hover:bg-white/[0.22] dark:text-white text-[11px] font-bold flex items-center gap-1 shadow-xs transition active:scale-95 shrink-0" title="Установить приложение (PWA)" aria-label="Установить приложение">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0">
+            <path d="M12 3v12"/>
+            <polyline points="7 11 12 16 17 11"/>
+            <path d="M5 20h14"/>
+          </svg>
+          <span>Установить</span>
+        </button>
+        <button onclick="openSettingsModal()" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/[0.16] hover:bg-white/[0.25] dark:bg-white/[0.10] dark:hover:bg-white/[0.18] text-white flex items-center justify-center transition active:scale-90 group" title="Настройки и профиль">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-[17px] h-[17px] group-hover:rotate-45 transition-transform duration-300">
             <circle cx="12" cy="12" r="3"/>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
           </svg>
         </button>
-        <button onclick="toggleTheme()" id="theme-btn" class="w-9 h-9 rounded-full bg-white/[0.16] hover:bg-white/[0.25] dark:bg-white/[0.12] dark:hover:bg-white/[0.20] text-white flex items-center justify-center transition active:scale-90 relative" title="Переключить тему (Тёмная / Светлая / Авто)">
-          <span id="theme-icon-slot" class="w-[18px] h-[18px] flex items-center justify-center"></span>
+        <button onclick="toggleTheme()" id="theme-btn" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/[0.16] hover:bg-white/[0.25] dark:bg-white/[0.10] dark:hover:bg-white/[0.18] text-white flex items-center justify-center transition active:scale-90 relative" title="Переключить тему (Тёмная / Светлая / Авто)">
+          <span id="theme-icon-slot" class="w-[17px] h-[17px] flex items-center justify-center"></span>
           <span id="theme-auto-dot" class="hidden absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#34d399]"></span>
         </button>
       </div>
     </div>
 
-    <!-- ВОЗДУШНАЯ КАРТОЧКА ПРОГРЕССА (ОДИН ФОКУС + EMERALD ЗАПОЛНЕНИЕ В ДУХЕ РЕФЕРЕНСА) -->
-    <div class="hybrid-hero rounded-[22px] relative overflow-hidden">
-      <div id="hero-progress-bar" class="absolute inset-y-0 left-0 rounded-r-2xl bg-gradient-to-r from-[#2EE07A]/[0.40] via-[#22C55E]/[0.26] to-[#2EE07A]/[0.05] dark:from-emerald-400/[0.28] dark:via-emerald-400/[0.18] dark:to-emerald-400/[0.03] transition-all duration-700 ease-out pointer-events-none" style="width: 0%"></div>
-      <div class="px-4 py-3 flex items-center justify-between gap-3 relative z-10">
-        <div class="flex-1 min-w-0">
-          <h2 id="hero-title" class="text-[15px] sm:text-base font-extrabold text-white leading-tight tracking-tight">
-            Прогресс недели
-          </h2>
-          <p id="hero-stat-text" class="text-[12px] text-white/85 mt-0.5 font-medium truncate">
-            Загрузка выполнения...
-          </p>
-        </div>
+    <!-- КОМПАКТНАЯ 2D-КАРТОЧКА ПРОГРЕССА -->
+    <div class="hybrid-hero rounded-[20px] px-4 py-2.5 flex items-center justify-between gap-3">
+      <div class="flex-1 min-w-0">
+        <h2 id="hero-title" class="text-[14.5px] sm:text-[15px] font-extrabold text-white leading-tight tracking-tight">
+          Прогресс недели
+        </h2>
+        <p id="hero-stat-text" class="text-[11.5px] text-white/75 mt-0.5 font-medium truncate">
+          Загрузка выполнения...
+        </p>
+      </div>
 
-        <div class="flex items-center gap-2.5 shrink-0">
-          <span id="hero-percent-label" class="font-mono font-black text-xl sm:text-2xl text-white leading-none tabular-nums">0%</span>
-          <img src="/static/3d/hero-book.webp" alt="" width="40" height="40" decoding="async" class="w-9 h-9 sm:w-10 sm:h-10 object-contain select-none" />
-        </div>
+      <div class="relative w-11 h-11 shrink-0 flex items-center justify-center">
+        <svg viewBox="0 0 60 60" class="w-11 h-11 -rotate-90">
+          <circle cx="30" cy="30" r="26" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="5.5" />
+          <circle id="hero-progress-ring" cx="30" cy="30" r="26" fill="none" stroke="#34d399" stroke-width="5.5" stroke-linecap="round" stroke-dasharray="163.36" stroke-dashoffset="163.36" class="transition-all duration-700 ease-out" />
+        </svg>
+        <span id="hero-percent-label" class="absolute font-mono font-extrabold text-[10.5px] text-white leading-none tabular-nums">0%</span>
       </div>
     </div>
   </header>
 
-  <!-- БЫСТРЫЙ ДОСТУП: РАСПИСАНИЕ И ЛИДЕРЫ (CERULEAN + GOLD/CORAL В ДУХЕ РЕФЕРЕНСА) -->
+  <!-- БЫСТРЫЙ ДОСТУП: КОМПАКТНЫЕ 2D-ПИЛЮЛИ БЕЗ ОБРЕЗАНИЙ -->
   <section class="grid grid-cols-2 gap-2 mb-2.5">
-    <div onclick="openScheduleModal()" class="cursor-pointer hybrid-bento-sky rounded-[18px] px-3 py-2.5 flex items-center gap-2.5 relative overflow-hidden select-none">
-      <img src="/static/3d/schedule-cal.webp" alt="" width="32" height="32" decoding="async" class="w-8 h-8 object-contain shrink-0" />
+    <div onclick="openScheduleModal()" class="cursor-pointer hybrid-bento-sky rounded-[16px] px-3 py-2 flex items-center gap-2.5 select-none">
+      <div class="w-8 h-8 rounded-[10px] bg-white/[0.18] dark:bg-sky-400/[0.16] text-white dark:text-sky-300 flex items-center justify-center shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <rect x="3" y="4" width="18" height="18" rx="3"/>
+          <line x1="16" y1="2" x2="16" y2="6"/>
+          <line x1="8" y1="2" x2="8" y2="6"/>
+          <line x1="3" y1="10" x2="21" y2="10"/>
+        </svg>
+      </div>
       <div class="min-w-0 flex-1">
-        <span class="text-[13px] font-bold text-white block truncate leading-tight">Расписание</span>
-        <span class="text-[11px] text-white/80 block truncate mt-0.5 font-medium" id="schedule-quick-summary">Уроки на сегодня...</span>
+        <span class="text-[12.5px] font-bold text-white block truncate leading-tight">Расписание</span>
+        <span class="text-[11px] text-white/75 block truncate mt-0.5 font-medium" id="schedule-quick-summary">Уроки</span>
       </div>
     </div>
 
-    <div onclick="openLeaderboardModal()" class="cursor-pointer hybrid-bento-amber rounded-[18px] px-3 py-2.5 flex items-center gap-2.5 relative overflow-hidden select-none">
-      <img src="/static/3d/leaders-trophy.webp" alt="" width="32" height="32" decoding="async" class="w-8 h-8 object-contain shrink-0" />
+    <div onclick="openLeaderboardModal()" class="cursor-pointer hybrid-bento-amber rounded-[16px] px-3 py-2 flex items-center gap-2.5 select-none">
+      <div class="w-8 h-8 rounded-[10px] bg-amber-300/[0.22] dark:bg-amber-400/[0.16] text-[#fde68a] dark:text-amber-300 flex items-center justify-center shrink-0">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+          <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/>
+          <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
+          <path d="M4 22h16"/>
+          <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/>
+          <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/>
+          <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
+        </svg>
+      </div>
       <div class="min-w-0 flex-1">
-        <span class="text-[13px] font-bold text-white block truncate leading-tight">Лидеры</span>
-        <span class="text-[11px] text-white/80 block truncate mt-0.5 font-medium" id="leaderboard-quick-summary">Рейтинг редакторов...</span>
+        <span class="text-[12.5px] font-bold text-white block truncate leading-tight">Лидеры</span>
+        <span class="text-[11px] text-white/75 block truncate mt-0.5 font-medium" id="leaderboard-quick-summary">Рейтинг</span>
       </div>
     </div>
   </section>
 
-  <!-- ЕДИНЫЙ СЕГМЕНТИРОВАННЫЙ ФИЛЬТР + КНОПКА КАЛЕНДАРЯ ЗАГРУЖЕННОСТИ -->
-  <div class="flex items-center gap-2 mb-3 select-none">
-    <nav class="flex-1 grid grid-cols-4 gap-0.5 p-1 rounded-full bg-white/[0.18] dark:bg-white/[0.12]">
-      <button onclick="setFilter('pending')" id="tab-pending" class="py-1.5 px-1.5 text-[11.5px] sm:text-xs font-bold rounded-full bg-white text-slate-900 shadow-xs transition flex items-center justify-center gap-1 active:scale-95 min-w-0">
+  <!-- ЕДИНЫЙ СЕГМЕНТИРОВАННЫЙ ФИЛЬТР + ПРЕДМЕТЫ/СОРТИРОВКА + КАЛЕНДАРЬ -->
+  <div class="flex items-center gap-1.5 sm:gap-2 mb-2.5 select-none">
+    <nav class="flex-1 grid grid-cols-4 gap-0.5 p-1 rounded-full bg-white/[0.18] dark:bg-white/[0.12] min-w-0">
+      <button onclick="setFilter('pending')" id="tab-pending" class="py-1.5 px-1 text-[11px] sm:text-xs font-bold rounded-full bg-white text-slate-900 shadow-xs transition flex items-center justify-center gap-1 active:scale-95 min-w-0">
         <span class="truncate">Все</span>
         <span id="tab-badge-pending" class="text-[10px] opacity-60 font-mono font-bold shrink-0">0</span>
       </button>
-      <button onclick="setFilter('today')" id="tab-today" class="py-1.5 px-1.5 text-[11.5px] sm:text-xs font-semibold rounded-full text-white/85 hover:text-white transition flex items-center justify-center gap-1 active:scale-95 min-w-0">
+      <button onclick="setFilter('today')" id="tab-today" class="py-1.5 px-1 text-[11px] sm:text-xs font-semibold rounded-full text-white/85 hover:text-white transition flex items-center justify-center gap-1 active:scale-95 min-w-0">
         <span class="truncate">Сегодня</span>
         <span id="tab-badge-today" class="hidden text-[10px] opacity-80 font-mono font-bold shrink-0">0</span>
       </button>
-      <button onclick="setFilter('tomorrow')" id="tab-tomorrow" class="py-1.5 px-1.5 text-[11.5px] sm:text-xs font-semibold rounded-full text-white/85 hover:text-white transition flex items-center justify-center gap-1 active:scale-95 min-w-0">
+      <button onclick="setFilter('tomorrow')" id="tab-tomorrow" class="py-1.5 px-1 text-[11px] sm:text-xs font-semibold rounded-full text-white/85 hover:text-white transition flex items-center justify-center gap-1 active:scale-95 min-w-0">
         <span class="truncate">Завтра</span>
         <span id="tab-badge-tomorrow" class="hidden text-[10px] opacity-80 font-mono font-bold shrink-0">0</span>
       </button>
-      <button onclick="setFilter('overdue')" id="tab-overdue" class="py-1.5 px-1.5 text-[11.5px] sm:text-xs font-semibold rounded-full text-white/85 hover:text-white transition flex items-center justify-center gap-1 active:scale-95 min-w-0">
+      <button onclick="setFilter('overdue')" id="tab-overdue" class="py-1.5 px-1 text-[11px] sm:text-xs font-semibold rounded-full text-white/85 hover:text-white transition flex items-center justify-center gap-1 active:scale-95 min-w-0">
         <span class="truncate">Долги</span>
         <span id="tab-badge-overdue" class="hidden text-[10px] text-[#FFD1C7] font-mono font-bold shrink-0">0</span>
       </button>
     </nav>
 
-    <button type="button" id="workload-calendar-btn" onclick="openWorkloadMonthModal()" class="w-9 h-9 rounded-full bg-white/[0.18] hover:bg-white/[0.26] dark:bg-white/[0.12] dark:hover:bg-white/[0.20] text-white flex items-center justify-center transition active:scale-90 shrink-0 relative" title="Календарь загруженности">
+    <button type="button" id="subject-filter-btn" onclick="toggleSubjectFilterPanel()" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/[0.18] hover:bg-white/[0.26] dark:bg-white/[0.12] dark:hover:bg-white/[0.20] text-white flex items-center justify-center transition active:scale-90 shrink-0 relative" title="Сортировка и фильтр по предметам" aria-label="Сортировка по предметам">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M3 6h18"/><path d="M7 12h10"/><path d="M10 18h4"/></svg>
+      <span id="subject-filter-dot" class="hidden absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#34d399]"></span>
+    </button>
+
+    <button type="button" id="workload-calendar-btn" onclick="openWorkloadMonthModal()" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/[0.18] hover:bg-white/[0.26] dark:bg-white/[0.12] dark:hover:bg-white/[0.20] text-white flex items-center justify-center transition active:scale-90 shrink-0 relative" title="Календарь загруженности">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
       <span id="workload-btn-dot" class="hidden absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#FACC15]"></span>
+    </button>
+  </div>
+
+  <!-- Компактная панель сортировки и фильтра по предметам -->
+  <div id="subject-filter-bar" class="hidden mb-3 flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 select-none"></div>
+
+  <!-- Баннер активной сортировки / выбранного предмета при свёрнутой панели -->
+  <div id="subject-active-banner" class="hidden mb-2.5 py-1.5 px-3.5 rounded-full bg-white/[0.18] dark:bg-white/[0.12] flex items-center justify-between gap-2">
+    <div class="flex items-center gap-2 min-w-0">
+      <span class="w-2 h-2 rounded-full bg-[#34d399] shrink-0"></span>
+      <span id="subject-active-text" class="text-xs font-semibold text-white truncate">По предмету</span>
+    </div>
+    <button type="button" onclick="resetSubjectFilter()" class="text-[11px] font-bold text-white hover:bg-white/30 px-2 py-0.5 rounded-full bg-white/20 shrink-0 flex items-center gap-1 active:scale-95">
+      <span>Сбросить</span>
+      <span>✕</span>
     </button>
   </div>
 
@@ -400,7 +442,7 @@
   </div>
 
   <!-- Список домашних заданий -->
-  <main id="tasks-container" class="space-y-3 pb-24">
+  <main id="tasks-container" class="space-y-2.5 pb-24">
     <div class="animate-pulse hybrid-card p-4 rounded-[22px] h-24"></div>
     <div class="animate-pulse hybrid-card p-4 rounded-[22px] h-24"></div>
   </main>
@@ -415,178 +457,187 @@
   </div>
 
   <!-- ===== МОДАЛЬНОЕ ОКНО РАСПИСАНИЯ ===== -->
-  <div id="schedule-modal" class="fixed inset-0 bg-black/80 hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeScheduleModal()">
-    <div class="modal-sheet bg-white dark:bg-[#102642] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] border-t sm:border border-transparent dark:border-white/10 shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
-      <!-- Шапка расписания -->
-      <div class="px-5 pt-3 sm:pt-5 pb-3 border-b border-slate-100 dark:border-white/[0.08] shrink-0">
-        <div class="w-10 h-1 rounded-full bg-slate-200 dark:bg-white/20 mx-auto mb-3 sm:hidden"></div>
+  <div id="schedule-modal" class="fixed inset-0 bg-[#0b1b30]/75 hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeScheduleModal()">
+    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[92vh] flex flex-col overflow-hidden border-0">
+      <!-- Верхняя градиентная сцена со вкладками -->
+      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-5 pt-3 sm:pt-4 pb-3.5 shrink-0">
+        <div class="w-10 h-1 rounded-full bg-white/30 mx-auto mb-3 sm:hidden"></div>
         <div class="flex justify-between items-center gap-3">
-          <div class="flex items-center gap-3 min-w-0">
-            <img src="/static/3d/schedule-cal.webp" alt="" width="36" height="36" class="w-9 h-9 object-contain shrink-0" />
-            <div class="min-w-0">
-              <h2 class="text-base font-extrabold tracking-tight truncate">Расписание 10-А</h2>
-              <p class="text-[11.5px] text-slate-500 dark:text-sky-100/70 truncate" id="schedule-subtitle">2026/2027 уч. год</p>
-            </div>
+          <div class="min-w-0">
+            <h2 class="text-[17px] font-extrabold tracking-tight text-white truncate">Расписание 10-А</h2>
+            <p class="text-[11px] text-white/75 truncate mt-0.5" id="schedule-subtitle">2026/2027 уч. год</p>
           </div>
-          <button onclick="closeScheduleModal()" class="text-slate-500 dark:text-white/80 hover:text-slate-900 dark:hover:text-white w-8 h-8 rounded-full bg-slate-900/[0.06] dark:bg-white/[0.10] hover:bg-slate-900/[0.12] dark:hover:bg-white/[0.18] flex items-center justify-center text-sm font-bold active:scale-90 transition shrink-0">✕</button>
+          <button onclick="closeScheduleModal()" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center text-sm font-bold active:scale-90 transition shrink-0" title="Закрыть">✕</button>
         </div>
 
         <!-- Сегментированная панель вкладок -->
-        <div class="flex items-center gap-1 p-1 mt-3.5 bg-[#eef3fa] dark:bg-white/[0.08] rounded-full overflow-x-auto no-scrollbar select-none" id="schedule-tabs">
+        <div class="flex items-center gap-1 p-1 mt-3 bg-white/[0.16] dark:bg-white/[0.10] rounded-full overflow-x-auto no-scrollbar select-none" id="schedule-tabs">
           <button onclick="setScheduleView('today')" id="sch-tab-today" class="py-1.5 px-3 rounded-full text-xs font-bold bg-white text-[#145594] dark:text-slate-950 transition active:scale-95 shrink-0 shadow-xs flex items-center gap-1">
             <span>Сегодня</span>
           </button>
-          <button onclick="setScheduleView(0)" id="sch-tab-0" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-slate-600 dark:text-white/75 hover:text-slate-900 dark:hover:text-white transition active:scale-95 shrink-0">Пн</button>
-          <button onclick="setScheduleView(1)" id="sch-tab-1" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-slate-600 dark:text-white/75 hover:text-slate-900 dark:hover:text-white transition active:scale-95 shrink-0">Вт</button>
-          <button onclick="setScheduleView(2)" id="sch-tab-2" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-slate-600 dark:text-white/75 hover:text-slate-900 dark:hover:text-white transition active:scale-95 shrink-0">Ср</button>
-          <button onclick="setScheduleView(3)" id="sch-tab-3" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-slate-600 dark:text-white/75 hover:text-slate-900 dark:hover:text-white transition active:scale-95 shrink-0">Чт</button>
-          <button onclick="setScheduleView(4)" id="sch-tab-4" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-slate-600 dark:text-white/75 hover:text-slate-900 dark:hover:text-white transition active:scale-95 shrink-0">Пт</button>
-          <button onclick="setScheduleView('grid')" id="sch-tab-grid" class="py-1.5 px-3 rounded-full text-xs font-semibold text-slate-600 dark:text-white/75 hover:text-slate-900 dark:hover:text-white transition active:scale-95 shrink-0">
+          <button onclick="setScheduleView(0)" id="sch-tab-0" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 shrink-0">Пн</button>
+          <button onclick="setScheduleView(1)" id="sch-tab-1" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 shrink-0">Вт</button>
+          <button onclick="setScheduleView(2)" id="sch-tab-2" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 shrink-0">Ср</button>
+          <button onclick="setScheduleView(3)" id="sch-tab-3" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 shrink-0">Чт</button>
+          <button onclick="setScheduleView(4)" id="sch-tab-4" class="py-1.5 px-2.5 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 shrink-0">Пт</button>
+          <button onclick="setScheduleView('grid')" id="sch-tab-grid" class="py-1.5 px-3 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 shrink-0">
             <span>Неделя</span>
           </button>
-          <button onclick="setScheduleView('photo')" id="sch-tab-photo" class="py-1.5 px-3 rounded-full text-xs font-semibold text-slate-600 dark:text-white/75 hover:text-slate-900 dark:hover:text-white transition active:scale-95 shrink-0">
+          <button onclick="setScheduleView('photo')" id="sch-tab-photo" class="py-1.5 px-3 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 shrink-0">
             <span>Бланк</span>
           </button>
         </div>
       </div>
 
-      <!-- Контент расписания -->
-      <div class="px-4 sm:px-5 py-3.5 overflow-y-auto flex-1 thin-scroll">
-        <!-- ВИД 1: РЕДАКЦИОННЫЙ ТАЙМЛАЙН УРОКОВ НА ВЫБРАННЫЙ ДЕНЬ -->
-        <div id="schedule-day-view" class="space-y-2"></div>
+      <!-- Чистая панель контента -->
+      <div class="flex-1 min-h-0 flex flex-col bg-white dark:bg-[#0e223b] overflow-hidden">
+        <div class="px-4 sm:px-5 pt-3.5 pb-2 overflow-y-auto flex-1 min-h-0 thin-scroll">
+          <!-- ВИД 1: ЕДИНЫЙ СПИСОК УРОКОВ ДНЯ -->
+          <div id="schedule-day-view" class="space-y-2.5"></div>
 
-        <!-- ВИД 2: ОРИГИНАЛЬНОЕ ФОТО РАСПИСАНИЯ -->
-        <div id="schedule-photo-view" class="hidden flex-col">
-          <div class="relative rounded-2xl overflow-hidden bg-[#f4f7fc] dark:bg-black/30 group cursor-pointer" onclick="openSchedulePhotoFullscreen()">
-            <img
-              src="/static/schedule_10a.webp"
-              alt="Оригинальное расписание 10А инж"
-              class="w-full h-auto object-contain rounded-2xl active:scale-[0.99] transition"
-            />
-            <div class="absolute bottom-3 right-3 bg-slate-950/80 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-md">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
-              <span>Увеличить</span>
+          <!-- ВИД 2: ОРИГИНАЛЬНОЕ ФОТО РАСПИСАНИЯ -->
+          <div id="schedule-photo-view" class="hidden flex-col">
+            <div class="relative rounded-2xl overflow-hidden bg-[#f4f7fc] dark:bg-white/[0.06] group cursor-pointer" onclick="openSchedulePhotoFullscreen()">
+              <img
+                src="/static/schedule_10a.webp"
+                alt="Оригинальное расписание 10А инж"
+                class="w-full h-auto object-contain rounded-2xl active:scale-[0.99] transition"
+              />
+              <div class="absolute bottom-3 right-3 bg-slate-950/75 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 shadow-md">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                <span>Увеличить</span>
+              </div>
+            </div>
+            <div class="flex items-center justify-between mt-3 px-1 text-slate-500 dark:text-sky-100/70 text-xs">
+              <span>Оригинал · 10-А</span>
+              <button onclick="openSchedulePhotoFullscreen()" class="px-3.5 py-1.5 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white font-bold text-xs shadow-xs active:scale-95 transition flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                <span>На весь экран</span>
+              </button>
             </div>
           </div>
-          <div class="flex items-center justify-between mt-3 px-1 text-slate-500 dark:text-sky-100/70 text-xs">
-            <span>Оригинал · 10А инж</span>
-            <button onclick="openSchedulePhotoFullscreen()" class="px-3.5 py-1.5 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white font-bold text-xs shadow-xs active:scale-95 transition flex items-center gap-1.5">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-              <span>На весь экран</span>
-            </button>
+
+          <!-- ВИД 3: ИНТЕРАКТИВНАЯ СЕТКА ВСЕЙ НЕДЕЛИ -->
+          <div id="schedule-grid-view" class="hidden flex-col">
+            <div class="overflow-x-auto no-scrollbar pb-2 pt-0.5">
+              <div id="schedule-grid-table-container" class="min-w-[680px]">
+                <!-- Генерируется через JS -->
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- ВИД 3: ИНТЕРАКТИВНАЯ СЕТКА ВСЕЙ НЕДЕЛИ -->
-        <div id="schedule-grid-view" class="hidden flex-col">
-          <div class="overflow-x-auto no-scrollbar pb-2 pt-0.5">
-            <div id="schedule-grid-table-container" class="min-w-[680px]">
-              <!-- Генерируется через JS -->
-            </div>
-          </div>
+        <!-- Закрепленная нижняя панель -->
+        <div class="px-5 py-3 flex items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-sky-100/60 shrink-0">
+          <span class="truncate">Нажмите на урок для просмотра Д/З</span>
+          <button onclick="toggleScheduleMode()" id="btn-toggle-all-view" class="px-3 py-1 rounded-full bg-[#eef3fa] dark:bg-white/[0.10] text-[#145594] dark:text-sky-200 font-bold hover:bg-[#2077cf] hover:text-white transition shrink-0 active:scale-95">
+            <span>Сетка недели</span>
+          </button>
         </div>
-      </div>
-
-      <!-- Закрепленная нижняя панель -->
-      <div class="px-5 py-3 border-t border-slate-100 dark:border-white/[0.08] flex items-center justify-between gap-2 text-[11px] text-slate-400 dark:text-sky-100/60 shrink-0">
-        <span class="truncate">Нажмите на урок для просмотра Д/З</span>
-        <button onclick="toggleScheduleMode()" id="btn-toggle-all-view" class="px-3 py-1 rounded-full bg-[#eef3fa] dark:bg-white/[0.10] text-[#145594] dark:text-sky-200 font-bold hover:bg-[#2077cf] hover:text-white transition shrink-0 active:scale-95">
-          <span>Сетка недели</span>
-        </button>
       </div>
     </div>
   </div>
 
   <!-- ===== МОДАЛЬНОЕ ОКНО: Д/З ПО ПРЕДМЕТУ ИЗ РАСПИСАНИЯ (ПОВЕРХ РАСПИСАНИЯ) ===== -->
-  <div id="schedule-subject-tasks-modal" class="fixed inset-0 bg-black/80 hidden items-end sm:items-center justify-center p-0 sm:p-4" style="z-index: 80;" onclick="if(event.target===this)closeScheduleSubjectTasksModal()">
-    <div class="modal-sheet bg-white dark:bg-[#102642] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 border-t sm:border border-transparent dark:border-white/10 shadow-2xl max-h-[88vh] flex flex-col relative transition-all">
-      <div class="w-10 h-1 bg-slate-200 dark:bg-white/20 rounded-full mx-auto mb-2.5 sm:hidden shrink-0"></div>
-
-      <!-- Шапка -->
-      <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 dark:border-white/[0.08] flex-shrink-0">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <div id="sstm-icon-box" class="w-9 h-9 rounded-2xl bg-[#eef4fc] dark:bg-sky-400/15 text-[#2077cf] dark:text-sky-300 flex items-center justify-center shrink-0 p-2"></div>
-          <div class="min-w-0">
-            <h3 id="sstm-subject-name" class="text-base font-extrabold truncate">Математика</h3>
-            <p id="sstm-subtitle" class="text-[11px] text-slate-500 dark:text-sky-100/70 truncate">Каб: 404 · Преподаватель: —</p>
+  <div id="schedule-subject-tasks-modal" class="fixed inset-0 bg-[#0b1b30]/75 hidden items-end sm:items-center justify-center p-0 sm:p-4" style="z-index: 80;" onclick="if(event.target===this)closeScheduleSubjectTasksModal()">
+    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[88vh] flex flex-col relative transition-all overflow-hidden border-0">
+      <!-- Градиентная шапка -->
+      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-5 pt-3 sm:pt-4 pb-3.5 shrink-0">
+        <div class="w-10 h-1 bg-white/30 rounded-full mx-auto mb-2.5 sm:hidden"></div>
+        <div class="flex justify-between items-center gap-3">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <div id="sstm-icon-box" class="w-9 h-9 rounded-[11px] bg-white/[0.18] text-white flex items-center justify-center shrink-0 p-2"></div>
+            <div class="min-w-0">
+              <h3 id="sstm-subject-name" class="text-base font-extrabold text-white truncate">Математика</h3>
+              <p id="sstm-subtitle" class="text-[11px] text-white/75 truncate">Каб: 404 · Преподаватель: —</p>
+            </div>
           </div>
+          <button onclick="closeScheduleSubjectTasksModal()" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center text-sm font-bold transition active:scale-95 shrink-0" title="Назад к расписанию">✕</button>
         </div>
-        <button onclick="closeScheduleSubjectTasksModal()" class="text-slate-500 dark:text-white/80 hover:text-slate-900 dark:hover:text-white w-8 h-8 rounded-full bg-slate-900/[0.06] dark:bg-white/[0.10] flex items-center justify-center text-sm font-bold transition active:scale-95 shrink-0" title="Назад к расписанию">✕</button>
       </div>
 
-      <!-- Фильтр-заголовок -->
-      <div class="flex items-center justify-between mb-3 px-0.5 flex-shrink-0">
-        <span id="sstm-date-header" class="text-xs font-bold text-slate-700 dark:text-sky-100">Д/З на сегодня</span>
-        <span id="sstm-badge-count" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#eef3fa] dark:bg-white/10 text-[#145594] dark:text-sky-200">0 заданий</span>
-      </div>
+      <div class="flex-1 min-h-0 flex flex-col bg-white dark:bg-[#0e223b] px-4 sm:px-5 pt-3.5 pb-4 overflow-hidden">
+        <!-- Фильтр-заголовок -->
+        <div class="flex items-center justify-between mb-2.5 px-0.5 flex-shrink-0">
+          <span id="sstm-date-header" class="text-xs font-bold text-slate-700 dark:text-sky-100">Д/З на сегодня</span>
+          <span id="sstm-badge-count" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-[#eef3fa] dark:bg-white/10 text-[#145594] dark:text-sky-200">0 заданий</span>
+        </div>
 
-      <!-- Контейнер со списком заданий на сегодня -->
-      <div id="sstm-tasks-container" class="overflow-y-auto flex-1 space-y-2.5 pr-0.5 thin-scroll"></div>
+        <!-- Контейнер со списком заданий на сегодня -->
+        <div id="sstm-tasks-container" class="overflow-y-auto flex-1 min-h-0 space-y-2.5 pr-0.5 thin-scroll"></div>
 
-      <!-- Кнопка быстрого добавления Д/З по этому предмету -->
-      <div class="mt-3 pt-3 border-t border-slate-100 dark:border-white/[0.08] flex items-center justify-between flex-shrink-0 gap-2">
-        <button id="sstm-btn-add" onclick="quickAddForSubject()" class="flex-1 py-2.5 px-4 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white font-bold text-xs transition active:scale-95 flex items-center justify-center gap-1.5">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>
-          <span>Добавить Д/З</span>
-        </button>
-        <button onclick="closeScheduleSubjectTasksModal()" class="py-2.5 px-4 rounded-full bg-[#eef3fa] hover:bg-slate-200 dark:bg-white/[0.10] dark:hover:bg-white/[0.18] text-slate-700 dark:text-white font-semibold text-xs transition active:scale-95">
-          К расписанию
-        </button>
+        <!-- Кнопка быстрого добавления Д/З по этому предмету -->
+        <div class="mt-3 flex items-center justify-between flex-shrink-0 gap-2">
+          <button id="sstm-btn-add" onclick="quickAddForSubject()" class="flex-1 py-2.5 px-4 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white font-bold text-xs transition active:scale-95 flex items-center justify-center gap-1.5">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3.5 h-3.5"><path d="M12 5v14M5 12h14"/></svg>
+            <span>Добавить Д/З</span>
+          </button>
+          <button onclick="closeScheduleSubjectTasksModal()" class="py-2.5 px-4 rounded-full bg-[#eef3fa] hover:bg-slate-200 dark:bg-white/[0.10] dark:hover:bg-white/[0.18] text-slate-700 dark:text-white font-semibold text-xs transition active:scale-95">
+            К расписанию
+          </button>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- ===== МОДАЛЬНОЕ ОКНО ТАБЛИЦЫ ЛИДЕРОВ (РЕЙТИНГ РЕДАКТОРОВ) ===== -->
-  <div id="leaderboard-modal" class="fixed inset-0 bg-black/80 hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeLeaderboardModal()">
-    <div class="modal-sheet bg-white dark:bg-[#102642] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-5 border-t sm:border border-transparent dark:border-white/10 shadow-2xl max-h-[92vh] flex flex-col">
-      <!-- Заголовок -->
-      <div class="flex justify-between items-center mb-3 pb-3 border-b border-slate-100 dark:border-white/[0.08] flex-shrink-0">
-        <div class="flex items-center gap-2.5 min-w-0">
-          <img src="/static/3d/leaders-trophy.webp" alt="" width="36" height="36" class="w-9 h-9 object-contain shrink-0" />
+  <div id="leaderboard-modal" class="fixed inset-0 bg-[#0b1b30]/75 hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeLeaderboardModal()">
+    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[92vh] flex flex-col overflow-hidden border-0">
+      
+      <!-- Верхняя градиентная сцена с подиумом (Cerulean Light / Ocean Dark) -->
+      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-5 pt-3 sm:pt-4 pb-0 flex-shrink-0">
+        <div class="w-10 h-1 rounded-full bg-white/30 mx-auto mb-3 sm:hidden"></div>
+
+        <!-- Заголовок -->
+        <div class="flex justify-between items-center gap-3 mb-3">
           <div class="min-w-0">
-            <h2 class="text-base font-extrabold tracking-tight truncate">Таблица лидеров</h2>
-            <p class="text-[11px] text-slate-500 dark:text-sky-100/70 truncate">Активность 10-А класса</p>
+            <h2 class="text-[17px] font-extrabold tracking-tight text-white truncate">Таблица лидеров</h2>
+            <p class="text-[11px] text-white/75 truncate mt-0.5">
+              <span>10-А класс</span> · <span id="leaderboard-total-count">0 участников</span>
+            </p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button onclick="toggleLeaderboardRules()" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center transition active:scale-95" title="Как начисляются очки?">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </button>
+            <button onclick="closeLeaderboardModal()" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center text-sm font-bold transition active:scale-95" title="Закрыть">✕</button>
           </div>
         </div>
-        <div class="flex items-center gap-1.5 shrink-0">
-          <button onclick="toggleLeaderboardRules()" class="w-8 h-8 rounded-full bg-slate-900/[0.06] hover:bg-slate-900/[0.12] dark:bg-white/[0.10] dark:hover:bg-white/[0.18] text-slate-600 dark:text-white/80 flex items-center justify-center transition active:scale-95" title="Как начисляются очки?">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          </button>
-          <button onclick="closeLeaderboardModal()" class="text-slate-500 dark:text-white/80 hover:text-slate-900 dark:hover:text-white w-8 h-8 rounded-full bg-slate-900/[0.06] dark:bg-white/[0.10] flex items-center justify-center text-sm font-bold transition active:scale-95">✕</button>
-        </div>
+
+        <!-- Ступенчатый подиум Топ-3 (2 | 1 | 3) -->
+        <div id="leaderboard-podium" class="grid grid-cols-3 gap-2.5 items-end pt-1 px-1"></div>
       </div>
 
-      <!-- Подиум Топ-3 -->
-      <div id="leaderboard-podium" class="grid grid-cols-3 gap-2 items-end mb-3 pt-2 px-1 flex-shrink-0"></div>
-
-      <!-- Правила начисления очков -->
-      <div id="leaderboard-rules-box" class="hidden p-3.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] mb-3 flex-shrink-0 transition-all duration-200">
-        <div class="flex items-center justify-between text-xs font-bold text-slate-800 dark:text-white mb-2.5">
-          <span>Как начисляются очки</span>
-          <span class="text-[10.5px] font-medium text-slate-400 dark:text-sky-100/60">Раз в 4 часа</span>
+      <!-- Нижняя чистая панель со списком участников -->
+      <div class="flex-1 min-h-0 flex flex-col bg-white dark:bg-[#0e223b] px-4 sm:px-5 pt-3.5 pb-4 overflow-hidden">
+        <!-- Правила начисления очков (по кнопке ?) -->
+        <div id="leaderboard-rules-box" class="hidden p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] mb-3 flex-shrink-0">
+          <div class="flex items-center justify-between text-[11.5px] font-bold text-slate-800 dark:text-white mb-2">
+            <span>Как начисляются очки</span>
+            <span class="text-[10.5px] font-medium text-slate-400 dark:text-sky-100/60">Раз в 4 часа</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div class="py-1.5 px-2 rounded-xl bg-white dark:bg-white/[0.07]">
+              <span class="block text-xs font-extrabold text-[#2077cf] dark:text-sky-300">+5</span>
+              <span class="text-[10px] text-slate-500 dark:text-sky-100/70">Новое Д/З</span>
+            </div>
+            <div class="py-1.5 px-2 rounded-xl bg-white dark:bg-white/[0.07]">
+              <span class="block text-xs font-extrabold text-amber-500 dark:text-amber-300">+3</span>
+              <span class="text-[10px] text-slate-500 dark:text-sky-100/70">Материалы</span>
+            </div>
+            <div class="py-1.5 px-2 rounded-xl bg-white dark:bg-white/[0.07]">
+              <span class="block text-xs font-extrabold text-emerald-500 dark:text-emerald-300">+1</span>
+              <span class="text-[10px] text-slate-500 dark:text-sky-100/70">Сдано Д/З</span>
+            </div>
+          </div>
         </div>
-        <div class="grid grid-cols-3 gap-2 text-center">
-          <div class="p-2 rounded-xl bg-white dark:bg-white/[0.07]">
-            <span class="block text-xs font-black text-[#2077cf] dark:text-sky-300">+5</span>
-            <span class="text-[10px] text-slate-500 dark:text-sky-100/70">Новое Д/З</span>
-          </div>
-          <div class="p-2 rounded-xl bg-white dark:bg-white/[0.07]">
-            <span class="block text-xs font-black text-amber-500 dark:text-amber-300">+3</span>
-            <span class="text-[10px] text-slate-500 dark:text-sky-100/70">Материалы</span>
-          </div>
-          <div class="p-2 rounded-xl bg-white dark:bg-white/[0.07]">
-            <span class="block text-xs font-black text-emerald-500 dark:text-emerald-300">+1</span>
-            <span class="text-[10px] text-slate-500 dark:text-sky-100/70">Сдано Д/З</span>
-          </div>
-        </div>
-      </div>
 
-      <!-- Список всех участников -->
-      <div class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/50 px-1 mb-1.5 flex justify-between items-center flex-shrink-0">
-        <span>Участники</span>
-        <span id="leaderboard-total-count">0 участников</span>
+        <!-- Карточка текущей позиции пользователя (если он вне Топ-3) -->
+        <div id="leaderboard-my-card" class="hidden mb-2.5 flex-shrink-0"></div>
+
+        <!-- Единый чистый список рейтинга -->
+        <div id="leaderboard-list" class="overflow-y-auto flex-1 min-h-0 rounded-[20px] bg-[#f4f7fc] dark:bg-white/[0.06] divide-y divide-slate-200/50 dark:divide-white/[0.06] thin-scroll"></div>
       </div>
-      <div id="leaderboard-list" class="overflow-y-auto flex-1 space-y-2 pr-0.5 thin-scroll"></div>
     </div>
   </div>
 
@@ -950,11 +1001,11 @@
                 </div>
                 <div class="min-w-0">
                   <span class="text-xs font-bold block text-slate-900 dark:text-white truncate">Звуки интерфейса</span>
-                  <span class="text-[10.5px] text-slate-500 dark:text-sky-100/65 block truncate">Мягкие системные отклики</span>
+                  <span class="text-[10.5px] text-slate-500 dark:text-sky-100/65 block truncate">Отчётливые звуковые отклики</span>
                 </div>
               </div>
               <div class="flex items-center gap-2 shrink-0">
-                <button type="button" onclick="testSoundEffect()" class="px-2.5 py-1 rounded-full bg-white dark:bg-white/[0.10] text-[#145594] dark:text-sky-200 text-[10.5px] font-bold active:scale-95 transition">Тест</button>
+                <button type="button" data-sound-custom="1" onclick="testSoundEffect()" class="px-2.5 py-1 rounded-full bg-white dark:bg-white/[0.10] text-[#145594] dark:text-sky-200 text-[10.5px] font-bold active:scale-95 transition">Тест</button>
                 <label class="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" id="sound-toggle" onchange="toggleSoundSetting()" class="sr-only peer" checked>
                   <div class="settings-switch-track w-10 h-[22px] bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-white/20 peer-checked:after:translate-x-[18px] after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4 after:w-4 after:shadow-xs after:transition-all peer-checked:bg-[#22c55e]"></div>
@@ -962,14 +1013,26 @@
               </div>
             </div>
 
-            <div id="sound-volume-container" class="pt-2.5 border-t border-slate-200/60 dark:border-white/[0.08] space-y-1.5">
-              <div class="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-sky-100/80">
-                <span>Громкость эффектов</span>
-                <span id="sound-volume-label" class="font-mono text-[#145594] dark:text-sky-200 text-[11px]">85%</span>
+            <div id="sound-volume-container" class="pt-2.5 border-t border-slate-200/60 dark:border-white/[0.08] space-y-2.5">
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between text-[11px] font-bold text-slate-600 dark:text-sky-100/80">
+                  <span>Громкость эффектов</span>
+                  <span id="sound-volume-label" class="font-mono text-[#145594] dark:text-sky-200 text-[11px]">100%</span>
+                </div>
+                <input type="range" id="sound-volume-slider" min="5" max="100" value="100"
+                  oninput="onSoundVolumeChange(this.value)"
+                  class="w-full accent-[#2077cf] h-2 bg-slate-200 dark:bg-white/15 rounded-lg cursor-pointer">
               </div>
-              <input type="range" id="sound-volume-slider" min="5" max="100" value="85"
-                oninput="onSoundVolumeChange(this.value)"
-                class="w-full accent-[#2077cf] h-2 bg-slate-200 dark:bg-white/15 rounded-lg cursor-pointer">
+
+              <div class="pt-2 border-t border-slate-200/50 dark:border-white/[0.06]">
+                <span class="text-[11px] font-bold text-slate-600 dark:text-sky-100/80 block mb-1.5">Стиль звука</span>
+                <div class="grid grid-cols-4 gap-1.5" id="sound-preset-grid">
+                  <button type="button" data-sound-custom="1" data-preset="drop" onclick="selectSoundPreset('drop')" class="py-1.5 px-1 rounded-xl text-[10.5px] font-bold bg-[#2077cf] text-white transition active:scale-95 truncate">Капля</button>
+                  <button type="button" data-sound-custom="1" data-preset="click" onclick="selectSoundPreset('click')" class="py-1.5 px-1 rounded-xl text-[10.5px] font-semibold bg-white dark:bg-white/[0.08] text-slate-700 dark:text-white/80 transition active:scale-95 truncate">Клик</button>
+                  <button type="button" data-sound-custom="1" data-preset="marimba" onclick="selectSoundPreset('marimba')" class="py-1.5 px-1 rounded-xl text-[10.5px] font-semibold bg-white dark:bg-white/[0.08] text-slate-700 dark:text-white/80 transition active:scale-95 truncate">Маримба</button>
+                  <button type="button" data-sound-custom="1" data-preset="piano" onclick="selectSoundPreset('piano')" class="py-1.5 px-1 rounded-xl text-[10.5px] font-semibold bg-white dark:bg-white/[0.08] text-slate-700 dark:text-white/80 transition active:scale-95 truncate">Пианино</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1075,6 +1138,21 @@
                   <span class="text-[10px] text-slate-500 dark:text-sky-100/65 leading-tight block truncate">Инженерный</span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Установка как приложение (PWA) -->
+          <div id="pwa-install-card" class="p-3.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <img src="/static/pwa/icon-192.png" alt="PWA" class="w-10 h-10 rounded-xl shrink-0 object-cover shadow-xs" />
+              <div class="min-w-0">
+                <h4 id="pwa-install-card-title" class="text-xs font-extrabold text-slate-900 dark:text-white truncate">Установить приложение</h4>
+                <p id="pwa-install-card-desc" class="text-[10.5px] text-slate-500 dark:text-sky-100/65 leading-snug mt-0.5">Отдельный ярлык и оффлайн-доступ</p>
+              </div>
+            </div>
+            <div class="shrink-0 flex items-center">
+              <span id="pwa-install-card-badge" class="hidden px-2.5 py-1 rounded-full bg-emerald-500/15 text-[#16a34a] dark:text-emerald-300 text-[11px] font-bold">Активно</span>
+              <button id="pwa-install-card-btn" type="button" onclick="triggerPwaInstall()" class="px-3.5 py-1.5 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white text-xs font-bold shrink-0 active:scale-95 transition">Установить</button>
             </div>
           </div>
 
@@ -1645,18 +1723,37 @@
     }
 
     // ========================================================
-    // 🔊 МЯГКИЙ АУДИО-ДВИЖОК ИНТЕРФЕЙСА (WEB AUDIO API)
-    // Нулевая задержка (0ms), 0 КБ трафика, синтез приятных звуков
+    // 💧 СТУДИЙНЫЙ АУДИО-ДВИЖОК (КАПЛЯ / ПОП БЕЗ ШУМА И ПИСКА)
+    // Математически гладкие AudioBuffer-сэмплы с нулевыми фазами
     // ========================================================
     class SoundFXManager {
       constructor() {
         this.ctx = null;
         this.masterGain = null;
+        this.toneFilter = null;
+        this.limiter = null;
+        this.bufferCache = new Map();
         this.enabled = localStorage.getItem('hw_sound_enabled') !== 'false';
-        this.volume = parseFloat(localStorage.getItem('hw_sound_volume') || '0.85');
-        if (isNaN(this.volume) || this.volume < 0 || this.volume > 1) this.volume = 0.85;
+        const savedVol = parseFloat(localStorage.getItem('hw_sound_volume') ?? '1.0');
+        this.volume = Number.isFinite(savedVol) ? Math.max(0, Math.min(1, savedVol)) : 1.0;
+
+        // По умолчанию ставим мягкий мессенджер-пузырёк («Капля») с автомиграцией старых пресетов
+        const validPresets = new Set(['drop', 'click', 'marimba', 'piano']);
+        const savedPreset = localStorage.getItem('hw_sound_preset');
+        if (savedPreset && validPresets.has(savedPreset)) {
+          this.preset = savedPreset;
+        } else {
+          this.preset = 'drop';
+          try { localStorage.setItem('hw_sound_preset', 'drop'); } catch (e) {}
+        }
         this.lastPlayTime = 0;
-        this.throttleMs = 25;
+        this.suppressTapUntil = 0;
+        this.throttleMs = 28;
+      }
+
+      computeEffectiveGain(vol = this.volume) {
+        if (!Number.isFinite(vol) || vol <= 0.001) return 0;
+        return 0.16 + Math.pow(vol, 1.1) * 2.54;
       }
 
       initContext() {
@@ -1666,187 +1763,310 @@
             this.ctx = new AudioCtx();
           }
         }
+        this.ensureMasterGain();
         if (this.ctx && this.ctx.state === 'suspended') {
           this.ctx.resume().catch(() => {});
         }
-        this.ensureMasterGain();
       }
 
       ensureMasterGain() {
         if (!this.ctx) return null;
         if (!this.masterGain) {
           try {
+            const now = this.ctx.currentTime;
             this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
-            this.masterGain.connect(this.ctx.destination);
+            this.masterGain.gain.setValueAtTime(this.computeEffectiveGain(), now);
+
+            let tailNode = this.masterGain;
+            if (typeof this.ctx.createBiquadFilter === 'function') {
+              this.toneFilter = this.ctx.createBiquadFilter();
+              this.toneFilter.type = 'lowpass';
+              this.toneFilter.frequency.setValueAtTime(3200, now);
+              this.toneFilter.Q.setValueAtTime(0.65, now);
+              tailNode.connect(this.toneFilter);
+              tailNode = this.toneFilter;
+            }
+
+            if (typeof this.ctx.createDynamicsCompressor === 'function') {
+              this.limiter = this.ctx.createDynamicsCompressor();
+              this.limiter.threshold.setValueAtTime(-4.5, now);
+              this.limiter.knee.setValueAtTime(10, now);
+              this.limiter.ratio.setValueAtTime(6, now);
+              this.limiter.attack.setValueAtTime(0.002, now);
+              this.limiter.release.setValueAtTime(0.10, now);
+              tailNode.connect(this.limiter);
+              this.limiter.connect(this.ctx.destination);
+            } else {
+              tailNode.connect(this.ctx.destination);
+            }
           } catch (e) {}
         }
         return this.masterGain;
       }
 
       setVolume(val) {
-        this.volume = Math.max(0, Math.min(1.0, parseFloat(val) || 0.85));
+        const parsed = parseFloat(val);
+        this.volume = Number.isFinite(parsed) ? Math.max(0, Math.min(1.0, parsed)) : 1.0;
         localStorage.setItem('hw_sound_volume', this.volume.toString());
         if (this.masterGain && this.ctx) {
           try {
-            this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
+            this.masterGain.gain.setTargetAtTime(this.computeEffectiveGain(), this.ctx.currentTime, 0.014);
           } catch (e) {}
         }
       }
 
-      canPlay() {
+      setPreset(name) {
+        const validPresets = new Set(['drop', 'click', 'marimba', 'piano']);
+        this.preset = validPresets.has(name) ? name : 'drop';
+        localStorage.setItem('hw_sound_preset', this.preset);
+        this.playSuccess();
+        return this.preset;
+      }
+
+      canPlay(isGenericTap = false) {
         if (!this.enabled || this.volume <= 0.001) return false;
         const now = performance.now();
+        if (isGenericTap && now < this.suppressTapUntil) return false;
         if (now - this.lastPlayTime < this.throttleMs) return false;
         this.lastPlayTime = now;
         this.initContext();
         return !!this.ctx && !!this.masterGain;
       }
 
-      // 1. Мягкий клик / тап (кнопки, ссылки, карточки, чипы) — усиленный и сочный
+      runWhenReady(buildAudioFn, isGenericTap = false) {
+        if (!this.canPlay(isGenericTap)) return;
+        const ctx = this.ctx;
+        const invoke = () => {
+          try {
+            if (!ctx || ctx.state !== 'running') return;
+            buildAudioFn(ctx, ctx.currentTime + 0.003);
+          } catch (e) {}
+        };
+        if (ctx.state === 'running') {
+          invoke();
+        } else {
+          ctx.resume().then(invoke).catch(() => {});
+        }
+      }
+
+      // Генерация гладкого сэмпла (без шума, без щелчков начала/конца)
+      getCachedSample(ctx, cacheKey, builderFn) {
+        const fullKey = `${ctx.sampleRate}:${cacheKey}`;
+        let buf = this.bufferCache.get(fullKey);
+        if (!buf) {
+          buf = builderFn(ctx);
+          this.bufferCache.set(fullKey, buf);
+        }
+        return buf;
+      }
+
+      playSampleBuffer(ctx, t, buffer, gainVal = 0.85) {
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(gainVal, t);
+        src.connect(g);
+        g.connect(this.masterGain);
+        src.start(t);
+      }
+
+      // Физическая модель капли / мягкого поп-пузырька (резонанс Миннарта)
+      buildBubbleSample(ctx, f0, f1, durSec, harmAmp = 0.14, decayK = 4.2) {
+        const sr = ctx.sampleRate;
+        const len = Math.max(128, Math.floor(sr * durSec));
+        const buf = ctx.createBuffer(1, len, sr);
+        const data = buf.getChannelData(0);
+        const attackLen = Math.max(8, Math.min(Math.floor(sr * 0.0032), Math.floor(len * 0.25)));
+        let phase = 0;
+        for (let i = 0; i < len; i++) {
+          const p = i / (len - 1);
+          const glide = 1 - Math.exp(-p * 3.8);
+          const freq = f0 + (f1 - f0) * glide;
+          phase += (2 * Math.PI * freq) / sr;
+          const atk = i < attackLen ? 0.5 * (1 - Math.cos(Math.PI * i / attackLen)) : 1;
+          const dec = Math.exp(-p * decayK) * (1 - Math.pow(p, 4));
+          const wave = Math.sin(phase) + harmAmp * Math.sin(phase * 2.0) * Math.exp(-p * 7.5);
+          data[i] = wave * atk * dec * 0.85;
+        }
+        return buf;
+      }
+
+      // Ультра-короткий чистый iOS-импульс (без белого шума и писка)
+      buildCleanClickSample(ctx, f0 = 1100, f1 = 420, durSec = 0.013) {
+        const sr = ctx.sampleRate;
+        const len = Math.max(64, Math.floor(sr * durSec));
+        const buf = ctx.createBuffer(1, len, sr);
+        const data = buf.getChannelData(0);
+        const attackLen = Math.max(6, Math.floor(sr * 0.0012));
+        let phase = 0;
+        for (let i = 0; i < len; i++) {
+          const p = i / (len - 1);
+          const freq = f0 + (f1 - f0) * Math.pow(p, 0.7);
+          phase += (2 * Math.PI * freq) / sr;
+          const atk = i < attackLen ? 0.5 * (1 - Math.cos(Math.PI * i / attackLen)) : 1;
+          const env = Math.exp(-p * 5.0) * (1 - p * p);
+          data[i] = (Math.sin(phase) * 0.82 + Math.sin(phase * 1.92) * 0.18) * atk * env;
+        }
+        return buf;
+      }
+
+      // Чистый музыкальный удар маримбы / тёплого пианино
+      buildNoteSample(ctx, freq, durSec, mode = 'marimba') {
+        const sr = ctx.sampleRate;
+        const len = Math.max(128, Math.floor(sr * durSec));
+        const buf = ctx.createBuffer(1, len, sr);
+        const data = buf.getChannelData(0);
+        const attackSec = mode === 'piano' ? 0.006 : 0.003;
+        const attackLen = Math.max(10, Math.min(Math.floor(sr * attackSec), Math.floor(len * 0.25)));
+        const w = (2 * Math.PI * freq) / sr;
+        for (let i = 0; i < len; i++) {
+          const p = i / (len - 1);
+          const atk = i < attackLen ? 0.5 * (1 - Math.cos(Math.PI * i / attackLen)) : 1;
+          const dec = Math.exp(-p * (mode === 'piano' ? 3.8 : 5.0)) * (1 - Math.pow(p, 4));
+          const s = mode === 'piano'
+            ? Math.sin(w * i) * 0.76 + Math.sin(w * 2 * i) * 0.20 * Math.exp(-p * 4.5) + Math.sin(w * 3 * i) * 0.05 * Math.exp(-p * 8.0)
+            : Math.sin(w * i) * 0.86 + Math.sin(w * 4 * i) * 0.12 * Math.exp(-p * 11.0);
+          data[i] = s * atk * dec * 0.85;
+        }
+        return buf;
+      }
+
+      // 1. Обычное нажатие (кнопка, карточка, ссылка)
       playTap() {
-        if (!this.canPlay()) return;
-        try {
-          const t = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(520, t);
-          osc.frequency.exponentialRampToValueAtTime(180, t + 0.035);
-
-          gain.gain.setValueAtTime(0.22, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.035);
-
-          osc.connect(gain);
-          gain.connect(this.masterGain);
-
-          osc.start(t);
-          osc.stop(t + 0.038);
-        } catch (e) {}
+        this.runWhenReady((ctx, t) => {
+          if (this.preset === 'click') {
+            const buf = this.getCachedSample(ctx, 'click_tap', c => this.buildCleanClickSample(c, 1080, 420, 0.013));
+            this.playSampleBuffer(ctx, t, buf, 0.90);
+          } else if (this.preset === 'marimba') {
+            const buf = this.getCachedSample(ctx, 'marimba_tap', c => this.buildNoteSample(c, 523.25, 0.055, 'marimba'));
+            this.playSampleBuffer(ctx, t, buf, 0.78);
+          } else if (this.preset === 'piano') {
+            const buf = this.getCachedSample(ctx, 'piano_tap', c => this.buildNoteSample(c, 587.33, 0.075, 'piano'));
+            this.playSampleBuffer(ctx, t, buf, 0.72);
+          } else {
+            // drop: мягкий мессенджер-пузырёк / поп без шума
+            const buf = this.getCachedSample(ctx, 'drop_tap', c => this.buildBubbleSample(c, 390, 790, 0.028, 0.12, 4.4));
+            this.playSampleBuffer(ctx, t, buf, 0.88);
+          }
+        }, true);
       }
 
-      // 2. Переключение табов и фильтров
+      // 2. Переключение вкладок и фильтров
       playTab() {
-        if (!this.canPlay()) return;
-        try {
-          const t = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(640, t);
-          osc.frequency.exponentialRampToValueAtTime(340, t + 0.032);
-
-          gain.gain.setValueAtTime(0.20, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.032);
-
-          osc.connect(gain);
-          gain.connect(this.masterGain);
-
-          osc.start(t);
-          osc.stop(t + 0.035);
-        } catch (e) {}
+        this.suppressTapUntil = performance.now() + 140;
+        this.runWhenReady((ctx, t) => {
+          if (this.preset === 'click') {
+            const buf = this.getCachedSample(ctx, 'click_tab', c => this.buildCleanClickSample(c, 1340, 560, 0.012));
+            this.playSampleBuffer(ctx, t, buf, 0.88);
+          } else if (this.preset === 'marimba') {
+            const buf = this.getCachedSample(ctx, 'marimba_tab', c => this.buildNoteSample(c, 659.25, 0.058, 'marimba'));
+            this.playSampleBuffer(ctx, t, buf, 0.76);
+          } else if (this.preset === 'piano') {
+            const buf = this.getCachedSample(ctx, 'piano_tab', c => this.buildNoteSample(c, 783.99, 0.075, 'piano'));
+            this.playSampleBuffer(ctx, t, buf, 0.70);
+          } else {
+            // drop: более высокий лёгкий пузырёк
+            const buf = this.getCachedSample(ctx, 'drop_tab', c => this.buildBubbleSample(c, 510, 980, 0.025, 0.14, 4.5));
+            this.playSampleBuffer(ctx, t, buf, 0.84);
+          }
+        });
       }
 
-      // 3. Открытие модального окна (мягкий восходящий тон)
+      // 3. Открытие модального окна
       playOpen() {
-        if (!this.canPlay()) return;
-        try {
-          const t = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(360, t);
-          osc.frequency.exponentialRampToValueAtTime(580, t + 0.07);
-
-          gain.gain.setValueAtTime(0.18, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.075);
-
-          osc.connect(gain);
-          gain.connect(this.masterGain);
-
-          osc.start(t);
-          osc.stop(t + 0.08);
-        } catch (e) {}
+        this.suppressTapUntil = performance.now() + 160;
+        this.runWhenReady((ctx, t) => {
+          if (this.preset === 'click') {
+            const b1 = this.getCachedSample(ctx, 'click_open1', c => this.buildBubbleSample(c, 440, 620, 0.032, 0.10, 4.0));
+            const b2 = this.getCachedSample(ctx, 'click_open2', c => this.buildBubbleSample(c, 660, 880, 0.040, 0.10, 4.0));
+            this.playSampleBuffer(ctx, t, b1, 0.70);
+            this.playSampleBuffer(ctx, t + 0.028, b2, 0.75);
+          } else if (this.preset === 'marimba') {
+            const b1 = this.getCachedSample(ctx, 'marimba_open1', c => this.buildNoteSample(c, 440.00, 0.095, 'marimba'));
+            const b2 = this.getCachedSample(ctx, 'marimba_open2', c => this.buildNoteSample(c, 659.25, 0.14, 'marimba'));
+            this.playSampleBuffer(ctx, t, b1, 0.68);
+            this.playSampleBuffer(ctx, t + 0.038, b2, 0.72);
+          } else if (this.preset === 'piano') {
+            const b1 = this.getCachedSample(ctx, 'piano_open1', c => this.buildNoteSample(c, 523.25, 0.13, 'piano'));
+            const b2 = this.getCachedSample(ctx, 'piano_open2', c => this.buildNoteSample(c, 783.99, 0.18, 'piano'));
+            this.playSampleBuffer(ctx, t, b1, 0.64);
+            this.playSampleBuffer(ctx, t + 0.042, b2, 0.68);
+          } else {
+            const b1 = this.getCachedSample(ctx, 'drop_open1', c => this.buildBubbleSample(c, 360, 620, 0.042, 0.12, 3.8));
+            const b2 = this.getCachedSample(ctx, 'drop_open2', c => this.buildBubbleSample(c, 540, 920, 0.052, 0.14, 3.8));
+            this.playSampleBuffer(ctx, t, b1, 0.72);
+            this.playSampleBuffer(ctx, t + 0.032, b2, 0.78);
+          }
+        });
       }
 
-      // 4. Закрытие модального окна (мягкий нисходящий щелчок)
+      // 4. Закрытие модального окна
       playClose() {
-        if (!this.canPlay()) return;
-        try {
-          const t = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(440, t);
-          osc.frequency.exponentialRampToValueAtTime(220, t + 0.05);
-
-          gain.gain.setValueAtTime(0.18, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.052);
-
-          osc.connect(gain);
-          gain.connect(this.masterGain);
-
-          osc.start(t);
-          osc.stop(t + 0.055);
-        } catch (e) {}
+        this.suppressTapUntil = performance.now() + 160;
+        if (typeof resumeAutumnLeavesIfNeeded === 'function') {
+          requestAnimationFrame(resumeAutumnLeavesIfNeeded);
+        }
+        this.runWhenReady((ctx, t) => {
+          if (this.preset === 'click') {
+            const b = this.getCachedSample(ctx, 'click_close', c => this.buildCleanClickSample(c, 740, 310, 0.018));
+            this.playSampleBuffer(ctx, t, b, 0.80);
+          } else if (this.preset === 'marimba') {
+            const b1 = this.getCachedSample(ctx, 'marimba_close1', c => this.buildNoteSample(c, 523.25, 0.075, 'marimba'));
+            const b2 = this.getCachedSample(ctx, 'marimba_close2', c => this.buildNoteSample(c, 392.00, 0.10, 'marimba'));
+            this.playSampleBuffer(ctx, t, b1, 0.65);
+            this.playSampleBuffer(ctx, t + 0.032, b2, 0.65);
+          } else if (this.preset === 'piano') {
+            const b = this.getCachedSample(ctx, 'piano_close', c => this.buildNoteSample(c, 440.00, 0.11, 'piano'));
+            this.playSampleBuffer(ctx, t, b, 0.65);
+          } else {
+            const b = this.getCachedSample(ctx, 'drop_close', c => this.buildBubbleSample(c, 560, 330, 0.040, 0.10, 4.2));
+            this.playSampleBuffer(ctx, t, b, 0.80);
+          }
+        });
       }
 
-      // 5. Успех / Выполнение задания (мажорный аккорд C5 -> E5)
+      // 5. Успех / Выполнение / Тест (мягкое трёхзвучие)
       playSuccess() {
-        if (!this.canPlay()) return;
-        try {
-          const t = this.ctx.currentTime;
-          
-          const osc1 = this.ctx.createOscillator();
-          const gain1 = this.ctx.createGain();
-          osc1.type = 'sine';
-          osc1.frequency.setValueAtTime(523.25, t);
-          gain1.gain.setValueAtTime(0.24, t);
-          gain1.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
-          osc1.connect(gain1);
-          gain1.connect(this.masterGain);
-          osc1.start(t);
-          osc1.stop(t + 0.13);
-
-          const osc2 = this.ctx.createOscillator();
-          const gain2 = this.ctx.createGain();
-          osc2.type = 'sine';
-          osc2.frequency.setValueAtTime(659.25, t + 0.04);
-          gain2.gain.setValueAtTime(0.001, t);
-          gain2.gain.setValueAtTime(0.26, t + 0.04);
-          gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
-          osc2.connect(gain2);
-          gain2.connect(this.masterGain);
-          osc2.start(t + 0.04);
-          osc2.stop(t + 0.23);
-        } catch (e) {}
+        this.suppressTapUntil = performance.now() + 180;
+        this.runWhenReady((ctx, t) => {
+          if (this.preset === 'click') {
+            const b1 = this.getCachedSample(ctx, 'click_s1', c => this.buildBubbleSample(c, 587, 740, 0.045, 0.10, 4.0));
+            const b2 = this.getCachedSample(ctx, 'click_s2', c => this.buildNoteSample(c, 880.00, 0.16, 'marimba'));
+            this.playSampleBuffer(ctx, t, b1, 0.72);
+            this.playSampleBuffer(ctx, t + 0.055, b2, 0.78);
+          } else if (this.preset === 'marimba') {
+            const b1 = this.getCachedSample(ctx, 'mar_s1', c => this.buildNoteSample(c, 523.25, 0.16, 'marimba'));
+            const b2 = this.getCachedSample(ctx, 'mar_s2', c => this.buildNoteSample(c, 659.25, 0.20, 'marimba'));
+            const b3 = this.getCachedSample(ctx, 'mar_s3', c => this.buildNoteSample(c, 783.99, 0.28, 'marimba'));
+            this.playSampleBuffer(ctx, t, b1, 0.72);
+            this.playSampleBuffer(ctx, t + 0.06, b2, 0.76);
+            this.playSampleBuffer(ctx, t + 0.12, b3, 0.78);
+          } else if (this.preset === 'piano') {
+            const b1 = this.getCachedSample(ctx, 'pia_s1', c => this.buildNoteSample(c, 523.25, 0.20, 'piano'));
+            const b2 = this.getCachedSample(ctx, 'pia_s2', c => this.buildNoteSample(c, 659.25, 0.24, 'piano'));
+            const b3 = this.getCachedSample(ctx, 'pia_s3', c => this.buildNoteSample(c, 783.99, 0.34, 'piano'));
+            this.playSampleBuffer(ctx, t, b1, 0.66);
+            this.playSampleBuffer(ctx, t + 0.065, b2, 0.70);
+            this.playSampleBuffer(ctx, t + 0.13, b3, 0.74);
+          } else {
+            // drop: 3 мягких восходящих пузырька-нотки
+            const b1 = this.getCachedSample(ctx, 'drop_s1', c => this.buildBubbleSample(c, 460, 587.33, 0.075, 0.12, 3.6));
+            const b2 = this.getCachedSample(ctx, 'drop_s2', c => this.buildBubbleSample(c, 580, 783.99, 0.095, 0.14, 3.5));
+            const b3 = this.getCachedSample(ctx, 'drop_s3', c => this.buildBubbleSample(c, 740, 1046.50, 0.130, 0.12, 3.3));
+            this.playSampleBuffer(ctx, t, b1, 0.72);
+            this.playSampleBuffer(ctx, t + 0.055, b2, 0.78);
+            this.playSampleBuffer(ctx, t + 0.115, b3, 0.80);
+          }
+        });
       }
 
-      // 6. Удаление / отмена
+      // 6. Удаление / отмена (мягкий приглушённый пузырёк вниз)
       playDelete() {
-        if (!this.canPlay()) return;
-        try {
-          const t = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const gain = this.ctx.createGain();
-
-          osc.type = 'triangle';
-          osc.frequency.setValueAtTime(300, t);
-          osc.frequency.exponentialRampToValueAtTime(150, t + 0.075);
-
-          gain.gain.setValueAtTime(0.18, t);
-          gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-
-          osc.connect(gain);
-          gain.connect(this.masterGain);
-
-          osc.start(t);
-          osc.stop(t + 0.085);
-        } catch (e) {}
+        this.suppressTapUntil = performance.now() + 160;
+        this.runWhenReady((ctx, t) => {
+          const b = this.getCachedSample(ctx, 'drop_del', c => this.buildBubbleSample(c, 290, 175, 0.055, 0.08, 4.2));
+          this.playSampleBuffer(ctx, t, b, 0.82);
+        });
       }
 
       toggle(enabled) {
@@ -1863,9 +2083,17 @@
 
     const soundFx = new SoundFXManager();
 
-    // Разблокировка AudioContext при первом же касании экрана
+    // Надёжная разблокировка AudioContext до первого клика (без потери первого звука)
+    const unlockAudioHandler = () => {
+      soundFx.initContext();
+      if (soundFx.ctx && soundFx.ctx.state === 'running') {
+        ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach(evt => {
+          window.removeEventListener(evt, unlockAudioHandler, true);
+        });
+      }
+    };
     ['pointerdown', 'touchstart', 'mousedown', 'keydown'].forEach(evt => {
-      window.addEventListener(evt, () => soundFx.initContext(), { once: true, passive: true });
+      window.addEventListener(evt, unlockAudioHandler, { capture: true, passive: true });
     });
 
     // Глобальная делегация кликов для интерактивных элементов
@@ -3282,7 +3510,10 @@
 
       const rawDisplayName = (
         (isMe ? userName : (authorCache[uid]?.name || fallbackName || '')) || ''
-      ).replace(/^@+/, '').trim();
+      )
+        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}]/gu, '')
+        .replace(/^@+/, '')
+        .trim();
 
       let initial = 'У';
       if (rawDisplayName) {
@@ -3292,7 +3523,8 @@
         initial = (firstChar + secondChar) || 'У';
       }
 
-      return `<div class="${sizeClass} ${shapeClass} bg-gradient-to-tr ${grad} ring-1.5 ring-white/20 dark:ring-white/15 flex items-center justify-center font-bold text-white text-xs shadow-xs shrink-0 select-none tracking-tight">${escapeHtml(initial.toUpperCase())}</div>`;
+      const defaultTextClass = /\btext-(xs|sm|base|lg|xl)\b/.test(sizeClass) ? '' : 'text-xs';
+      return `<div class="${sizeClass} ${shapeClass} bg-gradient-to-tr ${grad} ring-1.5 ring-white/20 dark:ring-white/15 flex items-center justify-center font-bold text-white ${defaultTextClass} shadow-xs shrink-0 select-none tracking-tight">${escapeHtml(initial.toUpperCase())}</div>`;
     }
 
     // Верхняя аватарка и приветствие
@@ -3345,13 +3577,16 @@
         const modeTitle = mode === 'dark' ? 'Тёмная' : (mode === 'light' ? 'Светлая' : 'Авто');
         themeBtn.title = `Тема: ${modeTitle} (нажмите для переключения)`;
       }
+      const themeMeta = document.getElementById('pwa-theme-color');
       if (effectiveTheme === 'light') {
         html.classList.remove('dark');
         html.classList.add('light');
+        if (themeMeta) themeMeta.setAttribute('content', '#2d86d8');
         if (slot) slot.innerHTML = `<span class="w-[18px] h-[18px] text-amber-200 block">${ICONS.sun}</span>`;
       } else {
         html.classList.remove('light');
         html.classList.add('dark');
+        if (themeMeta) themeMeta.setAttribute('content', '#133760');
         if (slot) slot.innerHTML = `<span class="w-[18px] h-[18px] text-amber-200 block">${ICONS.moon}</span>`;
       }
       updateThemeCardsUI(mode);
@@ -3539,8 +3774,106 @@
     }
 
     // ========================================================
-    // ФИЛЬТРАЦИЯ ВКЛАДОК (СЕГМЕНТИРОВАННЫЙ ПЕРЕКЛЮЧАТЕЛЬ)
+    // ФИЛЬТРАЦИЯ ВКЛАДОК И ПРЕДМЕТОВ (СОРТИРОВКА ВСЕГДА ПО ДАТЕ)
     // ========================================================
+    try { localStorage.removeItem('hw_sort_mode'); } catch (e) {}
+    let selectedSubjectFilter = 'all';
+    let isSubjectPanelOpen = false;
+    let lastSubjectBarSig = '';
+
+    function getMaterialThumbUrl(src) {
+      if (!src || src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) return src;
+      if (src.startsWith('/api/materials/') && !src.includes('thumb=')) {
+        return src + (src.includes('?') ? '&' : '?') + 'thumb=1';
+      }
+      return src;
+    }
+
+    function toggleSubjectFilterPanel() {
+      soundFx?.playTap();
+      isSubjectPanelOpen = !isSubjectPanelOpen;
+      renderTasks();
+    }
+
+    function selectSubjectFilter(subj) {
+      soundFx?.playTap();
+      triggerHaptic?.('light');
+      const normalized = (subj && subj !== 'all') ? String(subj) : 'all';
+      selectedSubjectFilter = (selectedSubjectFilter === normalized && normalized !== 'all') ? 'all' : normalized;
+      renderTasks();
+    }
+
+    function resetSubjectFilter() {
+      soundFx?.playTap();
+      selectedSubjectFilter = 'all';
+      renderTasks();
+    }
+
+    function updateSubjectFilterUI(baseTasks) {
+      const btn = document.getElementById('subject-filter-btn');
+      const dot = document.getElementById('subject-filter-dot');
+      const bar = document.getElementById('subject-filter-bar');
+      const banner = document.getElementById('subject-active-banner');
+      const bannerText = document.getElementById('subject-active-text');
+      const hasActive = (selectedSubjectFilter !== 'all');
+
+      if (dot) dot.classList.toggle('hidden', !hasActive);
+      if (btn) {
+        btn.className = (isSubjectPanelOpen || hasActive)
+          ? 'w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white text-[#145594] dark:text-slate-950 flex items-center justify-center shadow-xs transition active:scale-90 shrink-0 relative'
+          : 'w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/[0.16] hover:bg-white/[0.24] dark:bg-white/[0.09] dark:hover:bg-white/[0.16] text-white flex items-center justify-center transition active:scale-90 shrink-0 relative';
+      }
+
+      if (banner && bannerText) {
+        if (hasActive && !isSubjectPanelOpen) {
+          bannerText.innerText = `Предмет: ${selectedSubjectFilter}`;
+          banner.classList.remove('hidden');
+        } else {
+          banner.classList.add('hidden');
+        }
+      }
+
+      if (!bar) return;
+      bar.classList.toggle('hidden', !isSubjectPanelOpen);
+      if (!isSubjectPanelOpen) return;
+
+      const counts = new Map();
+      (baseTasks || []).forEach((t) => {
+        const name = String(t.subject || 'Другое').trim();
+        counts.set(name, (counts.get(name) || 0) + 1);
+      });
+      if (selectedSubjectFilter !== 'all' && !counts.has(selectedSubjectFilter)) {
+        counts.set(selectedSubjectFilter, 0);
+      }
+
+      const sortedSubjects = Array.from(counts.keys()).sort((a, b) => a.localeCompare(b, 'ru', { sensitivity: 'base' }));
+      const nextSig = `${selectedSubjectFilter}|` + sortedSubjects.map(s => `${s}:${counts.get(s) || 0}`).join(',');
+      if (nextSig === lastSubjectBarSig && bar.childElementCount > 0) return;
+      lastSubjectBarSig = nextSig;
+
+      const allPill = `
+        <button type="button" data-subj="all" onclick="selectSubjectFilter(this.dataset.subj)" class="px-3 py-1.5 rounded-full text-[11px] font-bold shrink-0 transition active:scale-95 ${selectedSubjectFilter === 'all' ? 'bg-white text-[#145594] dark:text-slate-950 shadow-xs' : 'bg-white/[0.14] dark:bg-white/[0.08] text-white/85 hover:text-white hover:bg-white/[0.22]'}">
+          Все
+        </button>
+      `;
+
+      const subjectPills = sortedSubjects.map((subj) => {
+        const cnt = counts.get(subj) || 0;
+        const style = subjectStyles[subj] || {};
+        const dotClass = (style.border || 'border-l-slate-300').replace('border-l-', 'bg-');
+        const active = (selectedSubjectFilter === subj);
+        return `
+          <button type="button" data-subj="${escapeHtml(subj)}" onclick="selectSubjectFilter(this.dataset.subj)" class="px-2.5 py-1.5 rounded-full text-[11px] font-semibold flex items-center gap-1.5 shrink-0 transition active:scale-95 ${active ? 'bg-white text-[#145594] dark:text-slate-950 font-bold shadow-xs' : 'bg-white/[0.14] dark:bg-white/[0.08] text-white/90 hover:bg-white/[0.22]'}">
+            <span class="w-1.5 h-1.5 rounded-full ${dotClass} shrink-0"></span>
+            <span>${escapeHtml(subj)}</span>
+            <span class="text-[10px] font-mono ${active ? 'opacity-65' : 'opacity-70'}">${cnt}</span>
+          </button>
+        `;
+      }).join('');
+
+      bar.innerHTML = allPill + subjectPills;
+    }
+
     function setFilter(filter) {
       soundFx.playTab();
       currentFilter = filter;
@@ -3554,9 +3887,9 @@
         if (!btn) return;
 
         if (f === filter) {
-          btn.className = 'py-1.5 px-1.5 text-[11.5px] sm:text-xs font-bold rounded-full bg-white text-slate-900 shadow-xs transition flex items-center justify-center gap-1 active:scale-95 min-w-0';
+          btn.className = 'py-1.5 px-1 text-[11px] sm:text-xs font-bold rounded-full bg-white text-slate-900 shadow-xs transition flex items-center justify-center gap-1 active:scale-95 min-w-0';
         } else {
-          btn.className = 'py-1.5 px-1.5 text-[11.5px] sm:text-xs font-semibold rounded-full text-white/85 hover:text-white transition flex items-center justify-center gap-1 active:scale-95 min-w-0';
+          btn.className = 'py-1.5 px-1 text-[11px] sm:text-xs font-semibold rounded-full text-white/85 hover:text-white transition flex items-center justify-center gap-1 active:scale-95 min-w-0';
         }
       });
 
@@ -3851,22 +4184,39 @@
 
         if (tasksByDateMap.size === 0 && allTasks && allTasks.length > 0) rebuildTasksDateMap();
 
-        let filtered = allTasks || [];
+        let baseFiltered = allTasks || [];
         if (selectedWorkloadDate) {
-          filtered = tasksByDateMap.get(selectedWorkloadDate) || [];
+          baseFiltered = tasksByDateMap.get(selectedWorkloadDate) || [];
         } else if (currentFilter === 'today') {
-          filtered = tasksByDateMap.get(todayStr) || [];
+          baseFiltered = tasksByDateMap.get(todayStr) || [];
         } else if (currentFilter === 'tomorrow') {
-          filtered = tasksByDateMap.get(tomorrowStr) || [];
+          baseFiltered = tasksByDateMap.get(tomorrowStr) || [];
         } else if (currentFilter === 'overdue') {
-          filtered = allTasks.filter(t => (t.due_date || '').trim() < todayStr);
+          baseFiltered = allTasks.filter(t => (t.due_date || '').trim() < todayStr);
         }
+
+        updateSubjectFilterUI(baseFiltered);
+
+        let filtered = (selectedSubjectFilter === 'all')
+          ? [...baseFiltered]
+          : baseFiltered.filter(t => String(t.subject || 'Другое').trim() === selectedSubjectFilter);
+
+        filtered.sort((a, b) => {
+          const da = (a.due_date || '9999-99-99').trim();
+          const db = (b.due_date || '9999-99-99').trim();
+          const cmpDate = da.localeCompare(db);
+          if (cmpDate !== 0) return cmpDate;
+          return Number(a.id || 0) - Number(b.id || 0);
+        });
 
         if (filtered.length === 0) {
           let emptyTitle = "Все задания выполнены!";
           let emptySubtitle = "В этом разделе нет заданий. Отдыхай!";
           
-          if (selectedWorkloadDate) {
+          if (selectedSubjectFilter !== 'all') {
+            emptyTitle = `По предмету «${selectedSubjectFilter}» нет заданий!`;
+            emptySubtitle = "В выбранном фильтре по этому предмету сейчас пусто.";
+          } else if (selectedWorkloadDate) {
             const d = new Date(selectedWorkloadDate + 'T00:00:00');
             const dateTitle = d.toLocaleDateString('ru-RU', { weekday: 'short', month: 'short', day: 'numeric' });
             emptyTitle = `На ${dateTitle} нет заданий!`;
@@ -3887,17 +4237,28 @@
 
           container.innerHTML = `
             <div class="text-center py-12 px-4 text-white">
-              <img src="/static/3d/empty-done.webp" alt="" width="96" height="96" decoding="async" class="w-24 h-24 mx-auto mb-3 object-contain drop-shadow-[0_12px_24px_rgba(16,185,129,0.28)]" />
+              <div class="w-16 h-16 rounded-[20px] bg-white/[0.16] dark:bg-emerald-400/[0.14] text-[#6ee7b7] mx-auto mb-3.5 flex items-center justify-center">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" class="w-8 h-8">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                  <polyline points="22 4 12 14.01 9 11.01"/>
+                </svg>
+              </div>
               <p class="text-base font-extrabold text-white">${escapeHtml(emptyTitle)}</p>
               <p class="text-xs text-white/80 mt-1 max-w-xs mx-auto leading-relaxed">${escapeHtml(emptySubtitle)}</p>
-              ${((allTasks && allTasks.length > 0) && (currentFilter !== 'pending' || selectedWorkloadDate)) ? `
+              ${(selectedSubjectFilter !== 'all') ? `
+                <div class="mt-4">
+                  <button type="button" onclick="selectSubjectFilter('all')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-sky-50 text-[#145594] dark:text-slate-950 font-bold text-xs transition shadow-md active:scale-95">
+                    <span>Показать все предметы (${baseFiltered.length})</span>
+                  </button>
+                </div>
+              ` : (((allTasks && allTasks.length > 0) && (currentFilter !== 'pending' || selectedWorkloadDate)) ? `
                 <div class="mt-4">
                   <button type="button" onclick="setFilter('pending')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white hover:bg-sky-50 text-[#145594] dark:text-slate-950 font-bold text-xs transition shadow-md active:scale-95">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="w-3.5 h-3.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M9 9h6M9 13h6M9 17h4"/></svg>
                     <span>Показать все задания (${allTasks.length})</span>
                   </button>
                 </div>
-              ` : ''}
+              ` : '')}
             </div>`;
           return;
         }
@@ -3937,13 +4298,14 @@
                 const src = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('data:')) 
                   ? rawUrl 
                   : '/' + rawUrl.replace(/^\//, '');
+                const thumbSrc = getMaterialThumbUrl(src);
                 return `
-                  <button type="button" onclick="openTaskPhoto(${t.id}, ${idx})" class="group/thumb relative w-[64px] h-[84px] sm:w-[74px] sm:h-[96px] rounded-2xl overflow-hidden shadow-xs active:scale-95 transition-all shrink-0 bg-slate-100 dark:bg-slate-800/80 focus:outline-none" title="Открыть страницу #${idx + 1}">
-                    <img src="${src}" alt="Страница ${idx + 1}" class="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300 relative z-[1]" loading="lazy" onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" />
+                  <button type="button" onclick="openTaskPhoto(${t.id}, ${idx})" class="group/thumb relative w-[60px] h-[78px] sm:w-[68px] sm:h-[86px] rounded-[14px] overflow-hidden shadow-xs active:scale-95 transition-transform shrink-0 bg-slate-100 dark:bg-slate-800/80 focus:outline-none" title="Открыть страницу #${idx + 1}">
+                    <img src="${thumbSrc}" alt="Страница ${idx + 1}" class="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300 relative z-[1]" loading="lazy" decoding="async" onerror="if(this.src!=='${src}'){this.src='${src}';return;}this.style.display='none'; this.nextElementSibling.classList.remove('hidden');" />
                     <div class="hidden absolute inset-0 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 p-2">
                       <span class="w-5 h-5 opacity-70">${ICONS.camera}</span>
                     </div>
-                    <span class="absolute bottom-1.5 left-1.5 z-[2] text-[9px] font-bold font-mono text-white bg-black/55 px-1.5 py-0.5 rounded-md pointer-events-none">#${idx + 1}</span>
+                    ${photoMaterials.length > 1 ? `<span class="absolute bottom-1.5 left-1.5 z-[2] text-[9px] font-bold font-mono text-white bg-black/55 px-1.5 py-0.5 rounded-full pointer-events-none">#${idx + 1}</span>` : ''}
                   </button>
                 `;
               }).join('')}
@@ -4025,11 +4387,11 @@
             ${linksHTML}
 
             <!-- Нижняя панель: тихий автор (слева) и чистая кнопка "Сдать" (справа) -->
-            <div class="flex items-center justify-between gap-2 mt-3 pt-2.5 border-t border-slate-100 dark:border-white/[0.07]">
+            <div class="flex items-center justify-between gap-2 mt-3">
               <div class="flex items-center gap-2 min-w-0" title="Опубликовал ${escapeHtml(authorNickText)}${hasBeenEdited ? ` · Изменено: ${escapeHtml(t.last_edited_by_name)}` : ''}">
                 ${authorAvatarHTML}
                 <span class="text-[11.5px] font-medium text-slate-500 dark:text-sky-100/65 truncate">
-                  ${escapeHtml(authorNickText)}${isMeAuthor ? ' <span class="text-amber-600 dark:text-amber-300 font-semibold">(вы)</span>' : ''}${hasBeenEdited ? ' · изм.' : ''}
+                  ${escapeHtml(authorNickText)}${isMeAuthor ? ' <span class="text-[#2077cf] dark:text-sky-300 font-semibold">(вы)</span>' : ''}${hasBeenEdited ? ' · изм.' : ''}
                 </span>
               </div>
 
@@ -4860,9 +5222,10 @@
               const src = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('data:')) 
                 ? rawUrl 
                 : '/' + rawUrl.replace(/^\//, '');
+              const thumbSrc = getMaterialThumbUrl(src);
               return `
-                <button type="button" onclick="openTaskPhoto(${task.id}, ${idx})" class="group/thumb relative w-[72px] h-[94px] sm:w-[82px] sm:h-[106px] rounded-xl overflow-hidden shadow-xs active:scale-95 transition-all shrink-0 bg-slate-900 focus:outline-none" title="Открыть фото страницы #${idx + 1}">
-                  <img src="${src}" alt="Страница ${idx + 1}" class="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300" loading="lazy" />
+                <button type="button" onclick="openTaskPhoto(${task.id}, ${idx})" class="group/thumb relative w-[72px] h-[94px] sm:w-[82px] sm:h-[106px] rounded-xl overflow-hidden shadow-xs active:scale-95 transition-transform shrink-0 bg-slate-900 focus:outline-none" title="Открыть фото страницы #${idx + 1}">
+                  <img src="${thumbSrc}" alt="Страница ${idx + 1}" class="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300" loading="lazy" decoding="async" />
                   <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent flex items-end p-1.5 pointer-events-none">
                     <span class="text-[9.5px] font-bold text-white bg-black/65 px-1.5 py-0.5 rounded-full">#${idx + 1}</span>
                   </div>
@@ -4912,10 +5275,9 @@
           }
         }
 
-        // Страховка: запрашиваем задачи только если ещё не завершилась первичная синхронизация с сервером
+        // Страховка: переиспользуем активный запрос задач без дублирующего HTTP вызова
         if (!tasksSyncedFromServer && (!task.materials || task.materials.length === 0)) {
-          fetch(`/api/tasks?user_id=${userId || 0}`)
-            .then(r => r.json())
+          (typeof fetchTasksPayload === 'function' ? fetchTasksPayload() : fetch(`/api/tasks?user_id=${userId || 0}`).then(r => r.json()))
             .then(freshTasks => {
               if (Array.isArray(freshTasks)) {
                 const fresh = freshTasks.find(t => t.id === taskId);
@@ -4936,9 +5298,10 @@
                     pGrid.innerHTML = pMats.map((m, idx) => {
                       const rawUrl = m.url || m.file_id || '';
                       const src = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('data:')) ? rawUrl : '/' + rawUrl.replace(/^\//, '');
+                      const thumbSrc = getMaterialThumbUrl(src);
                       return `
-                        <button type="button" onclick="openTaskPhoto(${task.id}, ${idx})" class="group/thumb relative w-[72px] h-[94px] sm:w-[82px] sm:h-[106px] rounded-xl overflow-hidden border border-white/20 hover:border-sky-400 shadow-md active:scale-95 transition-all shrink-0 bg-slate-900 focus:outline-none" title="Открыть фото страницы #${idx + 1}">
-                          <img src="${src}" alt="Страница ${idx + 1}" class="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300" loading="lazy" />
+                        <button type="button" onclick="openTaskPhoto(${task.id}, ${idx})" class="group/thumb relative w-[72px] h-[94px] sm:w-[82px] sm:h-[106px] rounded-xl overflow-hidden border border-white/20 hover:border-sky-400 shadow-md active:scale-95 transition-transform shrink-0 bg-slate-900 focus:outline-none" title="Открыть фото страницы #${idx + 1}">
+                          <img src="${thumbSrc}" alt="Страница ${idx + 1}" class="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300" loading="lazy" decoding="async" />
                           <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end justify-between p-1.5 pointer-events-none">
                             <span class="text-[9.5px] font-bold text-white bg-black/75 px-1.5 py-0.5 rounded">#${idx + 1}</span>
                             <span class="w-3 h-3 text-white/90 drop-shadow-sm">🔍</span>
@@ -5313,8 +5676,8 @@
               ? 'border-2 border-amber-400 scale-105 shadow-lg shadow-amber-400/25 ring-2 ring-amber-400/50' 
               : 'border border-white/20 opacity-60 hover:opacity-100 scale-95';
             return `
-              <button type="button" onclick="goToPhoto(${idx})" class="w-10 h-14 rounded-xl overflow-hidden shrink-0 ${borderClass} transition-all duration-200 active:scale-90 bg-slate-900 focus:outline-none" title="Страница ${idx + 1}">
-                <img src="${m.url}" alt="${idx + 1}" class="w-full h-full object-cover" loading="lazy" />
+              <button type="button" onclick="goToPhoto(${idx})" class="w-10 h-14 rounded-xl overflow-hidden shrink-0 ${borderClass} transition-transform duration-200 active:scale-90 bg-slate-900 focus:outline-none" title="Страница ${idx + 1}">
+                <img src="${getMaterialThumbUrl(m.url)}" alt="${idx + 1}" class="w-full h-full object-cover" loading="lazy" decoding="async" />
               </button>
             `;
           }).join('');
@@ -5961,6 +6324,20 @@
     // ========================================================
     let bootCachedTasksJson = '';
     let tasksSyncedFromServer = false;
+    let pendingTasksFetch = null;
+
+    function fetchTasksPayload() {
+      if (pendingTasksFetch) return pendingTasksFetch;
+      pendingTasksFetch = fetch(`/api/tasks?user_id=${userId || 0}`)
+        .then(res => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .finally(() => {
+          pendingTasksFetch = null;
+        });
+      return pendingTasksFetch;
+    }
 
     function hydrateTasksFromCache() {
       try {
@@ -5982,9 +6359,7 @@
     async function loadTasks(opts = {}) {
       const isInitialSync = Boolean(opts.initial && bootCachedTasksJson);
       try {
-        const res = await fetch(`/api/tasks?user_id=${userId}`);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const freshTasks = await res.json();
+        const freshTasks = await fetchTasksPayload();
         tasksSyncedFromServer = true;
         const freshJson = JSON.stringify(freshTasks);
 
@@ -6081,8 +6456,8 @@
         { s:'Пд',    t:'УС',  r:'' }
       ],
       1: [ // Вторник
-        { s:'Физ',   t:'НШ',  r:'к.203', pair:true },
-        null, // вторая половина пары
+        { s:'Физ',   t:'НШ',  r:'к.203' },
+        { s:'Физ',   t:'НШ',  r:'к.203' },
         { s:'Ая',    t:'ЖС',  r:'к.108' },
         { s:'Уя',    t:'НХ',  r:'Конф.зал' },
         { s:'Мат',   t:'СР',  r:'к.404' },
@@ -6091,8 +6466,8 @@
       2: [ // Среда
         { s:'Уя',    t:'НХ',  r:'Конф.зал' },
         { s:'Мат',   t:'СР',  r:'к.404' },
-        { s:'ИВТ',   t:'АК',  r:'IT A', pair:true },
-        null, // вторая половина пары
+        { s:'ИВТ',   t:'АК',  r:'IT A' },
+        { s:'ИВТ',   t:'АК',  r:'IT A' },
         { s:'РиЛ',   t:'ЭА',  r:'к.104' },
         { s:'Ая',    t:'ЖС',  r:'к.108' }
       ],
@@ -6108,8 +6483,8 @@
       4: [ // Пятница
         { s:'Ая',    t:'ЖС',  r:'к.108' },
         { s:'Уя',    t:'НХ',  r:'Конф.зал' },
-        { s:'Физ',   t:'НШ',  r:'к.203', pair:true },
-        null, // вторая половина пары
+        { s:'Физ',   t:'НШ',  r:'к.203' },
+        { s:'Физ',   t:'НШ',  r:'к.203' },
         { s:'Ист',   t:'МР',  r:'к.101 (кинозал)' },
         { s:'НДП',   t:'ДН',  r:'к.303' }
       ]
@@ -6197,13 +6572,14 @@
     function updateScheduleQuickSummary() {
       const el = document.getElementById('schedule-quick-summary');
       if (!el) return;
+      const pluralLessons = (n) => (n % 10 === 1 && n % 100 !== 11) ? 'урок' : ((n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14)) ? 'урока' : 'уроков');
       const todayIdx = getTodayDayIndex();
       if (todayIdx >= 0 && SCHEDULE_DATA[todayIdx]) {
-        const lessons = SCHEDULE_DATA[todayIdx].filter(x => x && x.s).map(x => x.s + (x.pair ? ' (пара)' : ''));
-        el.innerText = `Сегодня (${SCHEDULE_DAY_LABELS[todayIdx]}): ${lessons.join(' · ')}`;
+        const count = SCHEDULE_DATA[todayIdx].filter(x => x && x.s).length;
+        el.innerText = `${SCHEDULE_DAY_LABELS[todayIdx]} · ${count} ${pluralLessons(count)}`;
       } else {
-        const monLessons = SCHEDULE_DATA[0].filter(x => x && x.s).map(x => x.s);
-        el.innerText = `Выходной · В понедельник: ${monLessons.join(' · ')}`;
+        const monCount = SCHEDULE_DATA[0].filter(x => x && x.s).length;
+        el.innerText = `Пн · ${monCount} ${pluralLessons(monCount)}`;
       }
     }
 
@@ -6217,7 +6593,7 @@
         if (t === view) {
           btn.className = 'py-1.5 px-3 rounded-full text-xs font-bold bg-white text-[#145594] dark:text-slate-950 transition active:scale-95 shrink-0 shadow-xs flex items-center gap-1';
         } else {
-          btn.className = 'py-1.5 px-2.5 rounded-full text-xs font-semibold text-slate-600 dark:text-white/75 hover:text-slate-900 dark:hover:text-white transition active:scale-95 shrink-0 flex items-center gap-1';
+          btn.className = 'py-1.5 px-2.5 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 shrink-0 flex items-center gap-1';
         }
       });
 
@@ -6248,7 +6624,7 @@
           gridView.classList.remove('hidden');
           gridView.classList.add('flex');
         }
-        if (subtitle) subtitle.innerText = 'Интерактивная сетка недели · 1-я смена';
+        if (subtitle) subtitle.innerText = 'Интерактивная сетка недели';
         if (toggleBtn) {
           toggleBtn.innerHTML = '<span>Фото бланка</span>';
         }
@@ -6275,7 +6651,7 @@
 
         if (subtitle) {
           const isToday = targetDay === getTodayDayIndex();
-          subtitle.innerText = `${SCHEDULE_DAY_FULL[targetDay]}${isToday ? ' · Сегодня' : ''} · 1-я смена`;
+          subtitle.innerText = `${SCHEDULE_DAY_FULL[targetDay]}${isToday ? ' · Сегодня' : ''}`;
         }
         renderScheduleDayView(targetDay);
       }
@@ -6363,8 +6739,8 @@
       const targetDateStr = getISODate(targetOffset);
 
       let html = `
-        <!-- Дневная сводка -->
-        <div class="p-3.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-2.5">
+        <!-- Компактная строка сводки дня -->
+        <div class="px-1 flex items-center justify-between gap-2.5">
           <div class="min-w-0">
             <div class="flex items-center gap-2 flex-wrap">
               <h3 class="text-sm font-extrabold text-slate-900 dark:text-white">${SCHEDULE_DAY_FULL[dayIdx]}</h3>
@@ -6372,11 +6748,14 @@
             </div>
             <p class="text-[11px] text-slate-500 dark:text-sky-100/70 mt-0.5 font-mono tabular-nums">${totalLessons} ${formatPlural(totalLessons, 'урок', 'урока', 'уроков')} · ${firstLessonStart}–${lastLessonEnd}</p>
           </div>
-          <button onclick="openSchedulePhotoFullscreen()" class="px-3 py-1.5 rounded-full bg-white dark:bg-white/[0.10] hover:bg-[#2077cf] hover:text-white text-slate-700 dark:text-white text-[11px] font-semibold flex items-center gap-1.5 shadow-2xs active:scale-95 transition shrink-0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5 text-[#2077cf] dark:text-sky-300"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <button onclick="openSchedulePhotoFullscreen()" class="px-3 py-1.5 rounded-full bg-[#eef3fa] dark:bg-white/[0.10] hover:bg-[#2077cf] hover:text-white text-[#145594] dark:text-white text-[11px] font-semibold flex items-center gap-1.5 active:scale-95 transition shrink-0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-3.5 h-3.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             <span>Бланк</span>
           </button>
         </div>
+
+        <!-- Единый чистый список уроков -->
+        <div class="rounded-[20px] bg-[#f4f7fc] dark:bg-white/[0.06] divide-y divide-slate-200/50 dark:divide-white/[0.06] overflow-hidden">
       `;
 
       list.forEach(entry => {
@@ -6400,9 +6779,9 @@
         const remainMin = Math.max(0, entry.endMin - currentMinutes);
         const pctDone = Math.round((elapsedMin / totalDur) * 100);
 
-        const cardStyle = isCurrent
-          ? 'bg-emerald-500/[0.10] dark:bg-emerald-500/[0.14] ring-1 ring-emerald-500/40'
-          : `hybrid-card ${isPast ? 'opacity-60' : ''}`;
+        const rowStyle = isCurrent
+          ? 'bg-emerald-500/[0.12] dark:bg-emerald-500/[0.16]'
+          : `hover:bg-white/70 dark:hover:bg-white/[0.05] ${isPast ? 'opacity-55' : ''}`;
 
         const dayTasksForLesson = allTasks.filter(t => (t.due_date || '').trim() === targetDateStr && matchSubject(les.s, t.subject));
         const hasTasks = dayTasksForLesson.length > 0;
@@ -6410,27 +6789,26 @@
         if (entry.isPair) metaParts.push('Пара');
         if (les.r) metaParts.push(les.r);
         if (teacherStr) metaParts.push(teacherStr);
-        if (isPast) metaParts.push('пройден');
 
         html += `
-          <div onclick="openScheduleSubjectTasks('${les.s}', '${escapeHtml(meta.name)}', '${les.t || ''}', '${les.r || ''}')" class="${cardStyle} p-3 sm:p-3.5 rounded-[18px] transition cursor-pointer active:scale-[0.99] group">
+          <div onclick="openScheduleSubjectTasks('${les.s}', '${escapeHtml(meta.name)}', '${les.t || ''}', '${les.r || ''}')" class="${rowStyle} px-3.5 py-3 transition cursor-pointer active:scale-[0.99] group">
             <div class="flex items-center gap-3">
               <!-- Время урока -->
-              <div class="w-[46px] flex flex-col items-start justify-center shrink-0">
+              <div class="w-[42px] flex flex-col items-start justify-center shrink-0">
                 <span class="text-[12px] font-bold font-mono tabular-nums text-slate-900 dark:text-white leading-none">${entry.start}</span>
                 <span class="text-[10.5px] font-mono tabular-nums text-slate-400 dark:text-sky-100/50 mt-1 leading-none">${entry.end}</span>
               </div>
 
               <!-- Иконка предмета -->
-              <div class="w-9 h-9 rounded-2xl ${meta.bg} ${meta.text} flex items-center justify-center shrink-0 p-2">
+              <div class="w-9 h-9 rounded-[11px] ${meta.bg} ${meta.text} flex items-center justify-center shrink-0 p-2">
                 ${meta.icon}
               </div>
 
-              <!-- Описание урока в спокойной 2-строчной иерархии -->
+              <!-- Описание урока -->
               <div class="min-w-0 flex-1">
                 <div class="flex items-center justify-between gap-2">
                   <div class="flex items-center gap-1.5 min-w-0">
-                    <h4 class="text-[14px] font-bold tracking-tight text-slate-900 dark:text-white leading-snug truncate">${meta.name}</h4>
+                    <h4 class="text-[13.5px] font-bold tracking-tight text-slate-900 dark:text-white leading-snug truncate">${meta.name}</h4>
                     ${isCurrent ? `<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 shrink-0"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span><span>${remainMin}м</span></span>` : ''}
                   </div>
                   <div class="flex items-center gap-1.5 shrink-0">
@@ -6454,6 +6832,7 @@
         `;
       });
 
+      html += '</div>';
       container.innerHTML = html;
     }
 
@@ -6480,36 +6859,51 @@
     // ========================================================
     let currentSubjectForModal = '';
 
+    const SUBJECT_CANONICAL_GROUPS = {
+      math: ['мат', 'математика', 'алгебра', 'геометрия'],
+      physics: ['физ', 'физика'],
+      ivt: ['ивт', 'информатика', 'информатикаивт'],
+      english: ['ая', 'англязык', 'английский', 'английскийязык', 'англ', 'english'],
+      uzbek: ['уя', 'узбекский', 'узбекскийязык', 'узбязык', 'узб', 'узбектили'],
+      ril: ['рил', 'русскийилит', 'русскийилитература', 'русскийязык', 'литература', 'русский'],
+      history: ['ист', 'история', 'всемирнаяистория', 'историяузбекистана'],
+      project: ['пд', 'проектнаядеят', 'проектнаядеятельность', 'проект', 'проектпд'],
+      pe: ['фра', 'физкультура', 'физра'],
+      oratory: ['ориск', 'ораторскоеиск', 'ораторскоеискусство', 'ораторское'],
+      shu: ['шу', 'школауспеха', 'школауспехашу'],
+      ndp: ['ндп'],
+      chem: ['хим', 'химия'],
+      bio: ['био', 'биология'],
+      geo: ['гео', 'география']
+    };
+
+    function getSubjectCanonicalKey(normVal) {
+      if (!normVal) return '';
+      for (const [key, aliases] of Object.entries(SUBJECT_CANONICAL_GROUPS)) {
+        if (aliases.includes(normVal)) return key;
+      }
+      if (normVal.length >= 4) {
+        for (const [key, aliases] of Object.entries(SUBJECT_CANONICAL_GROUPS)) {
+          if (aliases.some(a => a.length >= 4 && (normVal.includes(a) || a.includes(normVal)))) {
+            return key;
+          }
+        }
+      }
+      return '';
+    }
+
     function matchSubject(sSubj, tSubj) {
       if (!sSubj || !tSubj) return false;
       const s = String(sSubj).toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
       const t = String(tSubj).toLowerCase().replace(/[^a-zа-яё0-9]/gi, '');
-      if (s === t || t.includes(s) || s.includes(t)) return true;
+      if (!s || !t) return false;
+      if (s === t) return true;
 
-      const aliasGroups = [
-        ['мат', 'математика', 'алгебра', 'геометрия'],
-        ['физ', 'физика'],
-        ['ивт', 'информатика', 'информатикаивт'],
-        ['ая', 'английский', 'английскийязык', 'english'],
-        ['уя', 'узбекский', 'узбекскийязык', 'узбектили'],
-        ['рил', 'русскийилитература', 'русскийязык', 'литература', 'русский'],
-        ['ист', 'история', 'всемирнаяистория', 'историяузбекистана'],
-        ['пд', 'проектнаядеятельность', 'проект'],
-        ['фра', 'физкультура', 'физра'],
-        ['ориск', 'ораторскоеискусство', 'ораторское'],
-        ['шу', 'школауспеха', 'школауспехашу'],
-        ['ндп', 'ндп'],
-        ['хим', 'химия'],
-        ['био', 'биология'],
-        ['гео', 'география']
-      ];
+      const keyS = getSubjectCanonicalKey(s);
+      const keyT = getSubjectCanonicalKey(t);
+      if (keyS || keyT) return Boolean(keyS && keyT && keyS === keyT);
 
-      for (const group of aliasGroups) {
-        const sMatch = group.some(x => s === x || s.includes(x) || x.includes(s));
-        const tMatch = group.some(x => t === x || t.includes(x) || x.includes(t));
-        if (sMatch && tMatch) return true;
-      }
-      return false;
+      return s.length >= 4 && t.length >= 4 && (t.includes(s) || s.includes(t));
     }
 
     function openScheduleSubjectTasks(sCode, sFullName, teacher, room) {
@@ -6526,7 +6920,7 @@
       // Шапка модального окна
       const iconBox = document.getElementById('sstm-icon-box');
       if (iconBox) {
-        iconBox.className = `w-9 h-9 rounded-2xl ${meta.bg} ${meta.text} flex items-center justify-center shrink-0 p-2`;
+        iconBox.className = 'w-9 h-9 rounded-[11px] bg-white/[0.18] text-white flex items-center justify-center shrink-0 p-2';
         iconBox.innerHTML = meta.icon;
       }
       const nameEl = document.getElementById('sstm-subject-name');
@@ -6627,10 +7021,11 @@
               const src = (rawUrl.startsWith('http://') || rawUrl.startsWith('https://') || rawUrl.startsWith('data:')) 
                 ? rawUrl 
                 : '/' + rawUrl.replace(/^\//, '');
+              const thumbSrc = getMaterialThumbUrl(src);
               return `
-                <button type="button" onclick="openTaskPhoto(${t.id}, ${idx})" class="relative w-14 h-18 rounded-xl overflow-hidden active:scale-95 transition shrink-0 bg-slate-200 dark:bg-slate-800" title="Открыть фото #${idx + 1}">
-                  <img src="${src}" alt="Фото ${idx + 1}" class="w-full h-full object-cover" loading="lazy" />
-                  <span class="absolute bottom-1 left-1 text-[8.5px] font-bold text-white bg-black/55 px-1 rounded">#${idx + 1}</span>
+                <button type="button" onclick="openTaskPhoto(${t.id}, ${idx})" class="relative w-14 h-[72px] rounded-xl overflow-hidden active:scale-95 transition-transform shrink-0 bg-slate-200 dark:bg-slate-800" title="Открыть фото #${idx + 1}">
+                  <img src="${thumbSrc}" alt="Фото ${idx + 1}" class="w-full h-full object-cover" loading="lazy" decoding="async" />
+                  ${matCount > 1 ? `<span class="absolute bottom-1 left-1 text-[8.5px] font-bold text-white bg-black/55 px-1 rounded-full">#${idx + 1}</span>` : ''}
                 </button>
               `;
             }).join('')}
@@ -6651,7 +7046,7 @@
 
           ${photoGalleryHTML}
 
-          <div class="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-200/60 dark:border-white/[0.07] text-[11px] text-slate-500 dark:text-sky-100/65">
+          <div class="flex items-center justify-between mt-2.5 text-[11px] text-slate-500 dark:text-sky-100/65">
             <span class="truncate max-w-[140px]">${escapeHtml(authorNick)}</span>
             <button type="button" onclick="markMiniDone(${t.id}, this)" class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/12 hover:bg-emerald-500 text-emerald-700 hover:text-white dark:bg-emerald-400/15 dark:hover:bg-emerald-400 dark:text-emerald-300 dark:hover:text-slate-950 font-bold text-[11px] active:scale-95 transition">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="w-3 h-3"><polyline points="20 6 9 17 4 12"/></svg>
@@ -6692,37 +7087,127 @@
     }
 
     // ========================================================
-    // 📊 ИНТЕРАКТИВНАЯ СЕТКА ВСЕЙ НЕДЕЛИ
+    // 📊 ИНТЕРАКТИВНАЯ СЕТКА ВСЕЙ НЕДЕЛИ + АССОЦИАТИВНАЯ 2D-ГРАФИКА
     // ========================================================
     function getGridSubjectStyle(s) {
       const clean = (s || '').trim();
       switch (clean) {
         case 'Ист':
-          return 'bg-amber-500/12 dark:bg-amber-500/18 border border-amber-500/30 text-amber-800 dark:text-amber-300 hover:bg-amber-500/20';
+          return 'bg-amber-500/[0.14] dark:bg-amber-500/[0.17] text-amber-900 dark:text-amber-200 hover:bg-amber-500/22';
         case 'ИВТ':
-          return 'bg-purple-500/12 dark:bg-purple-500/18 border border-purple-500/30 text-purple-800 dark:text-purple-300 hover:bg-purple-500/20';
+          return 'bg-purple-500/[0.14] dark:bg-purple-500/[0.18] text-purple-900 dark:text-purple-200 hover:bg-purple-500/22';
         case 'ШУ':
         case 'Уя':
-          return 'bg-emerald-500/12 dark:bg-emerald-500/18 border border-emerald-500/30 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-500/20';
+          return 'bg-emerald-500/[0.14] dark:bg-emerald-500/[0.17] text-emerald-900 dark:text-emerald-200 hover:bg-emerald-500/22';
         case 'Мат':
-          return 'bg-blue-500/12 dark:bg-blue-500/18 border border-blue-500/30 text-blue-800 dark:text-blue-300 hover:bg-blue-500/20';
+          return 'bg-blue-500/[0.14] dark:bg-blue-500/[0.18] text-blue-900 dark:text-blue-200 hover:bg-blue-500/22';
         case 'Физ':
-          return 'bg-orange-500/12 dark:bg-orange-500/18 border border-orange-500/30 text-orange-800 dark:text-orange-300 hover:bg-orange-500/20';
+          return 'bg-orange-500/[0.14] dark:bg-orange-500/[0.18] text-orange-900 dark:text-orange-200 hover:bg-orange-500/22';
         case 'Ая':
-          return 'bg-sky-500/12 dark:bg-sky-500/18 border border-sky-500/30 text-sky-800 dark:text-sky-300 hover:bg-sky-500/20';
+          return 'bg-sky-500/[0.14] dark:bg-sky-500/[0.18] text-sky-900 dark:text-sky-200 hover:bg-sky-500/22';
         case 'РиЛ':
-          return 'bg-rose-500/12 dark:bg-rose-500/18 border border-rose-500/30 text-rose-800 dark:text-rose-300 hover:bg-rose-500/20';
+          return 'bg-rose-500/[0.14] dark:bg-rose-500/[0.18] text-rose-900 dark:text-rose-200 hover:bg-rose-500/22';
         case 'Ф-ра':
-          return 'bg-red-500/12 dark:bg-red-500/18 border border-red-500/30 text-red-800 dark:text-red-300 hover:bg-red-500/20';
+          return 'bg-red-500/[0.14] dark:bg-red-500/[0.18] text-red-900 dark:text-red-200 hover:bg-red-500/22';
         case 'Ор.иск.':
-          return 'bg-fuchsia-500/12 dark:bg-fuchsia-500/18 border border-fuchsia-500/30 text-fuchsia-800 dark:text-fuchsia-300 hover:bg-fuchsia-500/20';
+          return 'bg-fuchsia-500/[0.14] dark:bg-fuchsia-500/[0.18] text-fuchsia-900 dark:text-fuchsia-200 hover:bg-fuchsia-500/22';
         case 'Пд':
         case 'ПД':
-          return 'bg-teal-500/12 dark:bg-teal-500/18 border border-teal-500/30 text-teal-800 dark:text-teal-300 hover:bg-teal-500/20';
+          return 'bg-teal-500/[0.14] dark:bg-teal-500/[0.18] text-teal-900 dark:text-teal-200 hover:bg-teal-500/22';
         case 'НДП':
-          return 'bg-indigo-500/12 dark:bg-indigo-500/18 border border-indigo-500/30 text-indigo-800 dark:text-indigo-300 hover:bg-indigo-500/20';
+          return 'bg-indigo-500/[0.14] dark:bg-indigo-500/[0.18] text-indigo-900 dark:text-indigo-200 hover:bg-indigo-500/22';
         default:
-          return 'bg-slate-100 dark:bg-white/[0.06] border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-white/10';
+          return 'bg-[#f4f7fc] dark:bg-white/[0.06] text-slate-800 dark:text-slate-200 hover:bg-slate-200/70 dark:hover:bg-white/10';
+      }
+    }
+
+    function getScheduleSubjectArtSVG(s) {
+      const clean = (s || '').trim();
+      switch (clean) {
+        case 'Физ': // Атом и орбиты + молния энергии
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <circle cx="24" cy="24" r="3.5" fill="currentColor"/>
+            <ellipse cx="24" cy="24" rx="18" ry="7.5" transform="rotate(30 24 24)"/>
+            <ellipse cx="24" cy="24" rx="18" ry="7.5" transform="rotate(-30 24 24)"/>
+            <ellipse cx="24" cy="24" rx="18" ry="7.5" transform="rotate(90 24 24)"/>
+          </svg>`;
+        case 'Мат': // Чертежный треугольник + координатная парабола
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <path d="M8 38h32L8 10v28z"/>
+            <path d="M15 31h11L15 20v11z" fill="currentColor" fill-opacity="0.22"/>
+            <path d="M27 10c4 0 7 6 11 16"/>
+            <circle cx="38" cy="26" r="2" fill="currentColor"/>
+          </svg>`;
+        case 'ИВТ': // Скобки кода </> + узел цепи
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <rect x="6" y="10" width="36" height="24" rx="5" fill="currentColor" fill-opacity="0.14"/>
+            <polyline points="17 17 11 22 17 27"/>
+            <polyline points="31 17 37 22 31 27"/>
+            <line x1="26" y1="15" x2="22" y2="29"/>
+            <line x1="16" y1="40" x2="32" y2="40"/>
+          </svg>`;
+        case 'Ая': // Диалоговое облако + глобус
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <path d="M8 14a6 6 0 0 1 6-6h20a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6H20l-8 7v-7a6 6 0 0 1-4-5.6V14z" fill="currentColor" fill-opacity="0.14"/>
+            <path d="M19 25l5-11 5 11"/>
+            <line x1="20.5" y1="22" x2="27.5" y2="22"/>
+          </svg>`;
+        case 'Уя': // Восточная арка и полумесяц со звездой
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <path d="M26 9a15 15 0 1 0 14 20A12 12 0 0 1 26 9z" fill="currentColor" fill-opacity="0.18"/>
+            <polygon points="35 12 36.6 15.6 40.5 16 37.5 18.6 38.4 22.5 35 20.4 31.6 22.5 32.5 18.6 29.5 16 33.4 15.6" fill="currentColor"/>
+          </svg>`;
+        case 'РиЛ': // Раскрытая книга и перо
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <path d="M6 12c6 0 12 2 18 6 6-4 12-6 18-6v24c-6 0-12 2-18 6-6-4-12-6-18-6V12z" fill="currentColor" fill-opacity="0.14"/>
+            <line x1="24" y1="18" x2="24" y2="42"/>
+            <path d="M12 20h6M12 26h6M30 20h6M30 26h6"/>
+          </svg>`;
+        case 'Ист': // Античный храм с колоннами
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <polygon points="24 7 6 16 42 16" fill="currentColor" fill-opacity="0.18"/>
+            <line x1="12" y1="16" x2="12" y2="35"/>
+            <line x1="20" y1="16" x2="20" y2="35"/>
+            <line x1="28" y1="16" x2="28" y2="35"/>
+            <line x1="36" y1="16" x2="36" y2="35"/>
+            <rect x="6" y="35" width="36" height="5" rx="2" fill="currentColor" fill-opacity="0.22"/>
+          </svg>`;
+        case 'Ф-ра': // Мяч и динамичная траектория
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <circle cx="26" cy="24" r="14" fill="currentColor" fill-opacity="0.14"/>
+            <path d="M15 16c6 4 16 4 22 0"/>
+            <path d="M15 32c6-4 16-4 22 0"/>
+            <line x1="26" y1="10" x2="26" y2="38"/>
+            <line x1="12" y1="24" x2="40" y2="24"/>
+          </svg>`;
+        case 'Ор.иск.': // Микрофон сцены + звуковые волны
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <rect x="18" y="8" width="12" height="20" rx="6" fill="currentColor" fill-opacity="0.18"/>
+            <path d="M11 23a13 13 0 0 0 26 0"/>
+            <line x1="24" y1="36" x2="24" y2="42"/>
+            <line x1="17" y1="42" x2="31" y2="42"/>
+          </svg>`;
+        case 'Пд':
+        case 'ПД': // Лампочка идеи
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <path d="M16 30c-3-3-5-6.8-5-11a13 13 0 1 1 26 0c0 4.2-2 8-5 11l-1 4H17l-1-4z" fill="currentColor" fill-opacity="0.16"/>
+            <line x1="19" y1="39" x2="29" y2="39"/>
+            <line x1="21" y1="43" x2="27" y2="43"/>
+            <path d="M21 20l3 3 5-6"/>
+          </svg>`;
+        case 'ШУ': // Шапка выпускника и звезда
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <polygon points="24 9 5 18 24 27 43 18" fill="currentColor" fill-opacity="0.18"/>
+            <path d="M13 22v10c4 4 18 4 22 0V22"/>
+            <line x1="40" y1="20" x2="40" y2="33"/>
+          </svg>`;
+        case 'НДП': // Щит и компас
+          return `<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+            <path d="M24 6l15 6v11c0 10-6.5 16.5-15 20-8.5-3.5-15-10-15-20V12l15-6z" fill="currentColor" fill-opacity="0.16"/>
+            <polygon points="24 15 26.8 21.2 33.5 22 28.5 26.5 29.8 33 24 29.8 18.2 33 19.5 26.5 14.5 22 21.2 21.2" fill="currentColor" fill-opacity="0.4"/>
+          </svg>`;
+        default:
+          return '';
       }
     }
 
@@ -6739,8 +7224,8 @@
 
       // Шапка со звонками (8 колонок)
       let headerHtml = `
-        <div class="grid grid-cols-[52px_repeat(8,minmax(72px,1fr))] gap-1.5 pb-2 border-b border-slate-100 dark:border-white/[0.08] mb-2">
-          <div class="sticky left-0 z-10 bg-white/95 dark:bg-[#102642]/95 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-center rounded-xl">День</div>
+        <div class="grid grid-cols-[52px_repeat(8,minmax(76px,1fr))] gap-1.5 pb-1.5 mb-1.5">
+          <div class="sticky left-0 z-10 bg-white/95 dark:bg-[#0e223b]/95 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-center rounded-xl">День</div>
       `;
       for (let i = 0; i < 8; i++) {
         const t = SCHEDULE_TIMES[i] || { start: '', end: '' };
@@ -6760,16 +7245,16 @@
         const isToday = dayIdx === todayIdx;
         const slots = SCHEDULE_DATA[dayIdx] || [];
         const rowBorder = isToday
-          ? 'ring-1 ring-[#2077cf]/35 bg-[#eef6ff] dark:bg-sky-500/[0.12] rounded-2xl p-1.5 my-1.5'
-          : 'rounded-2xl p-1.5 my-1 bg-[#f4f7fc]/80 dark:bg-white/[0.03]';
+          ? 'bg-[#eef6ff] dark:bg-sky-500/[0.12] rounded-2xl p-1.5 my-1.5'
+          : 'rounded-2xl p-1.5 my-1 bg-[#f4f7fc]/70 dark:bg-white/[0.04]';
         const stickyBg = isToday
           ? 'bg-[#2077cf] text-white shadow-xs'
           : 'bg-white dark:bg-[#142b47] text-slate-700 dark:text-white/85';
 
         rowsHtml += `
-          <div class="${rowBorder} grid grid-cols-[52px_repeat(8,minmax(72px,1fr))] gap-1.5 items-center">
+          <div class="${rowBorder} grid grid-cols-[52px_repeat(8,minmax(76px,1fr))] gap-1.5 items-center">
             <!-- Липкая метка дня -->
-            <div class="sticky left-0 z-10 h-14 rounded-xl flex flex-col items-center justify-center text-xs font-extrabold ${stickyBg}">
+            <div class="sticky left-0 z-10 h-16 rounded-[14px] flex flex-col items-center justify-center text-xs font-extrabold ${stickyBg}">
               <span>${dayNames[dayIdx]}</span>
               ${isToday ? '<span class="w-1.5 h-1.5 rounded-full bg-white/90 mt-1"></span>' : ''}
             </div>
@@ -6779,35 +7264,25 @@
         while (col < 8) {
           const item = slots[col];
           if (!item) {
-            rowsHtml += `<div class="h-14 rounded-xl border border-dashed border-slate-200/60 dark:border-white/[0.06] flex items-center justify-center text-[10px] text-slate-400/40 select-none">—</div>`;
+            rowsHtml += `<div class="h-16 rounded-[14px] bg-slate-200/40 dark:bg-white/[0.025] flex items-center justify-center text-[11px] text-slate-400/35 select-none">—</div>`;
             col++;
             continue;
           }
 
-          if (item.pair) {
-            const style = getGridSubjectStyle(item.s);
-            const full = SCHEDULE_SUBJECT_FULL[item.s] || item.s;
-            rowsHtml += `
-              <div onclick="openScheduleSubjectTasks('${item.s}', '${full}', '${item.t || ''}', '${item.r || ''}')" class="col-span-2 h-14 rounded-xl p-1.5 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center text-center select-none ${style}">
-                <div class="flex items-center gap-1">
-                  <span class="text-xs font-extrabold leading-tight">${item.s}</span>
-                  <span class="text-[8.5px] font-bold px-1 py-0.5 rounded bg-amber-400/20 text-amber-800 dark:text-amber-200 leading-none">×2</span>
-                </div>
-                <span class="text-[9.5px] opacity-80 truncate max-w-full leading-tight mt-0.5">${item.r || ''}</span>
-              </div>
-            `;
-            col += 2;
-          } else {
-            const style = getGridSubjectStyle(item.s);
-            const full = SCHEDULE_SUBJECT_FULL[item.s] || item.s;
-            rowsHtml += `
-              <div onclick="openScheduleSubjectTasks('${item.s}', '${full}', '${item.t || ''}', '${item.r || ''}')" class="h-14 rounded-xl p-1.5 cursor-pointer active:scale-95 transition flex flex-col items-center justify-center text-center select-none ${style}">
-                <span class="text-xs font-extrabold leading-tight">${item.s}</span>
-                <span class="text-[9.5px] opacity-80 truncate max-w-full leading-tight mt-0.5">${item.r || ''}</span>
-              </div>
-            `;
-            col++;
-          }
+          const spanClass = item.pair ? 'col-span-2' : '';
+          const step = item.pair ? 2 : 1;
+          const style = getGridSubjectStyle(item.s);
+          const full = SCHEDULE_SUBJECT_FULL[item.s] || item.s;
+          const artSvg = getScheduleSubjectArtSVG(item.s);
+
+          rowsHtml += `
+            <div onclick="openScheduleSubjectTasks('${item.s}', '${full}', '${item.t || ''}', '${item.r || ''}')" class="${spanClass} relative overflow-hidden h-16 rounded-[14px] px-2.5 py-2 cursor-pointer active:scale-95 transition flex flex-col justify-between items-start text-left select-none ${style}">
+              ${artSvg ? `<div class="absolute -right-1.5 -bottom-2 w-12 h-12 opacity-[0.20] dark:opacity-[0.22] pointer-events-none -rotate-6">${artSvg}</div>` : ''}
+              <span class="relative z-[1] text-[12.5px] font-extrabold leading-tight truncate max-w-full">${item.s}</span>
+              <span class="relative z-[1] text-[9.5px] font-semibold opacity-75 truncate max-w-[85%] leading-tight">${item.r || ''}</span>
+            </div>
+          `;
+          col += step;
         }
 
         rowsHtml += `</div>`;
@@ -6827,9 +7302,9 @@
       if (!quickEl) return;
       if (list && list.length > 0) {
         const topUser = list[0];
-        quickEl.innerHTML = `<span class="font-bold text-amber-200">${escapeHtml(topUser.name)}</span> · <span class="text-white/85 font-semibold font-mono">${topUser.score} очк.</span>`;
+        quickEl.innerHTML = `<span class="font-semibold text-amber-200">${escapeHtml(topUser.name)}</span>`;
       } else {
-        quickEl.innerText = 'Рейтинг редакторов...';
+        quickEl.innerText = 'Рейтинг';
       }
     }
 
@@ -6874,111 +7349,67 @@
     function renderLeaderboardModal(list) {
       const podiumEl = document.getElementById('leaderboard-podium');
       const listEl = document.getElementById('leaderboard-list');
+      const myCardEl = document.getElementById('leaderboard-my-card');
       const countEl = document.getElementById('leaderboard-total-count');
 
       if (countEl) countEl.innerText = `${list.length} участников`;
 
       if (!list || list.length === 0) {
         if (podiumEl) podiumEl.innerHTML = '';
+        if (myCardEl) {
+          myCardEl.classList.add('hidden');
+          myCardEl.innerHTML = '';
+        }
         if (listEl) {
           listEl.innerHTML = `
-            <div class="text-center py-8 text-slate-400">
-              <div class="w-10 h-10 mx-auto mb-2 text-amber-500">${ICONS.trophy}</div>
-              <p class="text-xs">Пока нет активных редакторов. Станьте первым!</p>
+            <div class="text-center py-8 text-slate-400 dark:text-sky-100/60">
+              <p class="text-xs font-medium">Пока нет активных редакторов. Станьте первым!</p>
             </div>
           `;
         }
         return;
       }
 
-      // Топ 3 для подиума
       const top1 = list[0] || null;
       const top2 = list[1] || null;
       const top3 = list[2] || null;
 
-      // Хелпер для званий и иконок в общем стиле приложения
-      function getBadgeDetails(badgeRaw) {
-        const raw = badgeRaw || 'Ученик';
-        // Очистка от любых unicode эмодзи
-        const title = raw.replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}]/gu, '').trim() || 'Ученик';
-        
-        if (title.includes('Главный') || (title.includes('редактор') && title.includes('Главный'))) {
-          return {
-            title: title,
-            icon: ICONS.crown,
-            color: 'text-amber-500',
-            bgChip: 'bg-amber-400/10 text-amber-500 border border-amber-400/20'
-          };
-        }
-        if (title.includes('Супер') || title.includes('активист')) {
-          return {
-            title: title,
-            icon: ICONS.bolt,
-            color: 'text-cyan-400',
-            bgChip: 'bg-cyan-400/10 text-cyan-400 border border-cyan-400/20'
-          };
-        }
-        if (title.includes('Мастер') || title.includes('конспектов')) {
-          return {
-            title: title,
-            icon: ICONS.star,
-            color: 'text-yellow-400',
-            bgChip: 'bg-yellow-400/10 text-yellow-400 border border-yellow-400/20'
-          };
-        }
-        if (title.includes('Архивариус')) {
-          return {
-            title: title,
-            icon: ICONS.book,
-            color: 'text-purple-400',
-            bgChip: 'bg-purple-400/10 text-purple-400 border border-purple-400/20'
-          };
-        }
-        if (title.includes('Редактор')) {
-          return {
-            title: title,
-            icon: ICONS.pencil,
-            color: 'text-blue-400',
-            bgChip: 'bg-blue-400/10 text-blue-400 border border-blue-400/20'
-          };
-        }
-        return {
-          title: title,
-          icon: ICONS.user,
-          color: 'text-slate-400',
-          bgChip: 'bg-slate-400/10 text-slate-400 border border-slate-400/20'
-        };
-      }
+      function renderPodiumSlot(user, place) {
+        const pedestalHeights = { 1: 'h-20', 2: 'h-14', 3: 'h-10' };
+        const numSizes = { 1: 'text-3xl text-white/45', 2: 'text-2xl text-white/40', 3: 'text-xl text-white/35' };
+        const hClass = pedestalHeights[place] || 'h-10';
+        const numClass = numSizes[place] || 'text-xl text-white/35';
 
-      function renderPodiumCard(user, place, heightClass, bgGradient, ringColor) {
         if (!user) {
-          return `<div class="flex flex-col items-center justify-end ${heightClass} opacity-30">
-            <div class="w-10 h-10 rounded-full bg-slate-200 dark:bg-white/10 flex items-center justify-center text-xs font-black text-slate-500">${place}</div>
-            <div class="w-full mt-2 h-14 rounded-2xl bg-slate-100 dark:bg-white/5"></div>
-          </div>`;
+          return `
+            <div class="flex flex-col items-center justify-end min-w-0 opacity-35">
+              <div class="w-10 h-10 rounded-full bg-white/15 mb-2"></div>
+              <div class="w-full ${hClass} rounded-t-[16px] bg-white/10 flex items-center justify-center">
+                <span class="font-black ${numClass} select-none">${place}</span>
+              </div>
+            </div>
+          `;
         }
-        const initial = (user.name || 'У')[0].toUpperCase();
-        const badgeInfo = getBadgeDetails(user.badge);
-        
-        const rankPill = place === 1 
-          ? `<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center font-black text-[10px] shadow-md ring-2 ring-white dark:ring-[#0d1b2a]">1</div>`
-          : place === 2
-          ? `<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-slate-300 text-slate-900 flex items-center justify-center font-black text-[10px] shadow-md ring-2 ring-white dark:ring-[#0d1b2a]">2</div>`
-          : `<div class="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-amber-700 text-white flex items-center justify-center font-black text-[10px] shadow-md ring-2 ring-white dark:ring-[#0d1b2a]">3</div>`;
+
+        const isMe = Number(user.user_id) === Number(userId);
+        const avatarSize = place === 1
+          ? 'w-14 h-14 text-base ring-2 ring-white/90 shadow-lg'
+          : 'w-11 h-11 text-sm ring-2 ring-white/55 shadow-md';
 
         return `
-          <div class="flex flex-col items-center justify-end ${heightClass} transition transform active:scale-95">
-            <div class="relative">
-              <div class="w-12 h-12 rounded-full ${bgGradient} text-slate-950 font-black flex items-center justify-center text-base shadow-lg ${ringColor} ring-2">
-                ${initial}
-              </div>
-              ${rankPill}
+          <div class="flex flex-col items-center justify-end min-w-0">
+            <div class="shrink-0">
+              ${renderAvatarElement(user.user_id, avatarSize, user.name)}
             </div>
-            <span class="text-xs font-extrabold text-slate-900 dark:text-white mt-1.5 max-w-[90px] truncate text-center">${escapeHtml(user.name)}</span>
-            <span class="text-[10.5px] text-[#2077cf] dark:text-sky-300 font-bold leading-none mb-1.5">${user.score} очк.</span>
-            <div class="w-full py-1.5 px-1.5 rounded-xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-center gap-1 text-center">
-              <span class="w-3 h-3 ${badgeInfo.color} flex items-center justify-center shrink-0">${badgeInfo.icon}</span>
-              <span class="text-[9px] font-bold uppercase text-slate-500 dark:text-sky-100/70 truncate max-w-[70px]">${escapeHtml(badgeInfo.title)}</span>
+            <span class="text-xs font-extrabold text-white mt-1.5 w-full truncate text-center leading-tight">
+              ${escapeHtml(user.name)}${isMe ? ' (вы)' : ''}
+            </span>
+            <div class="inline-flex items-center gap-1 text-[11px] font-bold text-white/85 tabular-nums mt-0.5 mb-2">
+              <span>${user.score}</span>
+              <span class="w-2 h-2 rounded-full bg-[#FACC15] shrink-0"></span>
+            </div>
+            <div class="w-full ${hClass} rounded-t-[16px] bg-gradient-to-b from-white/[0.26] to-white/[0.06] dark:from-white/[0.15] dark:to-white/[0.03] flex items-center justify-center">
+              <span class="font-black ${numClass} select-none">${place}</span>
             </div>
           </div>
         `;
@@ -6986,58 +7417,76 @@
 
       if (podiumEl) {
         podiumEl.innerHTML = `
-          <!-- 2-е место (Серебро) -->
-          ${renderPodiumCard(top2, 2, 'h-40', 'bg-gradient-to-tr from-slate-300 to-slate-100', 'ring-slate-300')}
-          <!-- 1-е место (Золото) -->
-          ${renderPodiumCard(top1, 1, 'h-48', 'bg-gradient-to-tr from-yellow-400 to-amber-300', 'ring-yellow-400 ring-4')}
-          <!-- 3-е место (Бронза) -->
-          ${renderPodiumCard(top3, 3, 'h-36', 'bg-gradient-to-tr from-amber-700 to-amber-500', 'ring-amber-600')}
+          ${renderPodiumSlot(top2, 2)}
+          ${renderPodiumSlot(top1, 1)}
+          ${renderPodiumSlot(top3, 3)}
         `;
       }
 
-      // Полный список всех участников
-      if (listEl) {
-        let html = '';
-        list.forEach((u, idx) => {
-          const rank = u.rank || (idx + 1);
-          const rankColor = rank === 1 ? 'text-amber-500' : (rank === 2 ? 'text-slate-400' : (rank === 3 ? 'text-amber-600' : 'text-slate-400 dark:text-sky-100/50'));
-          const rankBadgeHtml = `<span class="w-5 text-center font-mono font-extrabold text-xs ${rankColor}">${rank}</span>`;
-
-          const badgeInfo = getBadgeDetails(u.badge);
-          const initial = (u.name || 'У')[0].toUpperCase();
-          const isMe = u.user_id === userId;
-          const meSurface = isMe
-            ? 'bg-[#eef6ff] dark:bg-sky-500/[0.15] ring-1 ring-[#2077cf]/40'
-            : 'bg-[#f4f7fc] dark:bg-white/[0.06]';
-
-          html += `
-            <div class="p-3 rounded-2xl ${meSurface} flex items-center justify-between gap-3 transition">
+      const myIndex = list.findIndex(u => Number(u.user_id) === Number(userId));
+      if (myCardEl) {
+        if (myIndex >= 3) {
+          const me = list[myIndex];
+          const myRank = me.rank || (myIndex + 1);
+          myCardEl.innerHTML = `
+            <div class="px-3.5 py-2.5 rounded-2xl bg-[#eef6ff] dark:bg-sky-500/[0.16] flex items-center justify-between gap-3">
               <div class="flex items-center gap-2.5 min-w-0">
-                <div class="w-5 flex items-center justify-center shrink-0">
-                  ${rankBadgeHtml}
-                </div>
-                <div class="w-9 h-9 rounded-full bg-white dark:bg-white/10 text-slate-800 dark:text-white font-extrabold text-xs flex items-center justify-center shrink-0">
-                  ${initial}
-                </div>
-                <div class="min-w-0 flex-1">
+                <span class="w-5 text-center font-mono font-extrabold text-xs text-[#2077cf] dark:text-sky-300 shrink-0">${myRank}</span>
+                ${renderAvatarElement(me.user_id, 'w-8 h-8 rounded-full text-xs', me.name)}
+                <div class="min-w-0">
                   <div class="flex items-center gap-1.5">
-                    <span class="text-xs font-extrabold text-slate-900 dark:text-white truncate">${escapeHtml(u.name)}</span>
-                    ${isMe ? '<span class="px-1.5 py-0.5 rounded-full bg-[#2077cf] text-white text-[9px] font-bold">ВЫ</span>' : ''}
+                    <span class="text-xs font-extrabold text-slate-900 dark:text-white truncate">${escapeHtml(me.name)}</span>
+                    <span class="px-1.5 py-0.5 rounded-full bg-[#2077cf] text-white text-[9px] font-bold shrink-0">ВЫ</span>
                   </div>
-                  <p class="text-[10.5px] text-slate-500 dark:text-sky-100/65 truncate mt-0.5">
-                    ${escapeHtml(badgeInfo.title)} · ${u.tasks} д/з · ${u.materials} фото · ${u.completions} сд.
-                  </p>
+                  <p class="text-[10.5px] text-slate-500 dark:text-sky-100/65 truncate">${me.tasks} д/з · ${me.materials} фото · ${me.completions} сд.</p>
                 </div>
               </div>
-              <div class="shrink-0 text-right">
-                <span class="px-2.5 py-1 rounded-full bg-white dark:bg-white/10 text-[#145594] dark:text-sky-200 font-extrabold text-xs font-mono">
-                  ${u.score}
-                </span>
+              <div class="inline-flex items-center gap-1.5 shrink-0">
+                <span class="font-mono font-extrabold text-sm text-[#145594] dark:text-sky-200">${me.score}</span>
+                <span class="w-2 h-2 rounded-full bg-[#FACC15]"></span>
               </div>
             </div>
           `;
-        });
-        listEl.innerHTML = html;
+          myCardEl.classList.remove('hidden');
+        } else {
+          myCardEl.classList.add('hidden');
+          myCardEl.innerHTML = '';
+        }
+      }
+
+      if (listEl) {
+        const rowsHtml = list.map((u, idx) => {
+          const rank = u.rank || (idx + 1);
+          const rankColor = rank === 1
+            ? 'text-amber-500'
+            : (rank === 2 ? 'text-slate-400' : (rank === 3 ? 'text-amber-600' : 'text-slate-400 dark:text-sky-100/50'));
+          const isMe = Number(u.user_id) === Number(userId);
+          const rowBg = isMe ? 'bg-[#eef6ff] dark:bg-sky-500/[0.14]' : '';
+
+          return `
+            <div class="px-3.5 py-2.5 ${rowBg} flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2.5 min-w-0">
+                <span class="w-5 text-center font-mono font-extrabold text-xs ${rankColor} shrink-0">${rank}</span>
+                ${renderAvatarElement(u.user_id, 'w-8 h-8 rounded-full text-xs', u.name)}
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-xs font-extrabold text-slate-900 dark:text-white truncate">${escapeHtml(u.name)}</span>
+                    ${isMe ? '<span class="px-1.5 py-0.5 rounded-full bg-[#2077cf] text-white text-[9px] font-bold shrink-0">ВЫ</span>' : ''}
+                  </div>
+                  <p class="text-[10.5px] text-slate-500 dark:text-sky-100/65 truncate mt-0.5">
+                    ${u.tasks} д/з · ${u.materials} фото · ${u.completions} сд.
+                  </p>
+                </div>
+              </div>
+              <div class="inline-flex items-center gap-1.5 shrink-0">
+                <span class="font-mono font-extrabold text-sm text-slate-800 dark:text-white tabular-nums">${u.score}</span>
+                <span class="w-2 h-2 rounded-full bg-[#FACC15] shrink-0"></span>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+        listEl.innerHTML = rowsHtml;
       }
     }
 
@@ -7241,6 +7690,7 @@
         volCont.style.opacity = soundFx.enabled ? '1' : '0.4';
         volCont.style.pointerEvents = soundFx.enabled ? 'auto' : 'none';
       }
+      updateSoundPresetUI();
 
       try {
         const res = await fetch(`/api/notifications/prefs?user_id=${userId}`);
@@ -7282,7 +7732,8 @@
 
     let soundVolDebounce = null;
     function onSoundVolumeChange(val) {
-      const pct = Math.max(5, Math.min(100, parseInt(val, 10) || 85));
+      const parsed = parseInt(val, 10);
+      const pct = Math.max(5, Math.min(100, Number.isFinite(parsed) ? parsed : 100));
       const label = document.getElementById('sound-volume-label');
       if (label) label.innerText = `${pct}%`;
       const icon = document.getElementById('sound-speaker-icon');
@@ -7300,6 +7751,24 @@
       soundVolDebounce = setTimeout(() => {
         soundFx.playTap();
       }, 120);
+    }
+
+    function updateSoundPresetUI() {
+      const grid = document.getElementById('sound-preset-grid');
+      if (!grid) return;
+      const cur = soundFx.preset || 'drop';
+      grid.querySelectorAll('button[data-preset]').forEach((btn) => {
+        const active = btn.dataset.preset === cur;
+        btn.className = active
+          ? 'py-1.5 px-1 rounded-xl text-[10.5px] font-bold bg-[#2077cf] text-white transition active:scale-95 truncate shadow-2xs'
+          : 'py-1.5 px-1 rounded-xl text-[10.5px] font-semibold bg-white dark:bg-white/[0.08] text-slate-700 dark:text-white/80 hover:text-[#2077cf] transition active:scale-95 truncate';
+      });
+    }
+
+    function selectSoundPreset(preset) {
+      soundFx.setPreset(preset);
+      updateSoundPresetUI();
+      triggerHaptic('light');
     }
 
     // --- Управление виброоткликом (Haptics) ---
@@ -7424,6 +7893,9 @@
         bootCachedTasksJson = '';
         cachedLeaderboard = [];
         lastLeaderboardFetch = 0;
+        if (navigator.serviceWorker?.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'CLEAR_PWA_CACHE' });
+        }
         showToast('Кэш данных успешно очищен', 'success');
         await refreshAllAppData();
       } catch (e) {
@@ -7547,7 +8019,16 @@
 
       const platformEl = document.getElementById('settings-platform-label');
       if (platformEl) {
-        platformEl.innerText = (tg && tg.initData) ? 'Telegram WebApp' : 'Веб-браузер';
+        if (tg && tg.initData) {
+          platformEl.innerText = 'Telegram WebApp';
+        } else if (isPwaStandalone()) {
+          platformEl.innerText = 'PWA (Установлено)';
+        } else {
+          platformEl.innerText = 'Веб-браузер';
+        }
+      }
+      if (typeof updatePwaInstallUI === 'function') {
+        updatePwaInstallUI();
       }
     }
 
@@ -7613,21 +8094,134 @@
     }
 
     // ========================================================
-    // 🍁 АППАРАТНЫЙ ОСЕННИЙ ЛИСТОПАД (60 FPS, 0% CPU, ZERO LAG)
+    // 🍁 ОПТИМИЗИРОВАННЫЙ ОСЕННИЙ ЛИСТОПАД (DIRECT MATRIX, ADAPTIVE FPS)
     // ========================================================
     let autumnLeavesRunning = false;
     let autumnLeavesAnimId = null;
     let autumnListenersBound = false;
     let autumnResizeFn = null;
     let autumnRenderFn = null;
+    let autumnSpritesCache = null;
     let autumnLastNow = 0;
     let autumnIsFastScrolling = false;
     let autumnScrollTimer = null;
 
+    function getAutumnLeafSprites() {
+      if (autumnSpritesCache) return autumnSpritesCache;
+
+      function createMapleCanvas(col1, col2, softMode) {
+        const c = document.createElement('canvas');
+        c.width = 48;
+        c.height = 48;
+        const cx = c.getContext('2d');
+        const grad = cx.createLinearGradient(10, 4, 38, 44);
+        grad.addColorStop(0, col1);
+        grad.addColorStop(1, col2);
+        cx.fillStyle = grad;
+        if (softMode) cx.globalAlpha = 0.62;
+
+        cx.beginPath();
+        const pts = [
+          [24, 4], [26, 12], [32, 10], [29, 16], [37, 14],
+          [33, 20], [41, 22], [35, 27], [42, 30], [34, 34],
+          [38, 39], [28, 37], [27, 44], [25, 44], [24, 37],
+          [21, 39], [24, 34], [16, 30], [23, 27], [17, 22],
+          [25, 20], [21, 14], [29, 16], [26, 12]
+        ];
+        cx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) cx.lineTo(pts[i][0], pts[i][1]);
+        cx.closePath();
+        cx.fill();
+
+        if (!softMode) {
+          cx.strokeStyle = col2;
+          cx.lineWidth = 1.25;
+          cx.beginPath();
+          cx.moveTo(25, 34);
+          cx.lineTo(26, 45);
+          cx.stroke();
+        }
+        return c;
+      }
+
+      function createBirchCanvas(col1, col2, softMode) {
+        const c = document.createElement('canvas');
+        c.width = 48;
+        c.height = 48;
+        const cx = c.getContext('2d');
+        const grad = cx.createLinearGradient(12, 4, 36, 42);
+        grad.addColorStop(0, col1);
+        grad.addColorStop(1, col2);
+        cx.fillStyle = grad;
+        if (softMode) cx.globalAlpha = 0.58;
+
+        cx.beginPath();
+        cx.moveTo(24, 6);
+        cx.bezierCurveTo(36, 12, 40, 29, 25, 40);
+        cx.bezierCurveTo(10, 29, 12, 12, 24, 6);
+        cx.closePath();
+        cx.fill();
+
+        if (!softMode) {
+          cx.strokeStyle = col2;
+          cx.lineWidth = 1.25;
+          cx.beginPath();
+          cx.moveTo(25, 39);
+          cx.lineTo(26, 46);
+          cx.stroke();
+        }
+        return c;
+      }
+
+      autumnSpritesCache = [
+        createMapleCanvas('#f59e0b', '#d97706', false), // Янтарный клен
+        createMapleCanvas('#ea580c', '#c2410c', false), // Огненный клен
+        createMapleCanvas('#f97316', '#b45309', true),  // Мягкий клен глубины
+        createBirchCanvas('#fbbf24', '#f59e0b', false), // Золотая береза
+        createBirchCanvas('#ea580c', '#9a3412', false), // Осенний лист
+        createBirchCanvas('#f59e0b', '#d97706', true)   // Мягкий лист заднего плана
+      ];
+      return autumnSpritesCache;
+    }
+
+    function hasCoveringOverlayForLeaves() {
+      const photo = document.getElementById('photo-modal');
+      if (photo && !photo.classList.contains('hidden')) return true;
+      const camera = document.getElementById('camera-modal');
+      if (camera && !camera.classList.contains('hidden')) return true;
+      if (window.innerWidth < 640) {
+        const modals = document.querySelectorAll('[id$="-modal"]:not(.hidden)');
+        if (modals.length > 0) return true;
+      }
+      return false;
+    }
+
+    function stopAutumnLeavesLoop() {
+      autumnLeavesRunning = false;
+      if (autumnLeavesAnimId) {
+        cancelAnimationFrame(autumnLeavesAnimId);
+        autumnLeavesAnimId = null;
+      }
+    }
+
+    function resumeAutumnLeavesIfNeeded() {
+      if (
+        !autumnLeavesRunning &&
+        localStorage.getItem('hw_enable_leaves') === 'true' &&
+        !document.hidden &&
+        !hasCoveringOverlayForLeaves() &&
+        autumnRenderFn
+      ) {
+        autumnLastNow = performance.now();
+        autumnLeavesRunning = true;
+        autumnLeavesAnimId = requestAnimationFrame(autumnRenderFn);
+      }
+    }
+
     function initAutumnLeavesEngine() {
       const canvas = document.getElementById('autumn-leaves-canvas');
       if (!canvas) return;
-      const ctx = canvas.getContext('2d', { alpha: true });
+      const ctx = canvas.getContext('2d', { alpha: true, desynchronized: true }) || canvas.getContext('2d', { alpha: true });
       if (!ctx) return;
 
       const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -7639,121 +8233,64 @@
       }
 
       if (!userEnabled || prefersReduced) {
+        stopAutumnLeavesLoop();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
         canvas.style.display = 'none';
         return;
       }
 
       canvas.style.display = 'block';
-      if (autumnLeavesAnimId) cancelAnimationFrame(autumnLeavesAnimId);
+      stopAutumnLeavesLoop();
 
-      let width = window.innerWidth;
-      let height = window.innerHeight;
-      let dpr = (window.innerWidth >= 768) ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
+      let width = 0;
+      let height = 0;
+      let bufW = 0;
+      let bufH = 0;
+      let dpr = 1;
 
       function resize() {
-        width = window.innerWidth;
-        height = window.innerHeight;
-        dpr = (window.innerWidth >= 768) ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.5);
-        canvas.width = Math.floor(width * dpr);
-        canvas.height = Math.floor(height * dpr);
+        const nextW = window.innerWidth;
+        const nextH = window.innerHeight;
+        const nextDpr = (nextW >= 768) ? 1.0 : Math.min(window.devicePixelRatio || 1, 1.25);
+        if (Math.abs(nextW - width) <= 1 && Math.abs(nextH - height) <= 1 && nextDpr === dpr && bufW > 0) {
+          return;
+        }
+        width = nextW;
+        height = nextH;
+        dpr = nextDpr;
+        bufW = Math.floor(width * dpr);
+        bufH = Math.floor(height * dpr);
+        canvas.width = bufW;
+        canvas.height = bufH;
         canvas.style.width = width + 'px';
         canvas.style.height = height + 'px';
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        ctx.scale(dpr, dpr);
       }
       autumnResizeFn = resize;
       resize();
 
-      // Генерация 6 пререндеренных текстур листьев во внеэкранных холстах
-      // Теплые осенние тона из фото-референса (глубокий янтарь, спелая охра, пламенный клен)
-      function createMapleCanvas(col1, col2, blurPx) {
-        const c = document.createElement('canvas');
-        c.width = 64;
-        c.height = 64;
-        const cx = c.getContext('2d');
-        if (blurPx) cx.filter = `blur(${blurPx}px)`;
-
-        const grad = cx.createLinearGradient(16, 6, 48, 58);
-        grad.addColorStop(0, col1);
-        grad.addColorStop(1, col2);
-        cx.fillStyle = grad;
-
-        cx.beginPath();
-        const pts = [
-          [32, 6], [35, 16], [42, 13], [39, 21], [49, 19],
-          [44, 27], [55, 29], [47, 36], [56, 40], [46, 45],
-          [50, 52], [38, 50], [36, 59], [33, 59], [32, 50],
-          [28, 52], [32, 45], [22, 40], [31, 36], [23, 29],
-          [34, 27], [29, 19], [39, 21], [36, 16]
-        ];
-        cx.moveTo(pts[0][0], pts[0][1]);
-        for (let i = 1; i < pts.length; i++) cx.lineTo(pts[i][0], pts[i][1]);
-        cx.closePath();
-        cx.fill();
-
-        cx.strokeStyle = col2;
-        cx.lineWidth = 1.5;
-        cx.beginPath();
-        cx.moveTo(33, 46);
-        cx.lineTo(35, 60);
-        cx.stroke();
-        return c;
-      }
-
-      function createBirchCanvas(col1, col2, blurPx) {
-        const c = document.createElement('canvas');
-        c.width = 64;
-        c.height = 64;
-        const cx = c.getContext('2d');
-        if (blurPx) cx.filter = `blur(${blurPx}px)`;
-
-        const grad = cx.createLinearGradient(18, 6, 46, 56);
-        grad.addColorStop(0, col1);
-        grad.addColorStop(1, col2);
-        cx.fillStyle = grad;
-
-        cx.beginPath();
-        cx.moveTo(32, 8);
-        cx.bezierCurveTo(48, 16, 54, 38, 33, 54);
-        cx.bezierCurveTo(14, 38, 16, 16, 32, 8);
-        cx.closePath();
-        cx.fill();
-
-        cx.strokeStyle = col2;
-        cx.lineWidth = 1.5;
-        cx.beginPath();
-        cx.moveTo(33, 52);
-        cx.lineTo(34, 61);
-        cx.stroke();
-        return c;
-      }
-
-      const sprites = [
-        createMapleCanvas('#f59e0b', '#d97706', 0),    // Янтарный клен
-        createMapleCanvas('#ea580c', '#c2410c', 0),    // Огненный клен
-        createMapleCanvas('#f97316', '#b45309', 1.2),  // Мягкий размытый клен (эффект боке/глубины)
-        createBirchCanvas('#fbbf24', '#f59e0b', 0),    // Золотая береза
-        createBirchCanvas('#ea580c', '#9a3412', 0),    // Осенний дуб
-        createBirchCanvas('#f59e0b', '#d97706', 1.0)   // Размытая листва заднего плана
-      ];
-
-      // Всего 18 частиц — нулевая нагрузка на процессор, стабильные 60 кадров/сек
-      const LEAF_COUNT = 18;
+      const sprites = getAutumnLeafSprites();
+      const cores = navigator.hardwareConcurrency || 4;
+      const saveData = Boolean(navigator.connection?.saveData);
+      const isCompact = width < 640;
+      const LEAF_COUNT = saveData ? 7 : (cores <= 4 ? (isCompact ? 9 : 11) : (isCompact ? 11 : 15));
+      const minFrameMs = saveData ? 32 : (cores <= 4 ? 22 : 18);
       const leaves = [];
 
       function spawnLeaf(l, initial) {
         l.baseX = Math.random() * width;
-        l.y = initial ? Math.random() * height : -35 - Math.random() * 20;
-        l.size = 15 + Math.random() * 16; // 15px - 31px
-        l.speedY = 0.5 + Math.random() * 0.7; // Спокойный, плавный дрейф вниз
-        l.swayAmp = 22 + Math.random() * 32;
-        l.swaySpeed = 0.014 + Math.random() * 0.018;
-        l.swayPhase = Math.random() * Math.PI * 2;
-        l.rot = Math.random() * Math.PI * 2;
+        l.y = initial ? Math.random() * height : -32 - Math.random() * 20;
+        l.size = 15 + Math.random() * 14;
+        l.halfSize = l.size * 0.5;
+        l.speedY = 0.52 + Math.random() * 0.65;
+        l.swayAmp = 18 + Math.random() * 28;
+        l.swaySpeed = 0.014 + Math.random() * 0.016;
+        l.swayPhase = Math.random() * 6.283185;
+        l.rot = Math.random() * 6.283185;
         l.rotSpeed = (Math.random() - 0.5) * 0.02;
-        l.rotY = Math.random() * Math.PI * 2;
-        l.rotYSpeed = 0.018 + Math.random() * 0.025; // 3D кувыркание в воздухе
-        l.opacity = 0.35 + Math.random() * 0.45;
+        l.rotY = Math.random() * 6.283185;
+        l.rotYSpeed = 0.018 + Math.random() * 0.022;
+        l.opacity = 0.28 + Math.random() * 0.34;
         l.spriteIdx = Math.floor(Math.random() * sprites.length);
       }
 
@@ -7763,22 +8300,29 @@
         leaves.push(l);
       }
 
-      autumnLastNow = performance.now();
-      autumnLeavesRunning = true;
-
       function render(now) {
         if (!autumnLeavesRunning) return;
+
+        if (document.hidden || hasCoveringOverlayForLeaves()) {
+          stopAutumnLeavesLoop();
+          return;
+        }
+
         autumnLeavesAnimId = requestAnimationFrame(render);
 
-        if (autumnIsFastScrolling && window.innerWidth >= 768) {
+        if (autumnIsFastScrolling) {
           autumnLastNow = now;
           return;
         }
 
-        const delta = Math.min((now - autumnLastNow) / 16.67, 2.5);
+        const elapsed = now - autumnLastNow;
+        if (elapsed < minFrameMs) return;
+
+        const delta = Math.min(elapsed / 16.67, 2.5);
         autumnLastNow = now;
 
-        ctx.clearRect(0, 0, width, height);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, bufW, bufH);
 
         for (let i = 0; i < leaves.length; i++) {
           const l = leaves[i];
@@ -7788,25 +8332,35 @@
           l.rotY += l.rotYSpeed * delta;
 
           const currentX = l.baseX + Math.sin(l.swayPhase) * l.swayAmp;
-          const flipX = Math.cos(l.rotY);
-
-          if (l.y > height + 40 || currentX < -50 || currentX > width + 50) {
+          if (l.y > height + 36 || currentX < -44 || currentX > width + 44) {
             spawnLeaf(l, false);
             continue;
           }
 
-          ctx.save();
-          ctx.translate(currentX, l.y);
-          ctx.rotate(l.rot);
-          ctx.scale(flipX, 1);
+          const cosR = Math.cos(l.rot);
+          const sinR = Math.sin(l.rot);
+          const flipX = Math.cos(l.rotY);
+
+          ctx.setTransform(
+            cosR * flipX * dpr,
+            sinR * flipX * dpr,
+            -sinR * dpr,
+            cosR * dpr,
+            currentX * dpr,
+            l.y * dpr
+          );
           ctx.globalAlpha = l.opacity;
-          const spr = sprites[l.spriteIdx];
-          ctx.drawImage(spr, -l.size / 2, -l.size / 2, l.size, l.size);
-          ctx.restore();
+          ctx.drawImage(sprites[l.spriteIdx], -l.halfSize, -l.halfSize, l.size, l.size);
         }
+        ctx.globalAlpha = 1;
       }
+
       autumnRenderFn = render;
-      autumnLeavesAnimId = requestAnimationFrame(render);
+      autumnLastNow = performance.now();
+      if (!document.hidden && !hasCoveringOverlayForLeaves()) {
+        autumnLeavesRunning = true;
+        autumnLeavesAnimId = requestAnimationFrame(render);
+      }
 
       if (!autumnListenersBound) {
         autumnListenersBound = true;
@@ -7815,26 +8369,21 @@
           clearTimeout(autumnScrollTimer);
           autumnScrollTimer = setTimeout(() => {
             autumnIsFastScrolling = false;
-          }, 80);
+          }, 95);
         }, { passive: true });
 
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) {
-            autumnLeavesRunning = false;
-            if (autumnLeavesAnimId) cancelAnimationFrame(autumnLeavesAnimId);
+            stopAutumnLeavesLoop();
           } else {
-            if (localStorage.getItem('hw_enable_leaves') === 'true' && autumnRenderFn) {
-              autumnLastNow = performance.now();
-              autumnLeavesRunning = true;
-              autumnLeavesAnimId = requestAnimationFrame(autumnRenderFn);
-            }
+            resumeAutumnLeavesIfNeeded();
           }
         });
 
         let resizeTimeout;
         window.addEventListener('resize', () => {
           clearTimeout(resizeTimeout);
-          resizeTimeout = setTimeout(() => autumnResizeFn && autumnResizeFn(), 150);
+          resizeTimeout = setTimeout(() => autumnResizeFn && autumnResizeFn(), 160);
         }, { passive: true });
       }
     }
@@ -7852,12 +8401,243 @@
         }
       } else {
         localStorage.removeItem('hw_enable_leaves');
-        autumnLeavesRunning = false;
-        if (autumnLeavesAnimId) cancelAnimationFrame(autumnLeavesAnimId);
+        stopAutumnLeavesLoop();
+        const cx = canvas.getContext('2d');
+        if (cx) {
+          cx.setTransform(1, 0, 0, 1, 0, 0);
+          cx.clearRect(0, 0, canvas.width, canvas.height);
+        }
         canvas.style.display = 'none';
       }
       if (tg?.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
     }
+
+    // ========================================================
+    // PWA: SERVICE WORKER, ОФФЛАЙН-ИНДИКАТОР, УСТАНОВКА И ЯРЛЫКИ
+    // ========================================================
+    let deferredPwaPrompt = null;
+
+    function isPwaStandalone() {
+      return Boolean(
+        window.matchMedia?.('(display-mode: standalone)')?.matches ||
+        window.matchMedia?.('(display-mode: minimal-ui)')?.matches ||
+        window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches ||
+        window.matchMedia?.('(display-mode: fullscreen)')?.matches ||
+        window.navigator.standalone === true
+      );
+    }
+
+    function isPwaInstalled() {
+      if (isPwaStandalone()) {
+        try { localStorage.setItem('hw_pwa_installed', '1'); } catch (e) {}
+        return true;
+      }
+      try {
+        return localStorage.getItem('hw_pwa_installed') === '1';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function markPwaInstalled() {
+      deferredPwaPrompt = null;
+      try { localStorage.setItem('hw_pwa_installed', '1'); } catch (e) {}
+      updatePwaInstallUI();
+    }
+
+    function isIosSafariBrowser() {
+      const ua = navigator.userAgent || '';
+      return /iphone|ipad|ipod/i.test(ua) && !window.MSStream && !(tg && tg.initData);
+    }
+
+    function updatePwaInstallUI() {
+      const headerBtn = document.getElementById('pwa-install-header-btn');
+      const card = document.getElementById('pwa-install-card');
+      const cardTitle = document.getElementById('pwa-install-card-title');
+      const cardDesc = document.getElementById('pwa-install-card-desc');
+      const cardBtn = document.getElementById('pwa-install-card-btn');
+      const cardBadge = document.getElementById('pwa-install-card-badge');
+      const inTelegram = Boolean(tg && tg.initData);
+
+      if (card) card.classList.remove('hidden');
+
+      if (isPwaInstalled()) {
+        if (headerBtn) headerBtn.classList.add('hidden');
+        if (cardTitle) cardTitle.innerText = 'PWA установлено';
+        if (cardDesc) cardDesc.innerText = isPwaStandalone()
+          ? 'Работает как отдельное приложение с оффлайн-кэшем'
+          : 'Приложение уже установлено на этом устройстве';
+        if (cardBtn) cardBtn.classList.add('hidden');
+        if (cardBadge) cardBadge.classList.remove('hidden');
+        return;
+      }
+
+      if (cardBadge) cardBadge.classList.add('hidden');
+      if (cardBtn) cardBtn.classList.remove('hidden');
+
+      if (inTelegram) {
+        if (headerBtn) headerBtn.classList.add('hidden');
+        if (cardTitle) cardTitle.innerText = 'Установить на экран';
+        if (cardDesc) cardDesc.innerText = 'Откройте сайт в Chrome или Safari для установки PWA';
+        if (cardBtn) cardBtn.innerText = 'В браузер';
+        return;
+      }
+
+      // В обычном браузере кнопка «Установить» видна в шапке и в Профиле до установки
+      if (headerBtn) headerBtn.classList.remove('hidden');
+
+      if (deferredPwaPrompt) {
+        if (cardTitle) cardTitle.innerText = 'Установить приложение';
+        if (cardDesc) cardDesc.innerText = 'Отдельная иконка на экране и работа без интернета';
+        if (cardBtn) cardBtn.innerText = 'Установить';
+      } else if (isIosSafariBrowser()) {
+        if (cardTitle) cardTitle.innerText = 'На экран «Домой»';
+        if (cardDesc) cardDesc.innerText = 'Нажмите «Поделиться» (↑) → «На экран Домой»';
+        if (cardBtn) cardBtn.innerText = 'Инструкция';
+      } else {
+        if (cardTitle) cardTitle.innerText = 'Установить приложение';
+        if (cardDesc) cardDesc.innerText = 'Через меню браузера (⋮) → «Установить приложение»';
+        if (cardBtn) cardBtn.innerText = 'Как установить';
+      }
+    }
+
+    function openPwaInExternalBrowser() {
+      const targetUrl = `${window.location.origin}/?open_install=1`;
+      if (tg?.openLink) {
+        tg.openLink(targetUrl);
+        return;
+      }
+      navigator.clipboard?.writeText?.(targetUrl).then(() => {
+        showToast('Ссылка скопирована — откройте её в Chrome или Safari', 'info');
+      }).catch(() => {
+        window.open(targetUrl, '_blank');
+      });
+    }
+
+    async function triggerPwaInstall() {
+      soundFx?.playTap();
+      const inTelegram = Boolean(tg && tg.initData);
+      if (inTelegram) {
+        openPwaInExternalBrowser();
+        return;
+      }
+      if (isPwaInstalled()) {
+        updatePwaInstallUI();
+        showToast('Приложение уже установлено', 'success');
+        return;
+      }
+      if (deferredPwaPrompt) {
+        deferredPwaPrompt.prompt();
+        try {
+          const choice = await deferredPwaPrompt.userChoice;
+          if (choice?.outcome === 'accepted') {
+            markPwaInstalled();
+            showToast('Приложение устанавливается...', 'success');
+            return;
+          }
+        } catch (e) {}
+        deferredPwaPrompt = null;
+        updatePwaInstallUI();
+        return;
+      }
+      if (typeof openNotifModal === 'function' && typeof switchSettingsTab === 'function') {
+        openNotifModal();
+        switchSettingsTab('profile');
+      }
+      if (isIosSafariBrowser()) {
+        showToast('В Safari: «Поделиться» → «На экран Домой»', 'info');
+      } else {
+        showToast('Меню браузера (⋮ / значок в адресной строке) → «Установить приложение»', 'info');
+      }
+    }
+
+    function syncOfflineBanner() {
+      const banner = document.getElementById('pwa-offline-banner');
+      if (banner) {
+        banner.classList.toggle('hidden', navigator.onLine !== false);
+      }
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      try { localStorage.removeItem('hw_pwa_installed'); } catch (err) {}
+      deferredPwaPrompt = e;
+      updatePwaInstallUI();
+    });
+
+    window.addEventListener('appinstalled', () => {
+      markPwaInstalled();
+      showToast('Приложение успешно установлено', 'success');
+    });
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'hw_pwa_installed') {
+        updatePwaInstallUI();
+      }
+    });
+
+    if (window.matchMedia) {
+      ['standalone', 'minimal-ui', 'window-controls-overlay', 'fullscreen'].forEach((dm) => {
+        try {
+          window.matchMedia(`(display-mode: ${dm})`).addEventListener('change', updatePwaInstallUI);
+        } catch (e) {}
+      });
+    }
+
+    window.addEventListener('online', () => {
+      syncOfflineBanner();
+      showToast('Подключение восстановлено', 'success');
+      if (typeof loadTasks === 'function') loadTasks();
+    });
+
+    window.addEventListener('offline', () => {
+      syncOfflineBanner();
+      showToast('Нет сети — включён оффлайн-режим', 'info');
+    });
+
+    function handlePwaLaunchAction() {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const action = params.get('action');
+        const openInstall = params.get('open_install');
+        if (action === 'add' && typeof openAddModal === 'function') {
+          setTimeout(() => openAddModal(), 180);
+        } else if (action === 'schedule' && typeof openScheduleModal === 'function') {
+          setTimeout(() => openScheduleModal(), 180);
+        } else if (openInstall === '1' && typeof openNotifModal === 'function' && typeof switchSettingsTab === 'function') {
+          setTimeout(() => {
+            openNotifModal();
+            switchSettingsTab('profile');
+          }, 180);
+        }
+        if (action || openInstall || params.has('source')) {
+          params.delete('action');
+          params.delete('open_install');
+          const cleanQs = params.toString();
+          const cleanUrl = window.location.pathname + (cleanQs ? `?${cleanQs}` : '') + window.location.hash;
+          window.history.replaceState({}, '', cleanUrl);
+        }
+      } catch (e) {}
+    }
+
+    function registerPwaServiceWorker() {
+      if (!('serviceWorker' in navigator)) return;
+      const startRegister = () => {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
+          console.warn('SW registration note:', err);
+        });
+      };
+      if (document.readyState === 'complete') {
+        startRegister();
+      } else {
+        window.addEventListener('load', startRegister, { once: true });
+      }
+    }
+
+    syncOfflineBanner();
+    updatePwaInstallUI();
+    registerPwaServiceWorker();
+    handlePwaLaunchAction();
 
     // Инициализация сводки расписания и запуск фоновых эффектов без задержек
     updateScheduleQuickSummary();

@@ -61,6 +61,8 @@ except ImportError:
 import uuid
 import os
 import json
+import gzip
+import io
 import mimetypes
 import base64
 import hashlib
@@ -74,6 +76,14 @@ app = FastAPI()
 # Сжимает HTML/JSON ответы в ~5-6 раз (изображения/видео уже исключены по умолчанию)
 app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=6)
 
+@app.middleware("http")
+async def add_static_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/") and response.status_code == 200 and "cache-control" not in response.headers:
+        response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
+
 _root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _uploads_dir = os.path.join(_root_dir, "uploads")
 _static_dir = os.path.join(_root_dir, "static")
@@ -85,20 +95,22 @@ if os.path.exists(_uploads_dir):
 if os.path.exists(_static_dir):
     app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
-# Кэш index.html в RAM с автоматическим обновлением по mtime для мгновенной отдачи и 304 Not Modified
-_INDEX_CACHE: Dict[str, Any] = {"mtime_ns": -1, "bytes": b"", "etag": ""}
+# Кэш index.html (raw + pre-gzipped) в RAM с обновлением по mtime для 0ms отдачи
+_INDEX_CACHE: Dict[str, Any] = {"mtime_ns": -1, "bytes": b"", "gz_bytes": b"", "etag": ""}
 
-def _get_cached_index_payload() -> tuple[bytes, str]:
+def _get_cached_index_payload() -> tuple[bytes, bytes, str]:
     path = _index_file if os.path.exists(_index_file) else os.path.join(_root_dir, "static", "index.html")
     st = os.stat(path)
     if _INDEX_CACHE["mtime_ns"] != st.st_mtime_ns or not _INDEX_CACHE["bytes"]:
         with open(path, "rb") as f:
             raw = f.read()
+        gz_raw = gzip.compress(raw, compresslevel=6)
         etag = f'"{hashlib.md5(raw).hexdigest()}"'
         _INDEX_CACHE["mtime_ns"] = st.st_mtime_ns
         _INDEX_CACHE["bytes"] = raw
+        _INDEX_CACHE["gz_bytes"] = gz_raw
         _INDEX_CACHE["etag"] = etag
-    return _INDEX_CACHE["bytes"], _INDEX_CACHE["etag"]
+    return _INDEX_CACHE["bytes"], _INDEX_CACHE["gz_bytes"], _INDEX_CACHE["etag"]
 
 async def _prewarm_backend_caches():
     """Прогревает TLS-пул Supabase, ленту заданий, рейтинг и index.html при старте сервера."""
@@ -131,9 +143,10 @@ async def run_periodic_cleanup_loop():
             logger.warning(f"Auto-cleanup error: {e}")
         await asyncio.sleep(43200)  # Раз в 12 часов
 
-# Сверхбыстрый многоуровневый кэш фото (RAM -> Диск uploads/ -> Supabase)
+# Сверхбыстрый многоуровневый кэш фото и миниатюр (RAM -> Диск uploads/ -> Supabase)
 # Устраняет повторные сетевые запросы к БД и отдает материалы за 0-2 миллисекунды
 _MATERIAL_CACHE: Dict[int, Dict[str, Any]] = {}
+_MATERIAL_THUMB_CACHE: Dict[tuple, Dict[str, Any]] = {}
 
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024  # 10 MB
 MAX_DOCUMENTS_PER_UPLOAD = 5
@@ -322,14 +335,62 @@ def _etag_matches(request: Request, etag: str) -> bool:
 
 @app.get("/")
 def route(request: Request):
-    raw_bytes, etag = _get_cached_index_payload()
+    raw_bytes, gz_bytes, etag = _get_cached_index_payload()
     headers = {
         "ETag": etag,
         "Cache-Control": "no-cache, must-revalidate",
+        "Vary": "Accept-Encoding",
     }
     if _etag_matches(request, etag):
         return Response(status_code=304, headers=headers)
+    accept_enc = (request.headers.get("accept-encoding") or "").lower()
+    if "gzip" in accept_enc and gz_bytes:
+        headers["Content-Encoding"] = "gzip"
+        return Response(content=gz_bytes, media_type="text/html; charset=utf-8", headers=headers)
     return Response(content=raw_bytes, media_type="text/html; charset=utf-8", headers=headers)
+
+def _serve_static_file(rel_path: str, media_type: str, headers: Optional[Dict[str, str]] = None):
+    path = os.path.join(_static_dir, rel_path)
+    if not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Asset not found")
+    return FileResponse(path, media_type=media_type, headers=headers or {})
+
+@app.get("/manifest.webmanifest")
+@app.get("/manifest.json")
+def pwa_manifest():
+    return _serve_static_file(
+        "manifest.webmanifest",
+        media_type="application/manifest+json; charset=utf-8",
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
+
+@app.get("/sw.js")
+def pwa_service_worker():
+    return _serve_static_file(
+        "sw.js",
+        media_type="application/javascript; charset=utf-8",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Service-Worker-Allowed": "/",
+        },
+    )
+
+@app.get("/favicon.ico")
+def pwa_favicon():
+    return _serve_static_file(
+        os.path.join("pwa", "favicon-32.png"),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
+
+@app.get("/apple-touch-icon.png")
+@app.get("/apple-touch-icon-precomposed.png")
+def pwa_apple_touch_icon():
+    return _serve_static_file(
+        os.path.join("pwa", "apple-touch-icon.png"),
+        media_type="image/png",
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 @app.get("/test-backpack")
 def test_backpack():
@@ -399,6 +460,73 @@ def _save_material_cache(
     except Exception:
         pass
     return cached
+
+
+def _get_or_build_thumbnail(material_id: int, cached: Dict[str, Any], prefer_webp: bool) -> Optional[Dict[str, Any]]:
+    """Генерирует и кэширует лёгкую миниатюру (до 360px) для мгновенной загрузки ленты."""
+    out_fmt = "WEBP" if prefer_webp else "JPEG"
+    ext = ".webp" if prefer_webp else ".jpg"
+    mime = "image/webp" if prefer_webp else "image/jpeg"
+    cache_key = (material_id, out_fmt)
+
+    mem_thumb = _MATERIAL_THUMB_CACHE.get(cache_key)
+    if mem_thumb:
+        return mem_thumb
+
+    disk_thumb = os.path.join(_uploads_dir, f"thumb_{material_id}{ext}")
+    if os.path.isfile(disk_thumb):
+        try:
+            with open(disk_thumb, "rb") as tf:
+                tbytes = tf.read()
+            if tbytes:
+                entry = {
+                    "content": tbytes,
+                    "media_type": mime,
+                    "etag": f'"{hashlib.md5(tbytes).hexdigest()}-{out_fmt.lower()}"',
+                }
+                if len(_MATERIAL_THUMB_CACHE) > 400:
+                    _MATERIAL_THUMB_CACHE.clear()
+                _MATERIAL_THUMB_CACHE[cache_key] = entry
+                return entry
+        except Exception:
+            pass
+
+    try:
+        from PIL import Image, ImageOps, ImageFile
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
+        with Image.open(io.BytesIO(cached["content"])) as img:
+            img = ImageOps.exif_transpose(img)
+            if img.mode in ("RGBA", "LA", "P"):
+                rgba = img.convert("RGBA")
+                bg = Image.new("RGB", rgba.size, (255, 255, 255))
+                bg.paste(rgba, mask=rgba.split()[3])
+                img = bg
+            elif img.mode != "RGB":
+                img = img.convert("RGB")
+            img.thumbnail((360, 360), Image.Resampling.LANCZOS)
+            buf = io.BytesIO()
+            if out_fmt == "WEBP":
+                img.save(buf, format="WEBP", quality=76, method=4)
+            else:
+                img.save(buf, format="JPEG", quality=76, optimize=True)
+            tbytes = buf.getvalue()
+        try:
+            os.makedirs(_uploads_dir, exist_ok=True)
+            with open(disk_thumb, "wb") as tf:
+                tf.write(tbytes)
+        except Exception:
+            pass
+        entry = {
+            "content": tbytes,
+            "media_type": mime,
+            "etag": f'"{hashlib.md5(tbytes).hexdigest()}-{out_fmt.lower()}"',
+        }
+        if len(_MATERIAL_THUMB_CACHE) > 400:
+            _MATERIAL_THUMB_CACHE.clear()
+        _MATERIAL_THUMB_CACHE[cache_key] = entry
+        return entry
+    except Exception:
+        return None
 
 
 @app.get("/api/materials/{material_id}/download")
@@ -509,6 +637,33 @@ def download_material(material_id: int, request: Request):
 
         cached = _save_material_cache(material_id, content, media_type, filename, is_doc_file=is_doc_file)
 
+    base_mime = (cached.get("media_type") or "application/octet-stream").split(";", 1)[0].strip().lower()
+    want_thumb = request.query_params.get("thumb") == "1" and not request.url.path.endswith("/download")
+    if want_thumb and base_mime.startswith("image/") and base_mime != "image/gif":
+        prefer_webp = "image/webp" in (request.headers.get("accept") or "").lower()
+        thumb_entry = _get_or_build_thumbnail(material_id, cached, prefer_webp)
+        if thumb_entry:
+            client_etag = request.headers.get("if-none-match")
+            if client_etag and client_etag == thumb_entry["etag"]:
+                return Response(
+                    status_code=304,
+                    headers={
+                        "ETag": thumb_entry["etag"],
+                        "Cache-Control": "public, max-age=2592000, immutable",
+                        "Vary": "Accept",
+                    },
+                )
+            return Response(
+                content=thumb_entry["content"],
+                media_type=thumb_entry["media_type"],
+                headers={
+                    "Cache-Control": "public, max-age=2592000, immutable",
+                    "ETag": thumb_entry["etag"],
+                    "Vary": "Accept",
+                    "X-Content-Type-Options": "nosniff",
+                },
+            )
+
     # 4. Проверяем HTTP ETag (браузерный кэш 304 Not Modified без повторного скачивания)
     client_etag = request.headers.get("if-none-match")
     if client_etag and client_etag == cached["etag"]:
@@ -521,7 +676,6 @@ def download_material(material_id: int, request: Request):
         )
 
     # 5. Отдаем материал с правильным Content-Disposition и долгосрочным кэшем (30 дней)
-    base_mime = (cached.get("media_type") or "application/octet-stream").split(";", 1)[0].strip().lower()
     force_download = request.url.path.endswith("/download") or request.query_params.get("download") == "1"
     disp_mode = "attachment" if (force_download or base_mime not in _INLINE_SAFE_MIMES) else "inline"
     content_disp = build_content_disposition(
@@ -600,9 +754,11 @@ def remove_task(task_id: int, user_id: Optional[int] = None, data: Optional[Task
 @app.delete('/api/materials/{material_id}')
 @app.post('/api/materials/{material_id}/delete')
 def remove_material(material_id: int):
-    # Очищаем кэш в RAM и на диске (включая кэши документов .meta.json)
+    # Очищаем кэш в RAM и на диске (включая кэши документов .meta.json и миниатюры)
     _MATERIAL_CACHE.pop(material_id, None)
-    prefixes = (f"cached_{material_id}.", f"cached_file_{material_id}.", f"cached_doc_{material_id}.")
+    _MATERIAL_THUMB_CACHE.pop((material_id, "WEBP"), None)
+    _MATERIAL_THUMB_CACHE.pop((material_id, "JPEG"), None)
+    prefixes = (f"cached_{material_id}.", f"cached_file_{material_id}.", f"cached_doc_{material_id}.", f"thumb_{material_id}.")
     try:
         for fname in os.listdir(_uploads_dir):
             if fname.startswith(prefixes):
