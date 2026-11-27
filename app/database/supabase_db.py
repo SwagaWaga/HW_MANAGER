@@ -1,8 +1,10 @@
 import os
 import json
+import time
 import logging
+import threading
 from concurrent.futures import ThreadPoolExecutor
-from typing import Optional, List, Dict, Any, Tuple
+from typing import Optional, List, Dict, Any, Tuple, Set
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
@@ -15,6 +17,25 @@ SUPABASE_URL = raw_url.split("/rest/v1")[0].rstrip("/") if raw_url else ""
 SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 _client = None
+
+# Потокобезопасные кэши в RAM для снижения задержки и нагрузки на Supabase
+_CACHE_LOCK = threading.RLock()
+FEED_CACHE_TTL = 45.0
+COMPLETIONS_CACHE_TTL = 60.0
+USER_CACHE_TTL = 120.0
+
+_TASKS_FEED_CACHE: Dict[str, Dict[str, Any]] = {}
+_COMPLETIONS_CACHE: Dict[int, Dict[str, Any]] = {}
+_USER_CACHE: Dict[int, Tuple[float, Dict[str, Any]]] = {}
+_USERS_MAP_CACHE: Dict[str, Any] = {"ts": 0.0, "data": {}}
+_KNOWN_USERS: Set[int] = set()
+
+def invalidate_feed_cache(user_id: Optional[int] = None) -> None:
+    """Сбрасывает кэш общей ленты заданий/материалов (и опционально кэш выполнений пользователя)."""
+    with _CACHE_LOCK:
+        _TASKS_FEED_CACHE.clear()
+        if user_id is not None:
+            _COMPLETIONS_CACHE.pop(user_id, None)
 
 def get_supabase_client():
     global _client
@@ -59,18 +80,55 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
             data["full_name"] = full_name
 
         client.table("users").upsert(data, on_conflict="id").execute()
+        with _CACHE_LOCK:
+            _KNOWN_USERS.add(user_id)
+            cached = _USER_CACHE.get(user_id)
+            cached_data = cached[1] if cached else _USERS_MAP_CACHE["data"].get(user_id)
+            profile_changed = (
+                (telegram_nick and (not cached_data or cached_data.get("telegram_nick") != telegram_nick))
+                or (full_name and (not cached_data or cached_data.get("full_name") != full_name))
+            )
+            if profile_changed:
+                _USER_CACHE.pop(user_id, None)
+                _TASKS_FEED_CACHE.clear()
+                _USERS_MAP_CACHE["ts"] = 0.0
         return True
     except Exception as e:
         logger.error(f"Error in Supabase upsert_user: {e}")
         return False
 
+def _ensure_user_exists(user_id: int, class_name: str = "10-А") -> bool:
+    """Быстро гарантирует наличие пользователя без лишнего upsert/sync при каждом действии."""
+    with _CACHE_LOCK:
+        if user_id in _KNOWN_USERS:
+            return True
+    if get_user(user_id) is not None:
+        return True
+    return upsert_user(user_id, class_name=class_name)
+
 def get_user(user_id: int) -> Optional[Dict[str, Any]]:
+    now = time.monotonic()
+    with _CACHE_LOCK:
+        cached = _USER_CACHE.get(user_id)
+        if cached and (now - cached[0] < USER_CACHE_TTL):
+            return dict(cached[1])
+        map_ts = _USERS_MAP_CACHE.get("ts", 0.0)
+        if now - map_ts < USER_CACHE_TTL:
+            mapped = _USERS_MAP_CACHE["data"].get(user_id)
+            if mapped:
+                return dict(mapped)
+
     client = get_supabase_client()
     if not client:
         return None
     try:
         res = client.table("users").select("id, telegram_nick, full_name, role, class_name").eq("id", user_id).limit(1).execute()
-        return res.data[0] if (res.data and len(res.data) > 0) else None
+        row = res.data[0] if (res.data and len(res.data) > 0) else None
+        if row:
+            with _CACHE_LOCK:
+                _KNOWN_USERS.add(user_id)
+                _USER_CACHE[user_id] = (time.monotonic(), dict(row))
+        return row
     except Exception as e:
         logger.error(f"Error in Supabase get_user: {e}")
         return None
@@ -96,7 +154,7 @@ def add_task(user_id: int, subject: str, description: str, due_date: str, class_
         if telegram_nick or full_name:
             upsert_user(user_id, telegram_nick=telegram_nick, full_name=full_name, class_name=class_name)
         else:
-            upsert_user(user_id, class_name=class_name)
+            _ensure_user_exists(user_id, class_name=class_name)
 
         # 2. Insert task
         task_data = {
@@ -108,6 +166,7 @@ def add_task(user_id: int, subject: str, description: str, due_date: str, class_
         }
         res = client.table("tasks").insert(task_data).execute()
         if res.data and len(res.data) > 0:
+            invalidate_feed_cache()
             return res.data[0]["id"]
         return None
     except Exception as e:
@@ -156,61 +215,176 @@ def get_task_by_id(task_id: int) -> Optional[Dict[str, Any]]:
 
     return None
 
-def get_pending_tasks(user_id: int, class_name: str = "10-А") -> List[Dict[str, Any]]:
+def _get_cached_feed_and_completions(
+    user_id: int,
+    class_name: str = "10-А",
+    force_refresh: bool = False,
+) -> Tuple[Optional[Dict[str, Any]], Set[int]]:
+    """Загружает общую ленту (tasks + task_materials + users) и выполнения пользователя параллельно с RAM-кэшем."""
     client = get_supabase_client()
     if not client:
-        return []
+        return None, set()
 
-    def _fetch_completions():
-        comp_res = client.table("user_completions").select("task_id").eq("user_id", user_id).execute()
-        return {row["task_id"] for row in (comp_res.data or [])}
+    now = time.monotonic()
+    with _CACHE_LOCK:
+        feed = _TASKS_FEED_CACHE.get(class_name)
+        feed_ok = (not force_refresh) and bool(feed and (now - feed["ts"] < FEED_CACHE_TTL))
+        comp_entry = _COMPLETIONS_CACHE.get(user_id) if user_id > 0 else {"ts": now, "ids": set()}
+        comp_ok = True if user_id <= 0 else ((not force_refresh) and bool(comp_entry and (now - comp_entry["ts"] < COMPLETIONS_CACHE_TTL)))
+        umap_ok = (not force_refresh) and (now - _USERS_MAP_CACHE.get("ts", 0.0) < USER_CACHE_TTL) and bool(_USERS_MAP_CACHE["data"])
+        cached_users_map = dict(_USERS_MAP_CACHE["data"])
 
-    def _fetch_tasks():
-        try:
-            res = client.table("tasks").select(
-                "*, users!tasks_user_id_fkey(telegram_nick, full_name, role)"
-            ).order("due_date", desc=False).execute()
-            return res.data or []
-        except Exception as e:
-            logger.warning(f"Note: get_pending_tasks with relation skipped ({e}), falling back to direct select")
+    if feed_ok and comp_ok:
+        return feed, comp_entry["ids"]
+
+    try:
+        def _fetch_completions():
+            comp_res = client.table("user_completions").select("task_id").eq("user_id", user_id).execute()
+            return {row["task_id"] for row in (comp_res.data or [])}
+
+        def _fetch_tasks_plain():
             res = client.table("tasks").select("*").order("due_date", desc=False).execute()
             return res.data or []
 
-    try:
-        # Выполняем оба независимых запроса параллельно (~2x быстрее)
-        with ThreadPoolExecutor(max_workers=2) as pool:
-            f_comp = pool.submit(_fetch_completions)
-            f_tasks = pool.submit(_fetch_tasks)
-            completed_ids = f_comp.result()
-            res_data = f_tasks.result()
+        def _fetch_materials_plain():
+            res = client.table("task_materials").select("id, task_id, caption, uploader_id").order("id").execute()
+            return res.data or []
 
-        tasks = []
-        for row in res_data:
-            if row["id"] in completed_ids:
-                continue
-            u_info = row.get("users") or {}
-            author_nick = u_info.get("telegram_nick") or f"@ученик_{row.get('user_id')}"
-            author_name = u_info.get("full_name") or ""
+        def _fetch_users_plain():
+            res = client.table("users").select("id, telegram_nick, full_name, role, class_name").execute()
+            return res.data or []
 
-            task_dict = {
-                "id": row["id"],
-                "user_id": row.get("user_id"),
-                "subject": row.get("subject"),
-                "description": row.get("description"),
-                "due_date": str(row.get("due_date")),
-                "last_edited_by": row.get("last_edited_by"),
-                "last_edited_by_name": row.get("last_edited_by_name"),
-                "last_edited_at": row.get("last_edited_at"),
-                "author_nick": author_nick,
-                "author_name": author_name,
-                "role": u_info.get("role", "student")
-            }
-            tasks.append(task_dict)
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            f_comp = pool.submit(_fetch_completions) if not comp_ok else None
+            f_tasks = pool.submit(_fetch_tasks_plain) if not feed_ok else None
+            f_mats = pool.submit(_fetch_materials_plain) if not feed_ok else None
+            f_users = pool.submit(_fetch_users_plain) if (not feed_ok and not umap_ok) else None
 
-        return tasks
+            if f_comp is not None:
+                completed_ids = f_comp.result()
+                with _CACHE_LOCK:
+                    _COMPLETIONS_CACHE[user_id] = {"ts": time.monotonic(), "ids": completed_ids}
+            else:
+                completed_ids = set(comp_entry["ids"]) if comp_entry else set()
+
+            if not feed_ok:
+                tasks_rows = f_tasks.result()
+                mats_rows = f_mats.result()
+                if f_users is not None:
+                    u_rows = f_users.result()
+                    users_map = {u["id"]: u for u in u_rows if "id" in u}
+                    with _CACHE_LOCK:
+                        _USERS_MAP_CACHE["data"] = users_map
+                        _USERS_MAP_CACHE["ts"] = time.monotonic()
+                        _KNOWN_USERS.update(users_map.keys())
+                else:
+                    users_map = cached_users_map
+                    needed_uids = set()
+                    for r in tasks_rows:
+                        if r.get("user_id") and r["user_id"] not in users_map:
+                            needed_uids.add(r["user_id"])
+                    for r in mats_rows:
+                        cap = r.get("caption") or ""
+                        if not cap.startswith("[COMMENT]") and r.get("uploader_id") and r["uploader_id"] not in users_map:
+                            needed_uids.add(r["uploader_id"])
+                    if needed_uids:
+                        try:
+                            miss_res = client.table("users").select("id, telegram_nick, full_name, role, class_name").in_("id", list(needed_uids)).execute()
+                            if miss_res.data:
+                                with _CACHE_LOCK:
+                                    for u in miss_res.data:
+                                        _USERS_MAP_CACHE["data"][u["id"]] = u
+                                        _KNOWN_USERS.add(u["id"])
+                                    users_map = dict(_USERS_MAP_CACHE["data"])
+                        except Exception:
+                            pass
+
+                base_tasks: List[Dict[str, Any]] = []
+                task_id_set: Set[int] = set()
+                for row in tasks_rows:
+                    tid = row["id"]
+                    task_id_set.add(tid)
+                    uid = row.get("user_id")
+                    u_info = users_map.get(uid) or {}
+                    author_nick = u_info.get("telegram_nick") or f"@ученик_{uid}"
+                    author_name = u_info.get("full_name") or ""
+                    base_tasks.append({
+                        "id": tid,
+                        "user_id": uid,
+                        "subject": row.get("subject"),
+                        "description": row.get("description"),
+                        "due_date": str(row.get("due_date")),
+                        "last_edited_by": row.get("last_edited_by"),
+                        "last_edited_by_name": row.get("last_edited_by_name"),
+                        "last_edited_at": row.get("last_edited_at"),
+                        "author_nick": author_nick,
+                        "author_name": author_name,
+                        "role": u_info.get("role", "student"),
+                    })
+
+                materials_by_task: Dict[int, List[Dict[str, Any]]] = {tid: [] for tid in task_id_set}
+                comment_counts: Dict[int, int] = {tid: 0 for tid in task_id_set}
+                for row in mats_rows:
+                    t_id = row["task_id"]
+                    if t_id not in task_id_set:
+                        continue
+                    caption = row.get("caption") or ""
+                    if caption.startswith("[COMMENT]"):
+                        comment_counts[t_id] = comment_counts.get(t_id, 0) + 1
+                        continue
+                    up_id = row.get("uploader_id")
+                    u_info = users_map.get(up_id) or {}
+                    mat_item = build_material_item(
+                        mat_id=row["id"],
+                        task_id=t_id,
+                        caption=caption,
+                        uploader_id=up_id,
+                        uploader_nick=u_info.get("telegram_nick") or f"@ученик_{up_id}",
+                        uploader_name=u_info.get("full_name") or "",
+                    )
+                    materials_by_task.setdefault(t_id, []).append(mat_item)
+
+                new_feed = {
+                    "ts": time.monotonic(),
+                    "tasks": base_tasks,
+                    "materials": materials_by_task,
+                    "comments_count": comment_counts,
+                }
+                with _CACHE_LOCK:
+                    _TASKS_FEED_CACHE[class_name] = new_feed
+                feed = new_feed
+
+        return feed, completed_ids
     except Exception as e:
-        logger.error(f"Error in Supabase get_pending_tasks: {e}")
+        logger.error(f"Error in Supabase _get_cached_feed_and_completions: {e}")
+        with _CACHE_LOCK:
+            stale_feed = _TASKS_FEED_CACHE.get(class_name)
+            stale_comp = _COMPLETIONS_CACHE.get(user_id)
+        return stale_feed, (stale_comp["ids"] if stale_comp else set())
+
+def get_pending_tasks(user_id: int, class_name: str = "10-А") -> List[Dict[str, Any]]:
+    feed, completed_ids = _get_cached_feed_and_completions(user_id, class_name=class_name)
+    if not feed:
         return []
+    return [dict(t) for t in feed["tasks"] if t["id"] not in completed_ids]
+
+def get_pending_tasks_with_details(user_id: int, class_name: str = "10-А") -> List[Dict[str, Any]]:
+    """Возвращает активные задания вместе с материалами и счётчиком комментариев за 1 вызов (из RAM-кэша или параллельных запросов)."""
+    feed, completed_ids = _get_cached_feed_and_completions(user_id, class_name=class_name)
+    if not feed:
+        return []
+    results: List[Dict[str, Any]] = []
+    mats_map = feed["materials"]
+    cmts_map = feed["comments_count"]
+    for t in feed["tasks"]:
+        tid = t["id"]
+        if tid in completed_ids:
+            continue
+        item = dict(t)
+        item["materials"] = list(mats_map.get(tid, []))
+        item["comments_count"] = cmts_map.get(tid, 0)
+        results.append(item)
+    return results
 
 def mark_task_done(task_id: int, user_id: int) -> bool:
     client = get_supabase_client()
@@ -218,11 +392,16 @@ def mark_task_done(task_id: int, user_id: int) -> bool:
         return False
 
     try:
-        upsert_user(user_id)
+        _ensure_user_exists(user_id)
         client.table("user_completions").upsert({
             "user_id": user_id,
             "task_id": task_id
         }, on_conflict="user_id,task_id").execute()
+        with _CACHE_LOCK:
+            entry = _COMPLETIONS_CACHE.get(user_id)
+            if entry is not None:
+                entry["ids"].add(task_id)
+                entry["ts"] = time.monotonic()
         return True
     except Exception as e:
         logger.error(f"Error in Supabase mark_task_done: {e}")
@@ -265,6 +444,7 @@ def update_task(task_id: int, subject: str, description: str, due_date: str, use
                 "description": description,
                 "due_date": due_date
             }).eq("id", task_id).execute()
+        invalidate_feed_cache()
         return True, "Задание успешно обновлено"
     except Exception as e:
         logger.error(f"Error in Supabase update_task: {e}")
@@ -294,6 +474,10 @@ def delete_task(task_id: int, user_id: Optional[int] = None) -> tuple[bool, str]
             logger.warning(f"Cleanup sub-tables warning: {sub_err}")
 
         client.table("tasks").delete().eq("id", task_id).execute()
+        invalidate_feed_cache()
+        with _CACHE_LOCK:
+            for entry in _COMPLETIONS_CACHE.values():
+                entry["ids"].discard(task_id)
         return True, "Задание удалено"
     except Exception as e:
         logger.error(f"Error in Supabase delete_task: {e}")
@@ -306,6 +490,7 @@ def delete_material(material_id: int) -> bool:
 
     try:
         client.table("task_materials").delete().eq("id", material_id).execute()
+        invalidate_feed_cache()
         return True
     except Exception as e:
         logger.error(f"Error in Supabase delete_material: {e}")
@@ -322,7 +507,7 @@ def add_materials_batch(task_id: int, items: List[Dict[str, str]], uploader_id: 
         return False
 
     try:
-        upsert_user(uploader_id)
+        _ensure_user_exists(uploader_id)
         rows = [
             {
                 "task_id": task_id,
@@ -333,6 +518,7 @@ def add_materials_batch(task_id: int, items: List[Dict[str, str]], uploader_id: 
             for item in items
         ]
         res = client.table("task_materials").insert(rows).execute()
+        invalidate_feed_cache()
         created_ids = [r["id"] for r in (res.data or []) if "id" in r]
         return created_ids if created_ids else True
     except Exception as e:
@@ -428,6 +614,15 @@ def get_materials_and_comments_batch(task_ids: List[int]) -> Tuple[Dict[int, Lis
     """Одним запросом получает материалы и счётчики комментариев для списка заданий."""
     if not task_ids:
         return {}, {}
+    now = time.monotonic()
+    with _CACHE_LOCK:
+        feed = _TASKS_FEED_CACHE.get("10-А")
+        if feed and (now - feed["ts"] < FEED_CACHE_TTL):
+            return (
+                {tid: list(feed["materials"].get(tid, [])) for tid in task_ids},
+                {tid: feed["comments_count"].get(tid, 0) for tid in task_ids},
+            )
+
     client = get_supabase_client()
     if not client:
         return {tid: [] for tid in task_ids}, {tid: 0 for tid in task_ids}
@@ -521,15 +716,15 @@ def parse_custom_times(custom_time_raw: Any) -> List[str]:
     return sorted(res)
 
 _DEFAULT_PREFS = {
-    "notify_08": True,
-    "notify_16": True,
+    "notify_08": False,
+    "notify_16": False,
     "notify_18": True,
-    "notify_weekly": True,
+    "notify_weekly": False,
     "notify_today": True,
     "notify_tomorrow": True,
     "notify_2days": True,
     "notify_overdue": True,
-    "notify_custom": True,
+    "notify_custom": False,
     "custom_time": "",
     "custom_times": [],
 }
@@ -546,10 +741,10 @@ def get_notification_prefs(user_id: int) -> Optional[Dict[str, Any]]:
             raw_custom = str(row.get("custom_time", "") or "")
             c_times = parse_custom_times(raw_custom)
             return {
-                "notify_08": bool(row.get("notify_08", True)),
-                "notify_16": bool(row.get("notify_16", True)),
+                "notify_08": False,
+                "notify_16": False,
                 "notify_18": bool(row.get("notify_18", True)),
-                "notify_weekly": bool(row.get("notify_weekly", True)),
+                "notify_weekly": False,
                 "notify_today": bool(row.get("notify_today", True)),
                 "notify_tomorrow": bool(row.get("notify_tomorrow", True)),
                 "notify_2days": bool(row.get("notify_2days", True)),
@@ -565,15 +760,15 @@ def get_notification_prefs(user_id: int) -> Optional[Dict[str, Any]]:
 
 def upsert_notification_prefs(
     user_id: int,
-    notify_08: bool = True,
-    notify_16: bool = True,
+    notify_08: bool = False,
+    notify_16: bool = False,
     notify_18: bool = True,
     notify_2days: bool = True,
-    notify_weekly: bool = True,
+    notify_weekly: bool = False,
     notify_today: bool = True,
     notify_tomorrow: bool = True,
     notify_overdue: bool = True,
-    notify_custom: bool = True,
+    notify_custom: bool = False,
     custom_time: Any = "",
     custom_times: Optional[List[str]] = None
 ) -> bool:
@@ -779,9 +974,12 @@ def cleanup_old_tasks(days: int = 30) -> int:
         deleted_count = len(del_res.data or []) if del_res.data else len(old_task_ids)
         logger.info(f"🧹 Supabase: успешно очищено {deleted_count} заданий старше {days} дней (дедлайн до {cutoff_date})")
 
-        # Сбрасываем кэш рейтинга
+        # Сбрасываем кэш рейтинга и ленты
         global _LEADERBOARD_CACHE
         _LEADERBOARD_CACHE.clear()
+        with _CACHE_LOCK:
+            _TASKS_FEED_CACHE.clear()
+            _COMPLETIONS_CACHE.clear()
 
         return deleted_count
     except Exception as e:
@@ -1018,6 +1216,7 @@ def add_task_comment(task_id: int, user_id: int, text: str, author_name: Optiona
         }
         res = client.table("task_materials").insert(row).execute()
         if res.data and len(res.data) > 0:
+            invalidate_feed_cache()
             inserted = res.data[0]
             c_id = inserted["id"]
             return {
@@ -1112,6 +1311,7 @@ def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
                     logger.warning(f"Unauthorized comment deletion attempt by user {user_id}")
                     return False
         client.table("task_materials").delete().eq("id", comment_id).execute()
+        invalidate_feed_cache()
         return True
     except Exception as e:
         logger.error(f"Error in Supabase delete_task_comment: {e}")

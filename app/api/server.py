@@ -8,6 +8,7 @@ try:
     from app.database.db import (
         mark_task_done,
         get_pending_tasks,
+        get_tasks_with_details,
         add_task,
         update_task,
         delete_task,
@@ -34,6 +35,7 @@ except ImportError:
     from db import (
         mark_task_done,
         get_pending_tasks,
+        get_tasks_with_details,
         add_task,
         update_task,
         delete_task,
@@ -83,11 +85,39 @@ if os.path.exists(_uploads_dir):
 if os.path.exists(_static_dir):
     app.mount("/static", StaticFiles(directory=_static_dir), name="static")
 
+# Кэш index.html в RAM с автоматическим обновлением по mtime для мгновенной отдачи и 304 Not Modified
+_INDEX_CACHE: Dict[str, Any] = {"mtime_ns": -1, "bytes": b"", "etag": ""}
+
+def _get_cached_index_payload() -> tuple[bytes, str]:
+    path = _index_file if os.path.exists(_index_file) else os.path.join(_root_dir, "static", "index.html")
+    st = os.stat(path)
+    if _INDEX_CACHE["mtime_ns"] != st.st_mtime_ns or not _INDEX_CACHE["bytes"]:
+        with open(path, "rb") as f:
+            raw = f.read()
+        etag = f'"{hashlib.md5(raw).hexdigest()}"'
+        _INDEX_CACHE["mtime_ns"] = st.st_mtime_ns
+        _INDEX_CACHE["bytes"] = raw
+        _INDEX_CACHE["etag"] = etag
+    return _INDEX_CACHE["bytes"], _INDEX_CACHE["etag"]
+
+async def _prewarm_backend_caches():
+    """Прогревает TLS-пул Supabase, ленту заданий, рейтинг и index.html при старте сервера."""
+    try:
+        await asyncio.gather(
+            asyncio.to_thread(get_tasks_with_details, 0),
+            asyncio.to_thread(get_leaderboard, "10-А"),
+            asyncio.to_thread(_get_cached_index_payload),
+        )
+        logger.info("⚡ [Startup] Кэши заданий, рейтинга и index.html успешно прогреты")
+    except Exception as e:
+        logger.warning(f"Startup prewarm warning: {e}")
+
 # ─────────────────────────────────────────────────────────────
 # ФОНОВАЯ АВТОМАТИЧЕСКАЯ ОЧИСТКА ЗАДАНИЙ СТАРШЕ 30 ДНЕЙ
 # ─────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def on_startup_tasks():
+    asyncio.create_task(_prewarm_backend_caches())
     asyncio.create_task(run_periodic_cleanup_loop())
 
 async def run_periodic_cleanup_loop():
@@ -286,16 +316,20 @@ def optimize_image_bytes(image_bytes: bytes, max_dim: int = 1600, quality: int =
         print(f"Image optimization note: {e}")
         return image_bytes, _detect_mime_from_bytes(image_bytes)
 
+def _etag_matches(request: Request, etag: str) -> bool:
+    inm = request.headers.get("if-none-match")
+    return bool(inm and (etag in inm or inm.strip() == "*"))
+
 @app.get("/")
-def route():
-    return FileResponse(
-        _index_file if os.path.exists(_index_file) else "static/index.html",
-        headers={
-            "Cache-Control": "no-cache, no-store, must-revalidate, max-age=0",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
-    )
+def route(request: Request):
+    raw_bytes, etag = _get_cached_index_payload()
+    headers = {
+        "ETag": etag,
+        "Cache-Control": "no-cache, must-revalidate",
+    }
+    if _etag_matches(request, etag):
+        return Response(status_code=304, headers=headers)
+    return Response(content=raw_bytes, media_type="text/html; charset=utf-8", headers=headers)
 
 @app.get("/test-backpack")
 def test_backpack():
@@ -314,24 +348,17 @@ def get_db_status():
     }
 
 @app.get("/api/tasks")
-def get_tasks(user_id: int):
-    rows = get_pending_tasks(user_id)
-    if not rows:
-        return []
-
-    # 1. Единый быстрый запрос для материалов И счётчиков комментариев
-    # 2. Не возвращает тяжелый base64 в списке заданий, сокращая трафик с 10 МБ до ~2 КБ
-    task_ids = [row["id"] for row in rows]
-    materials_by_task, comments_count_by_task = get_materials_and_comments_batch(task_ids)
-
-    results = []
-    for row in rows:
-        task_dict = dict(row)
-        task_dict['materials'] = materials_by_task.get(row['id'], [])
-        task_dict['comments_count'] = comments_count_by_task.get(row['id'], 0)
-        results.append(task_dict)
-
-    return results
+def get_tasks(request: Request, user_id: int):
+    results = get_tasks_with_details(user_id)
+    body = json.dumps(results, ensure_ascii=False, separators=(",", ":"), default=str).encode("utf-8")
+    etag = f'"{hashlib.md5(body).hexdigest()}"'
+    headers = {
+        "ETag": etag,
+        "Cache-Control": "no-cache, must-revalidate",
+    }
+    if _etag_matches(request, etag):
+        return Response(status_code=304, headers=headers)
+    return Response(content=body, media_type="application/json; charset=utf-8", headers=headers)
 
 def _save_material_cache(
     material_id: int,
@@ -676,13 +703,15 @@ class UserSync(BaseModel):
 
 @app.post('/api/user/sync')
 def sync_user(data: UserSync):
+    existing = get_user(data.user_id)
+    if existing and (
+        (not data.telegram_nick or existing.get("telegram_nick") == data.telegram_nick)
+        and (not data.full_name or existing.get("full_name") == data.full_name)
+    ):
+        return {"status": "ok", "role": existing.get("role", "student")}
+
     upsert_user(data.user_id, telegram_nick=data.telegram_nick, full_name=data.full_name)
-    try:
-        from app.services.sync_service import sync_global_user
-        sync_global_user(data.user_id, telegram_nick=data.telegram_nick, full_name=data.full_name, source="miniapp")
-    except Exception:
-        pass
-    user_info = get_user(data.user_id)
+    user_info = get_user(data.user_id) if not existing else existing
     role = user_info.get("role", "student") if isinstance(user_info, dict) else "student"
     return {"status": "ok", "role": role}
 
@@ -845,15 +874,15 @@ async def upload_files(
 
 class NotifPrefsRequest(BaseModel):
     user_id: int
-    notify_08: bool = True
-    notify_16: bool = True
+    notify_08: bool = False
+    notify_16: bool = False
     notify_18: bool = True
-    notify_weekly: bool = True
+    notify_weekly: bool = False
     notify_today: bool = True
     notify_tomorrow: bool = True
     notify_2days: bool = True
     notify_overdue: bool = True
-    notify_custom: bool = True
+    notify_custom: bool = False
     custom_time: Optional[str] = ""
     custom_times: Optional[List[str]] = None
 

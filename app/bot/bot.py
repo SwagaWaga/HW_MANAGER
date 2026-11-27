@@ -314,7 +314,7 @@ async def sync_bot_profile():
             "📚 Домашние задания и дедлайны по дням\n"
             "📸 Фотографии конспектов, учебников и доски\n"
             "🏆 Таблица лидеров и самых активных редакторов\n"
-            "⚙️ Персональные напоминания в 08:00, 16:00, 18:00\n\n"
+            "⚙️ Авто-напоминания раз в день в 18:00\n\n"
             "Нажмите «Запустить» или синюю кнопку в чате, чтобы открыть приложение!"
         )
         logger.info("✅ Bot full description updated.")
@@ -330,7 +330,7 @@ async def sync_bot_profile():
             BotCommand(command="week", description="🗓️ Все задания на неделю"),
             BotCommand(command="priority", description="⚡ Срочные задания по дням"),
             BotCommand(command="top", description="🏆 Таблица лидеров редакторов"),
-            BotCommand(command="settings", description="⚙️ Настройки уведомлений (8/16/18/2 дня/неделя)"),
+            BotCommand(command="settings", description="⚙️ Настройки уведомлений (ежедневно в 18:00)"),
             BotCommand(command="overdue", description="⏳ Просроченные задания"),
             BotCommand(command="help", description="ℹ️ Справка по всем командам"),
         ]
@@ -1473,8 +1473,9 @@ async def check_and_send_minutely_reminders():
     """
     Called every minute by background scheduler.
     Dispatches:
-    1. Base default reminders at 08:00, 16:00, 18:00 for students with notify_08, notify_16, notify_18 enabled.
-    2. Any custom time (e.g. 19:30, 20:00) chosen by students with notify_custom enabled.
+    1. Daily built-in auto-reminder once a day at 18:00 (Asia/Tashkent) for students with notify_18 enabled.
+    2. Any custom time (e.g. 07:30, 20:00) explicitly added by the user when notify_custom is enabled.
+    3. Active group chat reminders.
     """
     if not bot:
         return
@@ -1497,17 +1498,12 @@ async def check_and_send_minutely_reminders():
             prefs = get_notification_prefs(uid)
             should_send = False
 
-            # 1. Base default presets at minute 0:
-            if cur_min == 0:
-                if cur_hour == 8 and prefs.get("notify_08", True):
-                    should_send = True
-                elif cur_hour == 16 and prefs.get("notify_16", True):
-                    should_send = True
-                elif cur_hour == 18 and prefs.get("notify_18", True):
-                    should_send = True
+            # 1. Встроенное авто-напоминание раз в день в 18:00:
+            if cur_hour == 18 and cur_min == 0 and prefs.get("notify_18", True):
+                should_send = True
 
-            # 2. Custom times added by user (e.g. 07:00, 19:30):
-            if not should_send and prefs.get("notify_custom", True):
+            # 2. Персональное время, добавленное пользователем (например 07:00, 19:30):
+            if not should_send and prefs.get("notify_custom", False):
                 c_times = prefs.get("custom_times")
                 if not c_times and prefs.get("custom_time"):
                     c_times = parse_custom_times(prefs.get("custom_time"))
@@ -1685,30 +1681,23 @@ def build_settings_text(prefs) -> str:
 
     lines = [
         "⚙️ <b>Настройки личных напоминаний</b>\n",
-        "⏰ <b>СТАНДАРТНОЕ ВРЕМЯ (Базовые часы):</b>",
-        f"☀️ <b>08:00</b> — Утреннее перед уроками   [{st(prefs.get('notify_08', True))}]",
-        f"🎒 <b>16:00</b> — Дневное после уроков       [{st(prefs.get('notify_16', True))}]",
-        f"🌆 <b>18:00</b> — Главное вечернее         [{st(prefs.get('notify_18', True))}]",
-        f"🗓️ <b>Неделя</b> — Дайджест на вс. 18:00   [{st(prefs.get('notify_weekly', True))}]\n",
-        "🕒 <b>СВОЁ ВРЕМЯ (Добавленные часы):</b>"
+        "⏰ <b>АВТО-НАПОМИНАНИЕ (Раз в день):</b>",
+        f"🌆 <b>18:00</b> — Ежедневная сводка Д/З   [{st(prefs.get('notify_18', True))}]\n",
+        "🕒 <b>СВОЁ ВРЕМЯ (Доп. часы):</b>"
     ]
     if c_times:
         for ct in c_times:
             lines.append(f"🔔 <b>{ct}</b> — Личное время [ВКЛ ✅]")
     else:
-        lines.append("<i>Пока нет добавленных часов. Вы можете добавить любое время (например 07:00 или 19:30).</i>")
+        lines.append("<i>Пока нет добавленных часов (можно добавить своё время через /addtime 07:30 или кнопкой ниже).</i>")
 
-    lines.append("\n<i>(Добавить время: <code>/addtime 07:00</code> или кнопкой ниже)</i>")
-    if c_times:
-        lines.append("<i>(Удалить своё время: нажмите кнопку с ✕ ниже или <code>/deltime 07:00</code>)</i>")
     lines.append("")
-
     lines.append("📋 <b>КАКИЕ Д/З НАПОМИНАТЬ (Фильтр):</b>")
     lines.append(f"📌 <b>На сегодня</b> — Сдать сегодня        [{st(prefs.get('notify_today', True))}]")
     lines.append(f"📚 <b>На завтра</b> — Сдать завтра         [{st(prefs.get('notify_tomorrow', True))}]")
     lines.append(f"⏳ <b>На послезавтра</b> — За 2 дня до сдачи [{st(prefs.get('notify_2days', True))}]")
     lines.append(f"⚠️ <b>Просроченные</b> — Долги и дедлайны  [{st(prefs.get('notify_overdue', True))}]\n")
-    lines.append("<i>Нажми на нужную кнопку ниже, чтобы включить или отключить.</i>")
+    lines.append("<i>Нажми на нужную кнопку ниже, чтобы изменить настройки.</i>")
 
     return "\n".join(lines)
 
@@ -1729,21 +1718,17 @@ def build_settings_keyboard(prefs) -> InlineKeyboardMarkup:
 
     rows = [
         [
-            InlineKeyboardButton(text=label("notify_08", "☀️", "08:00"), callback_data="toggle_notif:08"),
-            InlineKeyboardButton(text=label("notify_16", "🎒", "16:00"), callback_data="toggle_notif:16"),
-            InlineKeyboardButton(text=label("notify_18", "🌆", "18:00"), callback_data="toggle_notif:18")
+            InlineKeyboardButton(text=label("notify_18", "🌆", "18:00 (раз в день)"), callback_data="toggle_notif:18")
         ]
     ]
 
-    # Ряд для удаляемых своих времён (по 2 в ряд)
     if c_times:
         time_buttons = [InlineKeyboardButton(text=f"🔔 {ct} ✕", callback_data=f"del_time:{ct}") for ct in c_times]
         for i in range(0, len(time_buttons), 2):
             rows.append(time_buttons[i:i+2])
 
     rows.append([
-        InlineKeyboardButton(text="➕ Добавить своё время", callback_data="add_time_menu"),
-        InlineKeyboardButton(text=label("notify_weekly", "🗓️", "Дайджест (вс)"), callback_data="toggle_notif:weekly")
+        InlineKeyboardButton(text="➕ Добавить своё время", callback_data="add_time_menu")
     ])
 
     rows.append([
@@ -1991,19 +1976,20 @@ async def handle_done_callback(callback: CallbackQuery):
         prefs = get_notification_prefs(uid)
         key = f"notify_{hour}"
         prefs[key] = not prefs.get(key, True)
+        c_times = list(prefs.get("custom_times", []))
         upsert_notification_prefs(
             user_id=uid,
-            notify_08=prefs.get("notify_08", True),
-            notify_16=prefs.get("notify_16", True),
+            notify_08=False,
+            notify_16=False,
             notify_18=prefs.get("notify_18", True),
             notify_2days=prefs.get("notify_2days", True),
-            notify_weekly=prefs.get("notify_weekly", True),
+            notify_weekly=False,
             notify_today=prefs.get("notify_today", True),
             notify_tomorrow=prefs.get("notify_tomorrow", True),
             notify_overdue=prefs.get("notify_overdue", True),
-            notify_custom=prefs.get("notify_custom", True),
+            notify_custom=bool(c_times),
             custom_time=prefs.get("custom_time", ""),
-            custom_times=prefs.get("custom_times", [])
+            custom_times=c_times
         )
         await callback.answer("✅ Сохранено!")
         updated = get_notification_prefs(uid)
@@ -2777,14 +2763,12 @@ async def main():
 
     # 1. Start background reminder scheduler (checks every minute in Asia/Tashkent)
     scheduler = AsyncIOScheduler(timezone=TARGET_TZ)
-    # Поминутная проверка базовых (08:00, 16:00, 18:00) и пользовательских времён напоминаний
+    # Поминутная проверка ежедневного авто-напоминания раз в день в 18:00 (и групповых напоминаний)
     scheduler.add_job(check_and_send_minutely_reminders, 'cron', minute='*', misfire_grace_time=60)
-    # Недельный дайджест со всеми ДЗ на предстоящую неделю каждое воскресенье в 18:00
-    scheduler.add_job(send_weekly_reminder, 'cron', day_of_week='sun', hour=18, minute=0)
     # Ежедневная автоочистка заданий старше 30 дней в 03:30 ночи
     scheduler.add_job(lambda: cleanup_old_tasks(days=30), 'cron', hour=3, minute=30)
     scheduler.start()
-    logger.info(f"⏰ Background scheduler started (minutely check for custom and base times; weekly on Sun 18:00; cleanup at 03:30 in {TARGET_TZ})")
+    logger.info(f"⏰ Background scheduler started (daily auto-reminder at 18:00; cleanup at 03:30 in {TARGET_TZ})")
 
     # Разовая проверка устаревших заданий при старте
     try:

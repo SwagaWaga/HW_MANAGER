@@ -18,6 +18,11 @@ def init_db():
     # Always ensure local SQLite schema exists for seamless fallback
     conn = sqlite3.connect(DB_NAME, timeout=15.0)
     cursor = conn.cursor()
+    try:
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+    except Exception:
+        pass
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY,
@@ -73,26 +78,26 @@ def init_db():
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS user_notification_prefs (
         user_id INTEGER PRIMARY KEY,
-        notify_08 INTEGER DEFAULT 1,
-        notify_16 INTEGER DEFAULT 1,
+        notify_08 INTEGER DEFAULT 0,
+        notify_16 INTEGER DEFAULT 0,
         notify_18 INTEGER DEFAULT 1,
         notify_2days INTEGER DEFAULT 1,
-        notify_weekly INTEGER DEFAULT 1,
+        notify_weekly INTEGER DEFAULT 0,
         notify_today INTEGER DEFAULT 1,
         notify_tomorrow INTEGER DEFAULT 1,
         notify_overdue INTEGER DEFAULT 1,
         notify_custom INTEGER DEFAULT 0,
-        custom_time TEXT DEFAULT '19:00'
+        custom_time TEXT DEFAULT ''
     )
     """)
     for col, col_def in (
         ("notify_2days", "INTEGER DEFAULT 1"),
-        ("notify_weekly", "INTEGER DEFAULT 1"),
+        ("notify_weekly", "INTEGER DEFAULT 0"),
         ("notify_today", "INTEGER DEFAULT 1"),
         ("notify_tomorrow", "INTEGER DEFAULT 1"),
         ("notify_overdue", "INTEGER DEFAULT 1"),
         ("notify_custom", "INTEGER DEFAULT 0"),
-        ("custom_time", "TEXT DEFAULT '19:00'")
+        ("custom_time", "TEXT DEFAULT ''")
     ):
         try:
             cursor.execute(f"ALTER TABLE user_notification_prefs ADD COLUMN {col} {col_def}")
@@ -130,6 +135,16 @@ def init_db():
     ):
         try:
             cursor.execute(f"ALTER TABLE group_chats ADD COLUMN {col} {col_def}")
+        except Exception:
+            pass
+
+    for idx_sql in (
+        "CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)",
+        "CREATE INDEX IF NOT EXISTS idx_materials_task_id ON task_materials(task_id)",
+        "CREATE INDEX IF NOT EXISTS idx_comments_task_id ON task_comments(task_id)",
+    ):
+        try:
+            cursor.execute(idx_sql)
         except Exception:
             pass
 
@@ -255,6 +270,23 @@ def get_pending_tasks(user_id: int, class_name: str = '10-А') -> List[Dict[str,
     tasks = [dict(r) for r in rows]
     conn.close()
     return tasks
+
+def get_tasks_with_details(user_id: int, class_name: str = '10-А') -> List[Dict[str, Any]]:
+    if is_using_supabase():
+        return supabase_db.get_pending_tasks_with_details(user_id, class_name)
+
+    rows = get_pending_tasks(user_id, class_name)
+    if not rows:
+        return []
+    task_ids = [r["id"] for r in rows]
+    materials_by_task, comments_count_by_task = get_materials_and_comments_batch(task_ids)
+    results = []
+    for row in rows:
+        task_dict = dict(row)
+        task_dict["materials"] = materials_by_task.get(row["id"], [])
+        task_dict["comments_count"] = comments_count_by_task.get(row["id"], 0)
+        results.append(task_dict)
+    return results
 
 def mark_task_done(task_id: int, user_id: int):
     if is_using_supabase():
@@ -476,15 +508,15 @@ def parse_custom_times(custom_time_raw: Any) -> List[str]:
     return sorted(res)
 
 _DEFAULT_PREFS = {
-    "notify_08": True,
-    "notify_16": True,
+    "notify_08": False,
+    "notify_16": False,
     "notify_18": True,
-    "notify_weekly": True,
+    "notify_weekly": False,
     "notify_today": True,
     "notify_tomorrow": True,
     "notify_2days": True,
     "notify_overdue": True,
-    "notify_custom": True,
+    "notify_custom": False,
     "custom_time": "",
     "custom_times": [],
 }
@@ -506,10 +538,10 @@ def get_notification_prefs(user_id: int) -> Dict[str, Any]:
             raw_custom = str(row["custom_time"] or "") if "custom_time" in keys else ""
             c_times = parse_custom_times(raw_custom)
             return {
-                "notify_08": bool(row["notify_08"]) if "notify_08" in keys else True,
-                "notify_16": bool(row["notify_16"]) if "notify_16" in keys else True,
+                "notify_08": False,
+                "notify_16": False,
                 "notify_18": bool(row["notify_18"]) if "notify_18" in keys else True,
-                "notify_weekly": bool(row["notify_weekly"]) if "notify_weekly" in keys else True,
+                "notify_weekly": False,
                 "notify_today": bool(row["notify_today"]) if "notify_today" in keys else True,
                 "notify_tomorrow": bool(row["notify_tomorrow"]) if "notify_tomorrow" in keys else True,
                 "notify_2days": bool(row["notify_2days"]) if "notify_2days" in keys else True,
@@ -528,15 +560,15 @@ def get_notification_prefs(user_id: int) -> Dict[str, Any]:
 
 def upsert_notification_prefs(
     user_id: int,
-    notify_08: bool = True,
-    notify_16: bool = True,
+    notify_08: bool = False,
+    notify_16: bool = False,
     notify_18: bool = True,
     notify_2days: bool = True,
-    notify_weekly: bool = True,
+    notify_weekly: bool = False,
     notify_today: bool = True,
     notify_tomorrow: bool = True,
     notify_overdue: bool = True,
-    notify_custom: bool = True,
+    notify_custom: bool = False,
     custom_time: Any = "",
     custom_times: Optional[List[str]] = None
 ) -> bool:
