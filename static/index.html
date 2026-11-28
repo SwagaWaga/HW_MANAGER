@@ -313,6 +313,15 @@
           </svg>
           <span>Установить</span>
         </button>
+        <button id="admin-header-btn" onclick="openAdminAnalyticsModal()" class="hidden w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/[0.16] hover:bg-white/[0.25] dark:bg-white/[0.10] dark:hover:bg-white/[0.18] text-white flex items-center justify-center transition active:scale-90 relative shrink-0" title="Админ-панель и аналитика" aria-label="Админ-панель">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-[17px] h-[17px]">
+            <path d="M3 3v18h18"/>
+            <rect x="7" y="10" width="3" height="7" rx="1"/>
+            <rect x="12" y="6" width="3" height="11" rx="1"/>
+            <rect x="17" y="13" width="3" height="4" rx="1"/>
+          </svg>
+          <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-[#34d399]"></span>
+        </button>
         <button onclick="openSettingsModal()" class="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/[0.16] hover:bg-white/[0.25] dark:bg-white/[0.10] dark:hover:bg-white/[0.18] text-white flex items-center justify-center transition active:scale-90 group" title="Настройки и профиль">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" class="w-[17px] h-[17px] group-hover:rotate-45 transition-transform duration-300">
             <circle cx="12" cy="12" r="3"/>
@@ -637,6 +646,99 @@
 
         <!-- Единый чистый список рейтинга -->
         <div id="leaderboard-list" class="overflow-y-auto flex-1 min-h-0 rounded-[20px] bg-[#f4f7fc] dark:bg-white/[0.06] divide-y divide-slate-200/50 dark:divide-white/[0.06] thin-scroll"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== МОДАЛЬНОЕ ОКНО АДМИН-АНАЛИТИКИ ===== -->
+  <div id="admin-analytics-modal" class="fixed inset-0 bg-[#0b1b30]/75 hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeAdminAnalyticsModal()">
+    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden border-0">
+      <!-- Градиентная шапка -->
+      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-5 pt-3 sm:pt-4 pb-3.5 shrink-0">
+        <div class="w-10 h-1 rounded-full bg-white/30 mx-auto mb-3 sm:hidden"></div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <h2 class="text-[17px] font-extrabold tracking-tight text-white truncate">Админ-аналитика</h2>
+              <span id="admin-live-pill" class="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 text-[10.5px] font-bold flex items-center gap-1 shrink-0">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                <span id="admin-live-count">0 онлайн</span>
+              </span>
+            </div>
+            <p class="text-[11px] text-white/75 mt-0.5 truncate" id="admin-analytics-subtitle">Заходы, клики и живые статусы · 10-А</p>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button type="button" id="admin-user-view-btn" onclick="switchToUserVersion()" class="px-2.5 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition shrink-0" title="Переключиться в обычную версию ученика">
+              <span>Вид ученика</span>
+            </button>
+            <button type="button" onclick="loadAdminAnalytics(true)" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center active:scale-90 transition" title="Обновить статистику">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+            </button>
+            <button type="button" onclick="closeAdminAnalyticsModal()" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center text-sm font-bold active:scale-90 transition" title="Закрыть">✕</button>
+          </div>
+        </div>
+
+        <!-- Вкладки -->
+        <div class="grid grid-cols-3 gap-1 p-1 mt-3 bg-white/[0.16] dark:bg-white/[0.10] rounded-full select-none">
+          <button type="button" id="admin-tab-overview" onclick="switchAdminTab('overview')" class="py-1.5 px-2 rounded-full text-xs font-bold bg-white text-[#145594] dark:text-slate-950 shadow-xs transition active:scale-95">Обзор</button>
+          <button type="button" id="admin-tab-users" onclick="switchAdminTab('users')" class="py-1.5 px-2 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95">Ученики</button>
+          <button type="button" id="admin-tab-feed" onclick="switchAdminTab('feed')" class="py-1.5 px-2 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95">Лента</button>
+        </div>
+      </div>
+
+      <!-- Контент -->
+      <div class="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 bg-white dark:bg-[#0e223b] thin-scroll">
+        <!-- ВКЛАДКА 1: ОБЗОР -->
+        <div id="admin-pane-overview" class="space-y-4">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Онлайн сейчас</span>
+              <span id="admin-kpi-online" class="text-xl font-extrabold text-[#16a34a] dark:text-emerald-300 mt-0.5 block font-mono">0</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Всего заходов</span>
+              <span id="admin-kpi-visits" class="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5 block font-mono">0</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Кликов и действий</span>
+              <span id="admin-kpi-clicks" class="text-xl font-extrabold text-[#2077cf] dark:text-sky-300 mt-0.5 block font-mono">0</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Активных учеников</span>
+              <span id="admin-kpi-users" class="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5 block font-mono">0</span>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between px-0.5">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/55">Куда чаще нажимают</span>
+              <span class="text-[10.5px] text-slate-400 dark:text-sky-100/50">Топ разделов и кнопок</span>
+            </div>
+            <div id="admin-top-actions-list" class="space-y-2">
+              <div class="text-center py-6 text-xs text-slate-400">Загрузка...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ВКЛАДКА 2: УЧЕНИКИ -->
+        <div id="admin-pane-users" class="hidden space-y-3">
+          <div class="flex items-center gap-1.5" id="admin-user-filter-bar">
+            <button type="button" id="admin-ufilter-all" onclick="setAdminUserFilter('all')" class="px-3 py-1 rounded-full text-[11px] font-bold bg-[#2077cf] text-white transition active:scale-95">Все</button>
+            <button type="button" id="admin-ufilter-online" onclick="setAdminUserFilter('online')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95">Онлайн</button>
+            <button type="button" id="admin-ufilter-offline" onclick="setAdminUserFilter('offline')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95">Оффлайн</button>
+          </div>
+          <div id="admin-users-list" class="space-y-2"></div>
+        </div>
+
+        <!-- ВКЛАДКА 3: ЖИВАЯ ЛЕНТА -->
+        <div id="admin-pane-feed" class="hidden space-y-2">
+          <div id="admin-feed-list" class="space-y-1.5"></div>
+        </div>
+      </div>
+
+      <div class="px-5 py-2.5 flex items-center justify-between text-[10.5px] text-slate-400 dark:text-sky-100/55 bg-[#f4f7fc]/80 dark:bg-white/[0.03] shrink-0">
+        <span>Лёгкий буфер телеметрии · 0 мс задержки UI</span>
+        <span id="admin-last-updated" class="font-mono">—</span>
       </div>
     </div>
   </div>
@@ -1083,7 +1185,7 @@
             <div class="min-w-0 flex-1">
               <div class="flex items-center justify-between gap-2">
                 <h3 id="settings-profile-name" class="text-base font-extrabold text-slate-900 dark:text-white truncate">Ученик</h3>
-                <span class="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-[#2077cf] text-white shrink-0">10-А инж</span>
+                <span id="settings-profile-class-badge" class="text-[10.5px] font-bold px-2.5 py-0.5 rounded-full bg-[#2077cf] text-white shrink-0">10-А инж</span>
               </div>
               <p id="settings-profile-nick" class="text-xs text-[#2077cf] dark:text-sky-300 font-mono font-bold truncate mt-0.5">@ник</p>
               <div class="flex items-center gap-2 mt-1.5">
@@ -1139,6 +1241,40 @@
                 </div>
               </div>
             </div>
+          </div>
+
+          <!-- Админ-панель и режим ученика (видны только администраторам) -->
+          <div id="settings-admin-card" data-track-skip class="hidden p-3.5 rounded-2xl bg-[#eef6ff] dark:bg-sky-500/[0.14] flex-col gap-3">
+            <div class="flex items-center justify-between gap-3">
+              <div class="flex items-center gap-3 min-w-0">
+                <div class="w-10 h-10 rounded-xl bg-[#2077cf] text-white flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                    <path d="M3 3v18h18"/>
+                    <rect x="7" y="10" width="3" height="7" rx="1"/>
+                    <rect x="12" y="6" width="3" height="11" rx="1"/>
+                    <rect x="17" y="13" width="3" height="4" rx="1"/>
+                  </svg>
+                </div>
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5">
+                    <h4 class="text-xs font-extrabold text-slate-900 dark:text-white truncate">Админ-панель</h4>
+                    <span id="settings-admin-mode-badge" class="px-1.5 py-0.5 rounded-md bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300 text-[9.5px] font-bold shrink-0">Админ</span>
+                  </div>
+                  <p class="text-[10.5px] text-slate-500 dark:text-sky-100/70 leading-snug mt-0.5 truncate">Заходы, клики и кто сейчас онлайн</p>
+                </div>
+              </div>
+              <button type="button" id="settings-open-admin-btn" onclick="closeNotifModal(); openAdminAnalyticsModal();" class="px-3.5 py-1.5 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white text-xs font-bold shrink-0 active:scale-95 transition">Аналитика</button>
+            </div>
+            <label class="flex items-center justify-between gap-3 pt-2.5 border-t border-[#2077cf]/15 dark:border-white/[0.10] cursor-pointer select-none">
+              <div class="min-w-0">
+                <span class="text-[11.5px] font-bold text-slate-800 dark:text-white block">Версия ученика</span>
+                <span class="text-[10px] text-slate-500 dark:text-sky-100/65 block leading-snug">Обычный пользовательский интерфейс без админ-кнопок</span>
+              </div>
+              <span class="relative inline-flex items-center shrink-0">
+                <input type="checkbox" id="admin-user-version-toggle" onchange="setUserVersionMode(this.checked)" class="sr-only peer">
+                <span class="settings-switch-track w-10 h-[22px] bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-white/20 peer-checked:after:translate-x-[18px] after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4 after:w-4 after:shadow-xs after:transition-all peer-checked:bg-[#22c55e]"></span>
+              </span>
+            </label>
           </div>
 
           <!-- Установка как приложение (PWA) -->
@@ -1640,10 +1776,19 @@
           </div>
         </div>
 
-        <!-- Кнопки Скачать и быстрого поворота в стиле Telegram -->
+        <!-- Кнопки отправки в чат, скачивания и поворота -->
         <div class="flex items-center gap-1.5 shrink-0">
+          <!-- Отправить напрямую в чат с ботом (показывается для пользователей Telegram) -->
+          <button id="photo-send-chat-btn" type="button" onclick="sendCurrentPhotoToChat()" class="hidden h-10 px-3 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] active:scale-90 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-lg shrink-0" title="Отправить фото в чат с ботом Telegram">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+            <span class="hidden sm:inline">В чат</span>
+          </button>
+
           <!-- Кнопка Скачать -->
-          <button onclick="downloadCurrentPhoto()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition border border-white/10 shadow-lg shrink-0" title="Скачать фото">
+          <button onclick="downloadCurrentPhoto()" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 active:scale-90 text-white flex items-center justify-center transition border border-white/10 shadow-lg shrink-0" title="Скачать фото (в «Загрузки» / в чат)">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
@@ -2374,37 +2519,211 @@
       };
     }
 
-    function _triggerBrowserFileDownload(dlPath, absUrl, filename) {
-      const platform = String(window.Telegram?.WebApp?.platform || '').toLowerCase();
-      if (['ios', 'android', 'android_x'].includes(platform) && window.Telegram?.WebApp?.openLink) {
-        try {
-          window.Telegram.WebApp.openLink(absUrl);
-          return;
-        } catch (e) {
-          console.warn('tg.openLink download fallback:', e);
-        }
+    function getPlatformDownloadHint() {
+      const ua = navigator.userAgent || '';
+      const isIos = /iPad|iPhone|iPod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      if (isIos) {
+        return 'Где найти на iPhone: приложение «Файлы» → «Загрузки» (или значок ↓ в браузере)';
       }
+      if (/Android/i.test(ua)) {
+        return 'Где найти на телефоне: «Файлы» / «Мои файлы» → папка «Загрузки» (Downloads)';
+      }
+      return 'Файл сохранён в папку «Загрузки» (Downloads) вашего браузера';
+    }
+
+    function canSendToTelegramChat() {
+      const uid = Number(typeof userId !== 'undefined' ? userId : 0);
+      return Number.isFinite(uid) && uid > 0 && uid !== 12345;
+    }
+
+    async function sendMaterialToChat(materialId, filename = '', opts = {}) {
+      if (!materialId || !canSendToTelegramChat()) {
+        if (typeof opts.onFallback === 'function') opts.onFallback('guest');
+        return { sent: false, reason: 'guest' };
+      }
+      if (!opts.silentLoading) {
+        showToast('⏳ Отправляем в чат с ботом...', 'info', 2500);
+      }
+      try {
+        const res = await fetch(`/api/materials/${materialId}/send-to-chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: Number(userId) }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data?.sent) {
+          soundFx?.playSuccess();
+          const kindLabel = data.kind === 'photo' ? 'Фото отправлено в чат с ботом' : 'Файл отправлен в чат с ботом';
+          const actions = [];
+          if (opts.fallbackDownloadUrl) {
+            actions.push({
+              label: 'Сохранить на телефон',
+              onClick: () => {
+                _triggerBrowserFileDownload(opts.fallbackDownloadUrl, opts.fallbackAbsUrl || opts.fallbackDownloadUrl, filename || data.filename || 'file', materialId);
+              }
+            });
+          }
+          showDownloadHintToast({
+            title: `✈️ ${kindLabel}`,
+            hint: `Откройте личный чат с ботом Telegram — «${filename || data.filename || 'материал'}» уже там`,
+            type: 'success',
+            durationMs: 6500,
+            actions
+          });
+          return data;
+        }
+        if (typeof opts.onFallback === 'function') {
+          opts.onFallback(data?.reason || 'error');
+        } else if (data?.reason === 'start_bot') {
+          showDownloadHintToast({
+            title: 'Не удалось отправить в чат',
+            hint: 'Откройте личный чат с ботом и нажмите /start, чтобы бот мог присылать файлы',
+            type: 'warning',
+            durationMs: 5500
+          });
+        }
+        return data || { sent: false };
+      } catch (err) {
+        if (typeof opts.onFallback === 'function') opts.onFallback('network');
+        return { sent: false, reason: 'network' };
+      }
+    }
+
+    function _clickDownloadLink(href, filename, openNewTab = false) {
       const a = document.createElement('a');
-      a.href = dlPath;
+      a.href = href;
       if (filename) a.download = filename;
+      if (openNewTab) a.target = '_blank';
       a.rel = 'noopener noreferrer';
+      a.style.display = 'none';
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
     }
 
-    function downloadMaterialFile(materialId, filename = '', directUrl = '') {
+    function _showSavedFileHint(filename, blob = null, materialId = 0, extraHint = '') {
+      const actions = [];
+      let shareFileObj = null;
+      if (blob && typeof File === 'function' && navigator.canShare) {
+        try {
+          const candidate = new File([blob], filename || 'file', { type: blob.type || 'application/octet-stream' });
+          if (navigator.canShare({ files: [candidate] })) {
+            shareFileObj = candidate;
+          }
+        } catch (e) {}
+      }
+      if (shareFileObj && navigator.share) {
+        actions.push({
+          label: 'Поделиться / В чат',
+          onClick: () => {
+            navigator.share({ files: [shareFileObj], title: filename || 'Файл Д/З' }).catch(() => {});
+          }
+        });
+      }
+      if (materialId > 0 && canSendToTelegramChat()) {
+        actions.push({
+          label: 'В чат с ботом',
+          onClick: () => sendMaterialToChat(materialId, filename)
+        });
+      }
+      showDownloadHintToast({
+        title: `✓ Сохранено: ${filename || 'файл'}`,
+        hint: extraHint || getPlatformDownloadHint(),
+        type: 'success',
+        durationMs: 6500,
+        actions
+      });
+    }
+
+    async function _triggerBrowserFileDownload(dlPath, absUrl, filename, materialId = 0, extraHint = '') {
+      const inTelegram = Boolean(window.Telegram?.WebApp?.initData);
+      const platform = String(window.Telegram?.WebApp?.platform || '').toLowerCase();
+      if (inTelegram && ['ios', 'android', 'android_x'].includes(platform) && window.Telegram?.WebApp?.openLink) {
+        try {
+          window.Telegram.WebApp.openLink(absUrl);
+          _showSavedFileHint(filename, null, materialId, extraHint);
+          return;
+        } catch (e) {
+          console.warn('tg.openLink download fallback:', e);
+        }
+      }
+
+      if (dlPath.startsWith('data:') || dlPath.startsWith('blob:')) {
+        _clickDownloadLink(dlPath, filename || 'file', false);
+        _showSavedFileHint(filename, null, materialId, extraHint);
+        return;
+      }
+
+      const isCrossOrigin = /^https?:\/\//i.test(dlPath) && !dlPath.startsWith(window.location.origin);
+      if (isCrossOrigin) {
+        _clickDownloadLink(dlPath, filename || 'file', true);
+        _showSavedFileHint(filename, null, materialId, extraHint);
+        return;
+      }
+
+      const fetchUrl = dlPath.includes('?') ? `${dlPath}&download=1` : `${dlPath}?download=1`;
+      let httpStatus = 0;
+      try {
+        const res = await fetch(fetchUrl, { cache: 'no-store' });
+        httpStatus = res.status;
+        if (res.redirected && res.url && !res.url.startsWith(window.location.origin)) {
+          _clickDownloadLink(res.url, filename || 'file', true);
+          _showSavedFileHint(filename, null, materialId, extraHint);
+          return;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        if (!blob || blob.size === 0) throw new Error('Empty file');
+        const blobUrl = URL.createObjectURL(blob);
+        _clickDownloadLink(blobUrl, filename || 'file', false);
+        _showSavedFileHint(filename, blob, materialId, extraHint);
+        setTimeout(() => {
+          try { URL.revokeObjectURL(blobUrl); } catch (e) {}
+        }, 60000);
+      } catch (err) {
+        console.warn('Download error:', err);
+        if (httpStatus >= 400) {
+          showToast(`❌ Не удалось скачать файл (HTTP ${httpStatus})`, 'error', 3800);
+        } else if (navigator.onLine === false) {
+          showToast('Нет сети — файл недоступен оффлайн', 'warning', 3800);
+        } else {
+          // Фолбэк только для нестандартных редиректов/ограничений браузера
+          _clickDownloadLink(fetchUrl, filename || 'file', false);
+          _showSavedFileHint(filename, null, materialId, extraHint);
+        }
+      }
+    }
+
+    function downloadMaterialFile(materialId, filename = '', directUrl = '', opts = {}) {
       const dlPath = directUrl || (materialId ? `/api/materials/${materialId}/download` : '');
       if (!dlPath) return;
       const absUrl = dlPath.startsWith('http://') || dlPath.startsWith('https://')
         ? dlPath
         : `${window.location.origin}${dlPath.startsWith('/') ? '' : '/'}${dlPath}`;
 
-      if (window.Telegram?.WebApp?.downloadFile && (!window.Telegram.WebApp.isVersionAtLeast || window.Telegram.WebApp.isVersionAtLeast('8.0'))) {
+      const inTelegram = Boolean(window.Telegram?.WebApp?.initData);
+      // Внутри Telegram WebApp отправляем сразу в личный чат с ботом (с фолбэком в Загрузки)
+      if (!opts.forceDevice && inTelegram && materialId > 0 && canSendToTelegramChat()) {
+        sendMaterialToChat(materialId, filename, {
+          fallbackDownloadUrl: dlPath,
+          fallbackAbsUrl: absUrl,
+          onFallback: (reason) => {
+            const extraHint = reason === 'start_bot'
+              ? `Сохранено в «Загрузки» · Чтобы файлы приходили в чат, нажмите /start в боте`
+              : '';
+            _triggerBrowserFileDownload(dlPath, absUrl, filename, materialId, extraHint);
+          }
+        });
+        return;
+      }
+
+      if (inTelegram && window.Telegram?.WebApp?.downloadFile && (!window.Telegram.WebApp.isVersionAtLeast || window.Telegram.WebApp.isVersionAtLeast('8.0'))) {
         try {
           window.Telegram.WebApp.downloadFile({ url: absUrl, file_name: filename || 'document' }, (accepted) => {
             if (!accepted) {
-              _triggerBrowserFileDownload(dlPath, absUrl, filename);
+              _triggerBrowserFileDownload(dlPath, absUrl, filename, materialId);
+            } else {
+              _showSavedFileHint(filename, null, materialId);
             }
           });
           return;
@@ -2412,8 +2731,8 @@
           console.warn('tg.downloadFile failed:', e);
         }
       }
-      _triggerBrowserFileDownload(dlPath, absUrl, filename);
-      showToast(`⬇️ Скачивание: ${filename || 'файл'}`, 'info');
+      showToast(`⬇️ Скачивание: ${filename || 'файл'}...`, 'info', 2000);
+      _triggerBrowserFileDownload(dlPath, absUrl, filename, materialId);
     }
 
     function downloadMaterialFileFromEl(el) {
@@ -2841,9 +3160,9 @@
     }
 
     // ========================================================
-    // ПЛАВАЮЩИЕ УВЕДОМЛЕНИЯ (TOAST)
+    // ПЛАВАЮЩИЕ УВЕДОМЛЕНИЯ (TOAST + ПОДСКАЗКИ ЗАГРУЗКИ)
     // ========================================================
-    function showToast(message, type = 'info') {
+    function showToast(message, type = 'info', durationMs = 2400) {
       const container = document.getElementById('toast-container');
       if (!container) return;
       while (container.children.length >= 1) {
@@ -2865,7 +3184,75 @@
         setTimeout(() => {
           if (toast.parentNode) toast.parentNode.removeChild(toast);
         }, 300);
-      }, 2400);
+      }, durationMs);
+    }
+
+    function showDownloadHintToast({ title, hint = '', type = 'success', durationMs = 6500, actions = [] }) {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      while (container.children.length >= 1) {
+        container.firstChild.remove();
+      }
+      const toast = document.createElement('div');
+      const bgClass = type === 'warning'
+        ? 'bg-amber-500 text-slate-950 shadow-amber-500/30'
+        : 'bg-[#0e223b] text-white ring-1 ring-white/15 shadow-black/60';
+      toast.className = `${bgClass} w-[min(90vw,360px)] px-3.5 py-3 rounded-2xl text-xs shadow-2xl transition-all duration-300 transform translate-y-2 opacity-0 pointer-events-auto flex flex-col gap-1.5`;
+
+      const topRow = document.createElement('div');
+      topRow.className = 'flex items-start justify-between gap-2';
+      const titleEl = document.createElement('span');
+      titleEl.className = 'font-extrabold leading-snug break-words min-w-0';
+      titleEl.textContent = title;
+      const closeBtn = document.createElement('button');
+      closeBtn.type = 'button';
+      closeBtn.className = 'w-5 h-5 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-[10px] font-bold shrink-0';
+      closeBtn.textContent = '✕';
+      const dismiss = () => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 280);
+      };
+      closeBtn.onclick = dismiss;
+      topRow.appendChild(titleEl);
+      topRow.appendChild(closeBtn);
+      toast.appendChild(topRow);
+
+      if (hint) {
+        const hintEl = document.createElement('p');
+        hintEl.className = 'text-[11px] opacity-85 leading-snug';
+        hintEl.textContent = hint;
+        toast.appendChild(hintEl);
+      }
+
+      if (Array.isArray(actions) && actions.length > 0) {
+        const btnRow = document.createElement('div');
+        btnRow.className = 'flex flex-wrap items-center gap-1.5 pt-0.5';
+        actions.forEach((act) => {
+          if (!act || !act.label || typeof act.onClick !== 'function') return;
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = type === 'warning'
+            ? 'px-2.5 py-1 rounded-full bg-slate-900/15 hover:bg-slate-900/25 font-bold text-[11px] transition active:scale-95'
+            : 'px-2.5 py-1 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white font-bold text-[11px] transition active:scale-95';
+          b.textContent = act.label;
+          b.onclick = () => {
+            dismiss();
+            act.onClick();
+          };
+          btnRow.appendChild(b);
+        });
+        toast.appendChild(btnRow);
+      }
+
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+      let timer = setTimeout(dismiss, durationMs);
+      toast.addEventListener('pointerenter', () => clearTimeout(timer), { passive: true });
+      toast.addEventListener('pointerleave', () => { timer = setTimeout(dismiss, 2800); }, { passive: true });
     }
 
     // ========================================================
@@ -3465,11 +3852,63 @@
     }
 
     const tgUser = tg?.initDataUnsafe?.user;
-    const userId = tgUser?.id || 12345;
-    const userName = tgUser?.first_name ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : 'Ученик';
-    const userNick = tgUser?.username ? `@${tgUser.username}` : (tgUser?.first_name ? `@${tgUser.first_name}` : '@ученик_10а');
-    const userPhoto = tgUser?.photo_url || '';
+    let savedTgProfile = null;
+    try {
+      savedTgProfile = JSON.parse(localStorage.getItem('hw_tg_profile_v1') || 'null');
+    } catch (e) {}
+
+    let paramTgProfile = null;
+    try {
+      const bootParams = new URLSearchParams(window.location.search);
+      const rawParamUid = parseInt(bootParams.get('tg_uid') || bootParams.get('user_id') || '0', 10);
+      if (Number.isFinite(rawParamUid) && rawParamUid > 0 && rawParamUid !== 12345) {
+        paramTgProfile = {
+          id: rawParamUid,
+          name: (bootParams.get('tg_name') || '').trim(),
+          nick: (bootParams.get('tg_nick') || '').trim(),
+        };
+      }
+    } catch (e) {}
+
+    const userId = tgUser?.id || paramTgProfile?.id || savedTgProfile?.id || 12345;
+    const userName = tgUser?.first_name
+      ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim()
+      : (paramTgProfile?.name || savedTgProfile?.name || 'Ученик');
+    const userNick = tgUser?.username
+      ? `@${tgUser.username}`
+      : (tgUser?.first_name ? `@${tgUser.first_name}` : (paramTgProfile?.nick || savedTgProfile?.nick || '@ученик_10а'));
+    const userPhoto = tgUser?.photo_url || savedTgProfile?.photo || '';
+    if (userId > 0 && userId !== 12345) {
+      try {
+        localStorage.setItem('hw_tg_profile_v1', JSON.stringify({
+          id: userId,
+          name: userName,
+          nick: userNick,
+          photo: userPhoto
+        }));
+      } catch (e) {}
+    }
     let userRole = 'student';
+    const ADMIN_USER_IDS = new Set([5783100321]);
+    const ADMIN_USER_NICKS = new Set(['swaga_wagaa']);
+
+    function isRealAdmin() {
+      const cleanNick = String(userNick || '').trim().replace(/^@+/, '').toLowerCase();
+      return userRole === 'admin' || ADMIN_USER_IDS.has(Number(userId)) || ADMIN_USER_NICKS.has(cleanNick);
+    }
+
+    function isUserVersionMode() {
+      if (!isRealAdmin()) return false;
+      try {
+        return localStorage.getItem(`hw_user_view_mode_${userId}`) === 'student';
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function isAdminUser() {
+      return isRealAdmin() && !isUserVersionMode();
+    }
 
     let authorCache = {};
     try {
@@ -4283,7 +4722,7 @@
           }
           const authorAvatarHTML = renderAvatarElement(t.user_id, 'w-5 h-5 text-[9.5px]', authorNickText);
           const isMeAuthor = Boolean(t.user_id && t.user_id == userId);
-          const canEdit = isMeAuthor || !t.user_id || (typeof userRole !== 'undefined' && userRole === 'admin');
+          const canEdit = isMeAuthor || !t.user_id || isAdminUser();
           const hasBeenEdited = Boolean(t.last_edited_by_name);
           const subjectDot = (style.border || 'border-l-slate-400').replace('border-l-', 'bg-');
 
@@ -4890,7 +5329,7 @@
       }
 
       const isMeAuthor = Boolean(task.user_id && task.user_id == userId);
-      const canEdit = isMeAuthor || !task.user_id || (typeof userRole !== 'undefined' && userRole === 'admin');
+      const canEdit = isMeAuthor || !task.user_id || isAdminUser();
       if (!canEdit) {
         const authorNickText = (task.author_name && task.author_name.trim()) ? task.author_name : (task.author_nick || getAuthorNick(task.user_id));
         showAuthorOnlyNotice(authorNickText);
@@ -5406,7 +5845,7 @@
 
         container.innerHTML = comments.map(c => {
           const isMyComment = Boolean(c.user_id && c.user_id == userId);
-          const canDelete = isMyComment || (typeof userRole !== 'undefined' && userRole === 'admin');
+          const canDelete = isMyComment || isAdminUser();
           const authorTitle = c.author_name || c.author_nick || (c.user_id ? `Ученик #${c.user_id}` : 'Одноклассник');
           const timeStr = formatCommentTime(c.created_at);
           const safeText = escapeHtml(c.text || '');
@@ -5717,6 +6156,12 @@
           nickElem.innerText = '@одноклассник';
         }
       }
+
+      const sendChatBtn = document.getElementById('photo-send-chat-btn');
+      if (sendChatBtn) {
+        const isMatUrl = /^\/api\/materials\/\d+/.test(String(current.url || ''));
+        sendChatBtn.classList.toggle('hidden', !(isMatUrl && typeof canSendToTelegramChat === 'function' && canSendToTelegramChat()));
+      }
     }
 
     function goToPhoto(index) {
@@ -5758,6 +6203,24 @@
       }
     }
 
+    function sendCurrentPhotoToChat() {
+      if (!currentGallery || currentGallery.length === 0) return;
+      const current = currentGallery[currentGalleryIndex];
+      if (!current || !current.url) return;
+      const rawUrl = String(current.url);
+      const matMatch = rawUrl.match(/^\/api\/materials\/(\d+)/);
+      if (!matMatch) {
+        showToast('Это изображение нельзя отправить в чат', 'info');
+        return;
+      }
+      const extMatch = rawUrl.match(/\.([a-z0-9]{2,5})(?:$|\?)/i);
+      const filename = `hw_photo_page_${currentGalleryIndex + 1}.${extMatch ? extMatch[1].toLowerCase() : 'jpg'}`;
+      sendMaterialToChat(Number(matMatch[1]), filename, {
+        fallbackDownloadUrl: `/api/materials/${matMatch[1]}/download`,
+        fallbackAbsUrl: `${window.location.origin}/api/materials/${matMatch[1]}/download`,
+      });
+    }
+
     function downloadCurrentPhoto() {
       if (!currentGallery || currentGallery.length === 0) return;
       const current = currentGallery[currentGalleryIndex];
@@ -5765,18 +6228,16 @@
       soundFx.playSuccess();
       if (tg?.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
 
-      try {
-        const a = document.createElement('a');
-        a.href = current.url;
-        a.download = `hw_photo_page_${currentGalleryIndex + 1}.jpg`;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        showToast('✓ Фото открыто для сохранения', 'success');
-      } catch (err) {
-        window.open(current.url, '_blank');
+      const rawUrl = String(current.url);
+      let dlPath = rawUrl;
+      const matMatch = rawUrl.match(/^\/api\/materials\/(\d+)/);
+      if (matMatch) {
+        dlPath = `/api/materials/${matMatch[1]}/download`;
       }
+      const extMatch = rawUrl.match(/\.([a-z0-9]{2,5})(?:$|\?)/i);
+      const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
+      const filename = `hw_photo_page_${currentGalleryIndex + 1}.${ext}`;
+      downloadMaterialFile(matMatch ? Number(matMatch[1]) : 0, filename, dlPath);
     }
 
     function closePhotoViewer() {
@@ -6398,19 +6859,22 @@
         const roleKey = `hw_user_role_${userId}`;
         const cachedRole = sessionStorage.getItem(roleKey);
         if (cachedRole) userRole = cachedRole;
+        if (typeof syncAdminUI === 'function') syncAdminUI();
 
         const lastSync = parseInt(sessionStorage.getItem(syncKey) || '0', 10);
         if (!force && lastSync && (Date.now() - lastSync < 600000)) {
           return;
         }
 
+        const cleanSyncNick = (userNick && userNick !== '@ученик_10а') ? userNick : null;
+        const cleanSyncName = (userName && userName !== 'Ученик' && !String(userName).startsWith('ID ')) ? userName : null;
         const res = await fetch('/api/user/sync', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             user_id: userId,
-            telegram_nick: userNick,
-            full_name: (userName && userName !== 'Ученик') ? userName : null
+            telegram_nick: cleanSyncNick,
+            full_name: cleanSyncName
           })
         });
         if (res.ok) {
@@ -6418,6 +6882,7 @@
           if (data?.role) {
             userRole = data.role;
             sessionStorage.setItem(roleKey, data.role);
+            if (typeof syncAdminUI === 'function') syncAdminUI();
           }
           sessionStorage.setItem(syncKey, String(Date.now()));
         }
@@ -8030,6 +8495,9 @@
       if (typeof updatePwaInstallUI === 'function') {
         updatePwaInstallUI();
       }
+      if (typeof syncAdminUI === 'function') {
+        syncAdminUI();
+      }
     }
 
     async function refreshAllAppData() {
@@ -8502,7 +8970,13 @@
     }
 
     function openPwaInExternalBrowser() {
-      const targetUrl = `${window.location.origin}/?open_install=1`;
+      const targetParams = new URLSearchParams({ open_install: '1' });
+      if (userId > 0 && Number(userId) !== 12345) {
+        targetParams.set('tg_uid', String(userId));
+        if (userName && userName !== 'Ученик') targetParams.set('tg_name', userName);
+        if (userNick && userNick !== '@ученик_10а') targetParams.set('tg_nick', userNick);
+      }
+      const targetUrl = `${window.location.origin}/?${targetParams.toString()}`;
       if (tg?.openLink) {
         tg.openLink(targetUrl);
         return;
@@ -8610,9 +9084,13 @@
             switchSettingsTab('profile');
           }, 180);
         }
-        if (action || openInstall || params.has('source')) {
+        if (action || openInstall || params.has('source') || params.has('tg_uid') || params.has('user_id') || params.has('tg_name') || params.has('tg_nick')) {
           params.delete('action');
           params.delete('open_install');
+          params.delete('tg_uid');
+          params.delete('user_id');
+          params.delete('tg_name');
+          params.delete('tg_nick');
           const cleanQs = params.toString();
           const cleanUrl = window.location.pathname + (cleanQs ? `?${cleanQs}` : '') + window.location.hash;
           window.history.replaceState({}, '', cleanUrl);
@@ -8623,9 +9101,15 @@
     function registerPwaServiceWorker() {
       if (!('serviceWorker' in navigator)) return;
       const startRegister = () => {
-        navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch((err) => {
-          console.warn('SW registration note:', err);
-        });
+        navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
+          .then((reg) => {
+            if (reg && typeof reg.update === 'function') {
+              reg.update().catch(() => {});
+            }
+          })
+          .catch((err) => {
+            console.warn('SW registration note:', err);
+          });
       };
       if (document.readyState === 'complete') {
         startRegister();
@@ -8634,6 +9118,536 @@
       }
     }
 
+    // ========================================================
+    // 📊 ЛЁГКАЯ ТЕЛЕМЕТРИЯ (0 МС UI) И АДМИН-АНАЛИТИКА
+    // ========================================================
+    let adminModalTab = 'overview';
+    let adminUserFilter = 'all';
+    let adminAnalyticsData = null;
+    let adminPollTimer = null;
+    let adminFetchInFlight = false;
+
+    function syncAdminUI() {
+      const realAdmin = isRealAdmin();
+      const userMode = isUserVersionMode();
+      const effectiveAdmin = realAdmin && !userMode;
+
+      const headerBtn = document.getElementById('admin-header-btn');
+      if (headerBtn) {
+        headerBtn.classList.toggle('hidden', !effectiveAdmin);
+        headerBtn.classList.toggle('flex', effectiveAdmin);
+      }
+
+      const settingsCard = document.getElementById('settings-admin-card');
+      if (settingsCard) {
+        settingsCard.classList.toggle('hidden', !realAdmin);
+        settingsCard.classList.toggle('flex', realAdmin);
+      }
+
+      const modeToggle = document.getElementById('admin-user-version-toggle');
+      if (modeToggle) modeToggle.checked = userMode;
+
+      const modeBadge = document.getElementById('settings-admin-mode-badge');
+      if (modeBadge) {
+        modeBadge.textContent = userMode ? 'Версия ученика' : 'Админ';
+        modeBadge.className = userMode
+          ? 'px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[9.5px] font-bold shrink-0'
+          : 'px-1.5 py-0.5 rounded-md bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300 text-[9.5px] font-bold shrink-0';
+      }
+
+      const classBadge = document.getElementById('settings-profile-class-badge');
+      if (classBadge) {
+        classBadge.textContent = effectiveAdmin ? '10-А · Админ' : '10-А инж';
+      }
+    }
+
+    function setUserVersionMode(enabled, silent = false) {
+      if (!isRealAdmin()) return;
+      try {
+        localStorage.setItem(`hw_user_view_mode_${userId}`, enabled ? 'student' : 'admin');
+      } catch (e) {}
+      syncAdminUI();
+      if (typeof renderTasks === 'function') renderTasks();
+      const commentsModal = document.getElementById('task-comments-modal');
+      if (commentsModal && !commentsModal.classList.contains('hidden') && typeof currentCommentsTaskId !== 'undefined' && currentCommentsTaskId && typeof loadTaskComments === 'function') {
+        loadTaskComments(currentCommentsTaskId);
+      }
+      if (!silent) {
+        soundFx.playTap?.();
+        triggerHaptic('light');
+        showToast(
+          enabled
+            ? 'Включена версия ученика · Вернуться: Настройки → Профиль'
+            : 'Возвращён режим администратора',
+          'info'
+        );
+      }
+    }
+
+    function switchToUserVersion() {
+      closeAdminAnalyticsModal();
+      setUserVersionMode(true);
+    }
+
+    function getClientPlatform() {
+      if (typeof isPwaStandalone === 'function' && isPwaStandalone()) return 'PWA';
+      if (window.Telegram?.WebApp?.initData) return 'TG';
+      return 'Web';
+    }
+
+    function formatRelativeAgo(sec) {
+      const s = Math.max(0, Number(sec) || 0);
+      if (s < 45) return 'сейчас';
+      if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} мин назад`;
+      if (s < 86400) return `${Math.floor(s / 3600)} ч назад`;
+      return `${Math.floor(s / 86400)} дн назад`;
+    }
+
+    const CLICK_ID_TELEMETRY = {
+      'tab-pending': ['tab_all', 'Вкладка: Все'],
+      'tab-today': ['tab_today', 'Вкладка: Сегодня'],
+      'tab-tomorrow': ['tab_tomorrow', 'Вкладка: Завтра'],
+      'tab-overdue': ['tab_overdue', 'Вкладка: Долги'],
+      'subject-filter-btn': ['subject_filter', 'Фильтр по предметам'],
+      'workload-calendar-btn': ['open_workload_month', 'Календарь загруженности'],
+      'header-schedule-pill': ['open_schedule', 'Открыл расписание'],
+      'schedule-pill-btn': ['open_schedule', 'Открыл расписание'],
+      'leaderboard-open-btn': ['open_leaderboard', 'Открыл рейтинг'],
+      'notif-open-btn': ['open_settings', 'Открыл настройки'],
+      'add-task-btn': ['open_add_task', 'Открыл добавление Д/З'],
+      'photo-download-btn': ['download_material', 'Скачал файл/фото'],
+      'photo-send-chat-btn': ['send_to_chat', 'Отправил файл в чат'],
+      'photo-share-btn': ['share_material', 'Поделился файлом']
+    };
+
+    const CLICK_ONCLICK_RULES = [
+      ["setFilter('pending')", 'tab_all', 'Вкладка: Все'],
+      ["setFilter('today')", 'tab_today', 'Вкладка: Сегодня'],
+      ["setFilter('tomorrow')", 'tab_tomorrow', 'Вкладка: Завтра'],
+      ["setFilter('overdue')", 'tab_overdue', 'Вкладка: Долги'],
+      ['toggleSubjectFilterPanel', 'subject_filter', 'Фильтр по предметам'],
+      ['openScheduleModal', 'open_schedule', 'Открыл расписание'],
+      ['switchScheduleView', 'schedule_view_toggle', 'Сетка недели / дня'],
+      ['openLeaderboardModal', 'open_leaderboard', 'Открыл рейтинг'],
+      ['openNotifModal', 'open_settings', 'Настройки и профиль'],
+      ['openSettingsModal', 'open_settings', 'Настройки и профиль'],
+      ['openAddModal', 'open_add_task', 'Добавить Д/З'],
+      ['toggleTask', 'toggle_task', 'Отметил выполнение Д/З'],
+      ['completeTask', 'toggle_task', 'Отметил выполнение Д/З'],
+      ['openWorkloadMonthModal', 'open_workload_month', 'Календарь загруженности'],
+      ['viewMaterial', 'view_material', 'Просмотр материала'],
+      ['openPhotoModal', 'view_material', 'Просмотр материала'],
+      ['previewMaterial', 'view_material', 'Просмотр материала'],
+      ['downloadMaterial', 'download_material', 'Скачал материал'],
+      ['downloadCurrentPhoto', 'download_material', 'Скачал материал'],
+      ['sendMaterialToChat', 'send_to_chat', 'Отправил в чат Telegram'],
+      ['setTheme', 'change_theme', 'Сменил тему'],
+      ['selectSoundPreset', 'change_sound', 'Сменил звук']
+    ];
+
+    function resolveClickTelemetry(el) {
+      if (!el) return null;
+      if (el.dataset?.trackKey) {
+        return {
+          key: String(el.dataset.trackKey).slice(0, 48),
+          label: String(el.dataset.trackLabel || el.dataset.trackKey).slice(0, 64)
+        };
+      }
+      if (el.id && CLICK_ID_TELEMETRY[el.id]) {
+        const [key, label] = CLICK_ID_TELEMETRY[el.id];
+        return { key, label };
+      }
+      const subjEl = el.dataset?.subject ? el : el.closest?.('[data-subject]');
+      if (subjEl?.dataset?.subject) {
+        const subj = String(subjEl.dataset.subject).trim().slice(0, 32);
+        return {
+          key: `subj_${subj.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '_')}`,
+          label: `Предмет: ${subj}`
+        };
+      }
+      const onclickAttr = el.getAttribute('onclick') || '';
+      if (onclickAttr) {
+        if (/\bclose[A-Z]\w*Modal\s*\(/.test(onclickAttr)) return null;
+        for (const [needle, key, label] of CLICK_ONCLICK_RULES) {
+          if (onclickAttr.includes(needle)) return { key, label };
+        }
+      }
+      const rawLabel = (
+        el.getAttribute('aria-label')
+        || el.getAttribute('title')
+        || (el.textContent || '')
+      ).replace(/\s+/g, ' ').trim();
+      if (!rawLabel || rawLabel.length < 2 || rawLabel === '✕' || /^закрыть$/i.test(rawLabel)) return null;
+      const shortLabel = rawLabel.slice(0, 32);
+      const slug = shortLabel.toLowerCase().replace(/[^a-z0-9а-яё]+/gi, '_').replace(/^_+|_+$/g, '');
+      return {
+        key: (el.id || `ui_${slug || 'btn'}`).slice(0, 48),
+        label: shortLabel
+      };
+    }
+
+    const AnalyticsTracker = {
+      queue: [],
+      initialized: false,
+      flushTimer: null,
+      heartbeatTimer: null,
+      hiddenAt: 0,
+      maxQueue: 40,
+
+      enqueue(type, key, label) {
+        if (!userId) return;
+        this.queue.push({ type, key, label });
+        if (this.queue.length > this.maxQueue) {
+          this.queue.splice(0, this.queue.length - this.maxQueue);
+        }
+        if (this.queue.length >= 12) {
+          this.scheduleIdleFlush(120);
+        }
+      },
+
+      scheduleIdleFlush(delay = 300) {
+        const run = () => this.flush(false);
+        if ('requestIdleCallback' in window) {
+          requestIdleCallback(run, { timeout: Math.max(500, delay + 1000) });
+        } else {
+          setTimeout(run, delay);
+        }
+      },
+
+      buildPayload(events) {
+        const cleanName = (userName && userName !== 'Ученик' && !String(userName).startsWith('ID ')) ? userName : '';
+        const cleanNick = (userNick && userNick !== '@ученик_10а') ? userNick : '';
+        return JSON.stringify({
+          user_id: Number(userId) || 0,
+          name: cleanName,
+          nick: cleanNick,
+          platform: getClientPlatform(),
+          events
+        });
+      },
+
+      async flush(immediate = false, useBeacon = false) {
+        if (!this.queue.length || !userId || navigator.onLine === false) return;
+        const batch = this.queue.splice(0, this.queue.length);
+        const body = this.buildPayload(batch);
+
+        if (useBeacon && typeof navigator.sendBeacon === 'function') {
+          try {
+            const blob = new Blob([body], { type: 'application/json' });
+            if (navigator.sendBeacon('/api/analytics/events', blob)) return;
+          } catch (e) {}
+        }
+
+        try {
+          await fetch('/api/analytics/events', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body,
+            keepalive: immediate || useBeacon
+          });
+        } catch (e) {
+          // Не засоряем очередь при временном сбое сети
+        }
+      },
+
+      init() {
+        if (this.initialized) return;
+        this.initialized = true;
+
+        this.enqueue('visit', 'app_open', 'Открыл приложение');
+        this.scheduleIdleFlush(900);
+
+        document.addEventListener('click', (e) => {
+          const target = e.target;
+          if (!target || typeof target.closest !== 'function') return;
+          if (target.closest('#admin-analytics-modal, #admin-header-btn, [data-track-skip]')) return;
+          const el = target.closest('[data-track-key], button, a, [role="button"], [data-subject]');
+          if (!el) return;
+          const info = resolveClickTelemetry(el);
+          if (info) this.enqueue('click', info.key, info.label);
+        }, { capture: true, passive: true });
+
+        this.flushTimer = setInterval(() => {
+          if (this.queue.length > 0 && !document.hidden) {
+            this.scheduleIdleFlush(200);
+          }
+        }, 20000);
+
+        this.heartbeatTimer = setInterval(() => {
+          if (!document.hidden && navigator.onLine !== false) {
+            this.enqueue('heartbeat', 'active_session', 'В приложении');
+            this.scheduleIdleFlush(300);
+          }
+        }, 45000);
+
+        document.addEventListener('visibilitychange', () => {
+          if (document.hidden) {
+            this.hiddenAt = Date.now();
+            this.flush(true, true);
+          } else {
+            if (this.hiddenAt && (Date.now() - this.hiddenAt) >= 600000) {
+              this.enqueue('visit', 'app_return', 'Вернулся в приложение');
+              this.scheduleIdleFlush(400);
+            } else if (adminPollTimer) {
+              loadAdminAnalytics(false);
+            }
+            this.hiddenAt = 0;
+          }
+        }, { passive: true });
+
+        window.addEventListener('pagehide', () => {
+          this.enqueue('leave', 'app_leave', 'Закрыл приложение');
+          this.flush(true, true);
+        }, { passive: true });
+      }
+    };
+
+    function initAnalyticsTracker() {
+      AnalyticsTracker.init();
+    }
+
+    function openAdminAnalyticsModal() {
+      if (!isRealAdmin()) return;
+      if (isUserVersionMode()) {
+        setUserVersionMode(false, true);
+      }
+      soundFx.playOpen();
+      const modal = document.getElementById('admin-analytics-modal');
+      if (!modal) return;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      triggerHaptic('light');
+      switchAdminTab(adminModalTab, true);
+      AnalyticsTracker.flush(true).finally(() => loadAdminAnalytics(false));
+      if (adminPollTimer) clearInterval(adminPollTimer);
+      adminPollTimer = setInterval(() => {
+        if (!document.hidden) loadAdminAnalytics(false);
+      }, 10000);
+    }
+
+    function closeAdminAnalyticsModal() {
+      soundFx.playClose();
+      const modal = document.getElementById('admin-analytics-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+      if (adminPollTimer) {
+        clearInterval(adminPollTimer);
+        adminPollTimer = null;
+      }
+    }
+
+    function switchAdminTab(tab, silent = false) {
+      adminModalTab = (tab === 'users' || tab === 'feed') ? tab : 'overview';
+      if (!silent) soundFx.playTab();
+      ['overview', 'users', 'feed'].forEach((t) => {
+        const btn = document.getElementById(`admin-tab-${t}`);
+        const pane = document.getElementById(`admin-pane-${t}`);
+        const active = t === adminModalTab;
+        if (btn) {
+          btn.className = active
+            ? 'py-1.5 px-2 rounded-full text-xs font-bold bg-white text-[#145594] dark:text-slate-950 shadow-xs transition active:scale-95'
+            : 'py-1.5 px-2 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95';
+        }
+        if (pane) pane.classList.toggle('hidden', !active);
+      });
+    }
+
+    function setAdminUserFilter(filterName) {
+      adminUserFilter = (filterName === 'online' || filterName === 'offline') ? filterName : 'all';
+      soundFx.playTap?.();
+      ['all', 'online', 'offline'].forEach((f) => {
+        const btn = document.getElementById(`admin-ufilter-${f}`);
+        if (!btn) return;
+        const active = f === adminUserFilter;
+        btn.className = active
+          ? 'px-3 py-1 rounded-full text-[11px] font-bold bg-[#2077cf] text-white transition active:scale-95'
+          : 'px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95';
+      });
+      renderAdminUsersList();
+    }
+
+    async function loadAdminAnalytics(manual = false) {
+      if (!isRealAdmin() || adminFetchInFlight) return;
+      adminFetchInFlight = true;
+      try {
+        if (manual) {
+          soundFx.playTap?.();
+          await AnalyticsTracker.flush(true);
+        }
+        const res = await fetch(`/api/admin/analytics?user_id=${encodeURIComponent(userId)}`, {
+          cache: 'no-store'
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        adminAnalyticsData = await res.json();
+        renderAdminAnalytics();
+      } catch (err) {
+        if (manual) showToast('Не удалось обновить аналитику', 'error');
+      } finally {
+        adminFetchInFlight = false;
+      }
+    }
+
+    function renderAdminAnalytics() {
+      const data = adminAnalyticsData;
+      if (!data || !data.summary) return;
+      const s = data.summary;
+
+      const setTxt = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(val ?? 0);
+      };
+      setTxt('admin-live-count', `${s.online_now || 0} онлайн`);
+      setTxt('admin-kpi-online', s.online_now || 0);
+      setTxt('admin-kpi-visits', s.total_visits || 0);
+      setTxt('admin-kpi-clicks', s.total_clicks || 0);
+      setTxt('admin-kpi-users', s.active_users || 0);
+
+      const subtitleEl = document.getElementById('admin-analytics-subtitle');
+      if (subtitleEl) {
+        subtitleEl.textContent = s.registered_users
+          ? `В сети: ${s.online_now || 0} · В базе класса: ${s.registered_users}`
+          : 'Заходы, клики и живые статусы · 10-А';
+      }
+
+      const updatedEl = document.getElementById('admin-last-updated');
+      if (updatedEl) {
+        const d = new Date();
+        updatedEl.textContent = `Обновлено ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+      }
+
+      // Топ действий (Обзор)
+      const topEl = document.getElementById('admin-top-actions-list');
+      if (topEl) {
+        const actions = Array.isArray(data.top_actions) ? data.top_actions.slice(0, 10) : [];
+        if (!actions.length) {
+          topEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Пока нет записанных кликов</div>';
+        } else {
+          const maxClicks = Math.max(1, Number(actions[0]?.clicks) || 1);
+          topEl.innerHTML = actions.map((item, idx) => {
+            const clicks = Number(item.clicks) || 0;
+            const pct = Math.max(8, Math.round((clicks / maxClicks) * 100));
+            return `
+              <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] space-y-1.5">
+                <div class="flex items-center justify-between gap-2 text-xs">
+                  <span class="font-bold text-slate-800 dark:text-white truncate">${idx + 1}. ${escapeHtml(item.label || item.key || 'Действие')}</span>
+                  <span class="font-mono font-extrabold text-[#2077cf] dark:text-sky-300 shrink-0">${clicks}</span>
+                </div>
+                <div class="w-full h-1.5 rounded-full bg-slate-200/80 dark:bg-white/[0.08] overflow-hidden">
+                  <div class="h-full rounded-full bg-gradient-to-r from-[#2077cf] to-[#38bdf8]" style="width:${pct}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      renderAdminUsersList();
+
+      // Лента активности
+      const feedEl = document.getElementById('admin-feed-list');
+      if (feedEl) {
+        const feed = Array.isArray(data.recent_feed) ? data.recent_feed : [];
+        if (!feed.length) {
+          feedEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">События появятся сразу после первых действий учеников</div>';
+        } else {
+          feedEl.innerHTML = feed.slice(0, 40).map((ev) => {
+            const typeBadge = ev.type === 'visit'
+              ? '<span class="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[9.5px] font-bold">Заход</span>'
+              : ev.type === 'leave'
+                ? '<span class="px-1.5 py-0.5 rounded-md bg-slate-500/15 text-slate-500 dark:text-slate-300 text-[9.5px] font-bold">Выход</span>'
+                : '<span class="px-1.5 py-0.5 rounded-md bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300 text-[9.5px] font-bold">Клик</span>';
+            const rawNick = String(ev.nick || '').trim().replace(/^@+/, '');
+            const nickLabel = rawNick ? `@${rawNick}` : '';
+            return `
+              <div class="px-3 py-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.05] flex items-center justify-between gap-2.5">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(ev.name || `ID ${ev.user_id}`)}</span>
+                    ${nickLabel ? `<span class="text-[10.5px] text-slate-400 dark:text-sky-100/50 truncate">${escapeHtml(nickLabel)}</span>` : ''}
+                    ${typeBadge}
+                  </div>
+                  <p class="text-[11px] text-slate-600 dark:text-sky-100/75 truncate mt-0.5">${escapeHtml(ev.label || 'Действие')} · ${escapeHtml(ev.platform || 'Web')}</p>
+                </div>
+                <span class="text-[10px] font-mono text-slate-400 dark:text-sky-100/50 shrink-0">${escapeHtml(formatRelativeAgo(ev.seconds_ago))}</span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+    }
+
+    function renderAdminUsersList() {
+      const listEl = document.getElementById('admin-users-list');
+      if (!listEl || !adminAnalyticsData) return;
+      const allUsers = Array.isArray(adminAnalyticsData.users) ? adminAnalyticsData.users : [];
+
+      const onlineCount = allUsers.filter((u) => u.presence === 'online' || u.presence === 'recent').length;
+      const offlineCount = Math.max(0, allUsers.length - onlineCount);
+      const allBtn = document.getElementById('admin-ufilter-all');
+      const onBtn = document.getElementById('admin-ufilter-online');
+      const offBtn = document.getElementById('admin-ufilter-offline');
+      if (allBtn) allBtn.textContent = `Все (${allUsers.length})`;
+      if (onBtn) onBtn.textContent = `Онлайн (${onlineCount})`;
+      if (offBtn) offBtn.textContent = `Оффлайн (${offlineCount})`;
+
+      const filtered = allUsers.filter((u) => {
+        if (adminUserFilter === 'online') return u.presence === 'online' || u.presence === 'recent';
+        if (adminUserFilter === 'offline') return u.presence !== 'online' && u.presence !== 'recent';
+        return true;
+      });
+
+      if (!filtered.length) {
+        listEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Нет учеников в этом фильтре</div>';
+        return;
+      }
+
+      listEl.innerHTML = filtered.map((u) => {
+        const dotClass = u.presence === 'online'
+          ? 'bg-emerald-400'
+          : u.presence === 'recent'
+            ? 'bg-amber-400'
+            : 'bg-slate-400 dark:bg-slate-500';
+        const statusText = u.presence === 'online'
+          ? 'Онлайн'
+          : u.presence === 'recent'
+            ? `Недавно · ${formatRelativeAgo(u.seconds_ago)}`
+            : (u.last_seen ? formatRelativeAgo(u.seconds_ago) : 'Не заходил');
+        const statusColor = u.presence === 'online'
+          ? 'text-emerald-600 dark:text-emerald-300'
+          : u.presence === 'recent'
+            ? 'text-amber-600 dark:text-amber-300'
+            : 'text-slate-400 dark:text-sky-100/50';
+        const rawNick = String(u.nick || '').trim().replace(/^@+/, '');
+        const nickText = rawNick ? `@${rawNick}` : `ID ${u.user_id}`;
+
+        return `
+          <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="relative shrink-0">
+                ${renderAvatarElement(u.user_id, 'w-9 h-9 text-xs', u.name)}
+                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-[#0e223b] ${dotClass}"></span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(u.name || `ID ${u.user_id}`)}</span>
+                  <span class="px-1.5 py-0.5 rounded-md bg-slate-200/70 dark:bg-white/[0.10] text-[9px] font-bold text-slate-600 dark:text-sky-100/80 shrink-0">${escapeHtml(u.platform || 'Web')}</span>
+                </div>
+                <div class="text-[10.5px] ${statusColor} font-semibold truncate">${escapeHtml(statusText)} · ${escapeHtml(nickText)}</div>
+                ${u.last_action ? `<div class="text-[10.5px] text-slate-500 dark:text-sky-100/65 truncate mt-0.5">${escapeHtml(u.last_action)}</div>` : ''}
+              </div>
+            </div>
+            <div class="text-right shrink-0 space-y-0.5">
+              <div class="text-[11px] font-extrabold font-mono text-slate-800 dark:text-white">${Number(u.visits) || 0} <span class="text-[9.5px] font-semibold text-slate-400">заход</span></div>
+              <div class="text-[11px] font-extrabold font-mono text-[#2077cf] dark:text-sky-300">${Number(u.clicks) || 0} <span class="text-[9.5px] font-semibold text-slate-400">клик</span></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    syncAdminUI();
     syncOfflineBanner();
     updatePwaInstallUI();
     registerPwaServiceWorker();
@@ -8644,6 +9658,7 @@
     const runPostPaintTasks = () => {
       initAutumnLeavesEngine();
       loadLeaderboard();
+      initAnalyticsTracker();
     };
     if ('requestIdleCallback' in window) {
       requestIdleCallback(runPostPaintTasks, { timeout: 300 });

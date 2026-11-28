@@ -1,4 +1,4 @@
-const SW_VERSION = 'v1.0.3';
+const SW_VERSION = 'v1.0.6';
 const SHELL_CACHE = `hw-portal-shell-${SW_VERSION}`;
 const RUNTIME_CACHE = `hw-portal-runtime-${SW_VERSION}`;
 const API_CACHE = `hw-portal-api-${SW_VERSION}`;
@@ -115,8 +115,25 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(request.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
 
-  // 1. HTML-навигация — Network-First с оффлайн-фолбэком на кэшированную главную страницу
-  if (request.mode === 'navigate' || (url.origin === self.location.origin && url.pathname === '/')) {
+  // 0. Файловые загрузки, админ-аналитика и Range-запросы не перехватываются SW
+  if (
+    url.origin === self.location.origin &&
+    (
+      url.pathname.startsWith('/api/admin/') ||
+      url.pathname.startsWith('/api/analytics/') ||
+      url.pathname.endsWith('/download') ||
+      url.searchParams.get('download') === '1' ||
+      request.headers.has('range')
+    )
+  ) {
+    return;
+  }
+
+  // 1. HTML-навигация — Network-First с оффлайн-фолбэком только для HTML-страницы (не для /api/ и /uploads/)
+  const isPageNavigation =
+    (request.mode === 'navigate' && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/uploads/')) ||
+    (url.origin === self.location.origin && url.pathname === '/');
+  if (isPageNavigation) {
     event.respondWith(
       networkFirst(request, SHELL_CACHE, '/').catch(async () => {
         const shell = await caches.open(SHELL_CACHE);

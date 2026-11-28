@@ -8,6 +8,11 @@ from typing import Optional, List, Dict, Any, Tuple, Set
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 
+try:
+    from app.database.admin_config import is_admin_identity, resolve_effective_role
+except ImportError:
+    from admin_config import is_admin_identity, resolve_effective_role
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -56,10 +61,51 @@ def get_supabase_client():
 def is_supabase_configured() -> bool:
     return bool(SUPABASE_URL and SUPABASE_KEY and get_supabase_client() is not None)
 
-def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Optional[str] = None, role: str = "student", class_name: str = "10-А") -> bool:
+def _is_acting_admin(user_id: Optional[int]) -> bool:
+    if not user_id:
+        return False
+    if is_admin_identity(user_id=user_id):
+        return True
+    u = get_user(int(user_id))
+    return bool(
+        isinstance(u, dict)
+        and is_admin_identity(
+            user_id=user_id,
+            telegram_nick=u.get("telegram_nick"),
+            role=u.get("role"),
+        )
+    )
+
+
+def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Optional[str] = None, role: Optional[str] = None, class_name: str = "10-А") -> bool:
+    if telegram_nick and telegram_nick.strip().lower() in ("@ученик_10а", "@ник"):
+        telegram_nick = None
+    if full_name and full_name.strip() == "Ученик":
+        full_name = None
+
+    existing_role = None
+    with _CACHE_LOCK:
+        cached = _USER_CACHE.get(user_id)
+        cached_data = cached[1] if cached else _USERS_MAP_CACHE["data"].get(user_id)
+        if cached_data:
+            existing_role = cached_data.get("role")
+    if existing_role is None and not is_admin_identity(user_id=user_id, telegram_nick=telegram_nick, role=role):
+        existing = get_user(user_id)
+        if isinstance(existing, dict):
+            existing_role = existing.get("role")
+            if not telegram_nick:
+                telegram_nick = existing.get("telegram_nick")
+
+    effective_role = resolve_effective_role(
+        user_id=user_id,
+        telegram_nick=telegram_nick,
+        requested_role=role,
+        existing_role=existing_role,
+    )
+
     try:
         from app.services.sync_service import sync_global_user
-        sync_global_user(user_id, telegram_nick=telegram_nick, full_name=full_name, role=role, class_name=class_name, source="supabase")
+        sync_global_user(user_id, telegram_nick=telegram_nick, full_name=full_name, role=effective_role, class_name=class_name, source="supabase")
     except Exception:
         pass
 
@@ -70,7 +116,7 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
     try:
         data = {
             "id": user_id,
-            "role": role,
+            "role": effective_role,
             "class_name": class_name,
             "updated_at": "now()"
         }
@@ -87,6 +133,7 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
             profile_changed = (
                 (telegram_nick and (not cached_data or cached_data.get("telegram_nick") != telegram_nick))
                 or (full_name and (not cached_data or cached_data.get("full_name") != full_name))
+                or (not cached_data or cached_data.get("role") != effective_role)
             )
             if profile_changed:
                 _USER_CACHE.pop(user_id, None)
@@ -416,9 +463,9 @@ def update_task(task_id: int, subject: str, description: str, due_date: str, use
     if not task:
         return False, "Задание не найдено"
 
-    # Проверка авторства: только автор может изменять задание
+    # Проверка авторства: изменять может автор задания или администратор
     task_author = task.get("user_id")
-    if user_id and task_author and int(task_author) != int(user_id):
+    if user_id and task_author and int(task_author) != int(user_id) and not _is_acting_admin(user_id):
         author_nick = task.get("author_nick") or f"ID {task_author}"
         return False, f"Изменять задание может только автор, который его опубликовал ({author_nick})"
 
@@ -459,9 +506,9 @@ def delete_task(task_id: int, user_id: Optional[int] = None) -> tuple[bool, str]
     if not task:
         return True, "Задание уже удалено"
 
-    # Проверка авторства: только автор может удалять задание
+    # Проверка авторства: удалять может автор задания или администратор
     task_author = task.get("user_id")
-    if user_id and task_author and int(task_author) != int(user_id):
+    if user_id and task_author and int(task_author) != int(user_id) and not _is_acting_admin(user_id):
         author_nick = task.get("author_nick") or f"ID {task_author}"
         return False, f"Удалять задание может только автор, который его опубликовал ({author_nick})"
 
@@ -1303,9 +1350,7 @@ def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
             comment_id = comment_id.get("id", 0)
         comment_id = int(comment_id)
         if user_id > 0:
-            user_res = client.table("users").select("role").eq("id", user_id).limit(1).execute()
-            is_admin = bool(user_res.data and user_res.data[0].get("role") == "admin")
-            if not is_admin:
+            if not _is_acting_admin(user_id):
                 chk = client.table("task_materials").select("uploader_id").eq("id", comment_id).limit(1).execute()
                 if not chk.data or chk.data[0].get("uploader_id") != user_id:
                     logger.warning(f"Unauthorized comment deletion attempt by user {user_id}")

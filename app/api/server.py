@@ -21,6 +21,7 @@ try:
         get_material_by_id,
         upsert_user,
         get_user,
+        get_all_users,
         is_using_supabase,
         get_notification_prefs,
         upsert_notification_prefs,
@@ -29,8 +30,11 @@ try:
         add_task_comment,
         get_task_comments,
         get_comments_count_batch,
-        delete_task_comment
+        delete_task_comment,
+        load_analytics_snapshot,
+        save_analytics_snapshot
     )
+    from app.database.admin_config import is_admin_identity, resolve_effective_role
 except ImportError:
     from db import (
         mark_task_done,
@@ -48,6 +52,7 @@ except ImportError:
         get_material_by_id,
         upsert_user,
         get_user,
+        get_all_users,
         is_using_supabase,
         get_notification_prefs,
         upsert_notification_prefs,
@@ -56,19 +61,29 @@ except ImportError:
         add_task_comment,
         get_task_comments,
         get_comments_count_batch,
-        delete_task_comment
+        delete_task_comment,
+        load_analytics_snapshot,
+        save_analytics_snapshot
     )
+    from admin_config import is_admin_identity, resolve_effective_role
 import uuid
 import os
 import json
 import gzip
 import io
+import time
+import threading
+from collections import deque
 import mimetypes
 import base64
 import hashlib
 import asyncio
 import logging
 from urllib.parse import quote
+import httpx
+from dotenv import load_dotenv
+
+load_dotenv()
 
 logger = logging.getLogger("server")
 
@@ -124,13 +139,51 @@ async def _prewarm_backend_caches():
     except Exception as e:
         logger.warning(f"Startup prewarm warning: {e}")
 
+_ANALYTICS_LOCK = threading.Lock()
+_ANALYTICS_STATE: Dict[str, Any] = {
+    "users": {},
+    "actions": {},
+    "recent": deque(maxlen=150),
+    "dirty": False,
+}
+
+def _hydrate_analytics():
+    users_map, actions_map = load_analytics_snapshot()
+    with _ANALYTICS_LOCK:
+        _ANALYTICS_STATE["users"].update(users_map)
+        _ANALYTICS_STATE["actions"].update(actions_map)
+
+def _flush_analytics_sync():
+    with _ANALYTICS_LOCK:
+        if not _ANALYTICS_STATE["dirty"]:
+            return
+        users_snapshot = [dict(v) for v in _ANALYTICS_STATE["users"].values()]
+        actions_snapshot = [dict(v) for v in _ANALYTICS_STATE["actions"].values()]
+        _ANALYTICS_STATE["dirty"] = False
+    save_analytics_snapshot(users_snapshot, actions_snapshot)
+
+async def run_periodic_analytics_flush():
+    """Периодически сбрасывает накопленную в RAM аналитику в WAL SQLite (0мс для пользователей)."""
+    while True:
+        await asyncio.sleep(15)
+        try:
+            await asyncio.to_thread(_flush_analytics_sync)
+        except Exception as e:
+            logger.warning(f"Analytics flush error: {e}")
+
 # ─────────────────────────────────────────────────────────────
 # ФОНОВАЯ АВТОМАТИЧЕСКАЯ ОЧИСТКА ЗАДАНИЙ СТАРШЕ 30 ДНЕЙ
 # ─────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def on_startup_tasks():
+    await asyncio.to_thread(_hydrate_analytics)
     asyncio.create_task(_prewarm_backend_caches())
     asyncio.create_task(run_periodic_cleanup_loop())
+    asyncio.create_task(run_periodic_analytics_flush())
+
+@app.on_event("shutdown")
+async def on_shutdown_tasks():
+    await asyncio.to_thread(_flush_analytics_sync)
 
 async def run_periodic_cleanup_loop():
     """Фоновый цикл автоочистки устаревших заданий (> 30 дней) каждые 12 часов."""
@@ -529,13 +582,10 @@ def _get_or_build_thumbnail(material_id: int, cached: Dict[str, Any], prefer_web
         return None
 
 
-@app.get("/api/materials/{material_id}/download")
-@app.get("/api/materials/{material_id}")
-def download_material(material_id: int, request: Request):
-    # 1. Проверяем быструю RAM память (моментальная отдача за ~0-1 мс)
+def _resolve_material_payload(material_id: int) -> Dict[str, Any]:
+    """Извлекает материал из RAM, локального кэша uploads/ или БД (без дублирования логики)."""
     cached = _MATERIAL_CACHE.get(material_id)
 
-    # 2. Если нет в RAM, проверяем диск uploads/ (сначала метаданные документов, затем кэш фото)
     if not cached:
         meta_path = os.path.join(_uploads_dir, f"cached_file_{material_id}.meta.json")
         if os.path.exists(meta_path):
@@ -564,36 +614,32 @@ def download_material(material_id: int, request: Request):
                 try:
                     with open(disk_path, "rb") as f:
                         data = f.read()
-                    etag = f'"{hashlib.md5(data).hexdigest()}"'
                     cached = {
                         "content": data,
                         "media_type": mime,
-                        "etag": etag,
-                        "filename": f"material_{material_id}{ext}"
+                        "etag": f'"{hashlib.md5(data).hexdigest()}"',
+                        "filename": f"material_{material_id}{ext}",
                     }
                     _MATERIAL_CACHE[material_id] = cached
                     break
                 except Exception:
                     pass
 
-    # 3. Если нет в кэше, достаем из БД (Supabase / SQLite) 1 раз
     if not cached:
         mat = get_material_by_id(material_id)
         if not mat:
             raise HTTPException(status_code=404, detail="Material not found")
 
-        # Проверяем, не является ли материал внешней ссылкой или документом [FILE]
         cap = mat.get("caption") or ""
         fid = mat.get("file_id") or ""
         if cap.startswith("[LINK]"):
             raw = cap[6:]
             link_url = raw.split("::", 1)[0].strip() if "::" in raw else raw.strip()
-            return RedirectResponse(url=link_url, status_code=302)
+            return {"redirect_url": link_url}
         elif fid.startswith(("http://", "https://")):
-            return RedirectResponse(url=fid, status_code=302)
+            return {"redirect_url": fid}
 
         is_doc_file = cap.startswith("[FILE]")
-        file_id = fid
         if is_doc_file:
             raw_file_meta = cap[6:]
             fname_part = raw_file_meta.rsplit("::", 1)[0] if "::" in raw_file_meta else raw_file_meta
@@ -605,20 +651,16 @@ def download_material(material_id: int, request: Request):
             media_type = "image/jpeg"
 
         content = None
-
-        if file_id.startswith("data:"):
+        if fid.startswith("data:"):
             try:
-                header, b64_data = file_id.split(",", 1)
+                header, b64_data = fid.split(",", 1)
                 parsed_mime = header.split(";")[0].replace("data:", "").strip()
-                if is_doc_file:
-                    media_type = guess_file_mime(filename, parsed_mime)
-                else:
-                    media_type = parsed_mime or "image/jpeg"
+                media_type = guess_file_mime(filename, parsed_mime) if is_doc_file else (parsed_mime or "image/jpeg")
                 content = base64.b64decode(b64_data)
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Failed to decode file data: {e}")
         else:
-            clean_path = file_id.lstrip("/")
+            clean_path = fid.lstrip("/")
             candidate_path = os.path.join(_root_dir, clean_path) if not os.path.isabs(clean_path) else clean_path
             base_upload_dir = os.path.abspath(_uploads_dir)
             abs_clean_path = os.path.abspath(candidate_path)
@@ -636,6 +678,17 @@ def download_material(material_id: int, request: Request):
             raise HTTPException(status_code=404, detail="File content not found")
 
         cached = _save_material_cache(material_id, content, media_type, filename, is_doc_file=is_doc_file)
+
+    return {"cached": cached}
+
+
+@app.get("/api/materials/{material_id}/download")
+@app.get("/api/materials/{material_id}")
+def download_material(material_id: int, request: Request):
+    resolved = _resolve_material_payload(material_id)
+    if "redirect_url" in resolved:
+        return RedirectResponse(url=resolved["redirect_url"], status_code=302)
+    cached = resolved["cached"]
 
     base_mime = (cached.get("media_type") or "application/octet-stream").split(";", 1)[0].strip().lower()
     want_thumb = request.query_params.get("thumb") == "1" and not request.url.path.endswith("/download")
@@ -664,7 +717,7 @@ def download_material(material_id: int, request: Request):
                 },
             )
 
-    # 4. Проверяем HTTP ETag (браузерный кэш 304 Not Modified без повторного скачивания)
+    # Проверяем HTTP ETag (браузерный кэш 304 Not Modified без повторного скачивания)
     client_etag = request.headers.get("if-none-match")
     if client_etag and client_etag == cached["etag"]:
         return Response(
@@ -675,7 +728,7 @@ def download_material(material_id: int, request: Request):
             }
         )
 
-    # 5. Отдаем материал с правильным Content-Disposition и долгосрочным кэшем (30 дней)
+    # Отдаем материал с правильным Content-Disposition и долгосрочным кэшем (30 дней)
     force_download = request.url.path.endswith("/download") or request.query_params.get("download") == "1"
     disp_mode = "attachment" if (force_download or base_mime not in _INLINE_SAFE_MIMES) else "inline"
     content_disp = build_content_disposition(
@@ -694,6 +747,68 @@ def download_material(material_id: int, request: Request):
             "X-Content-Type-Options": "nosniff",
         }
     )
+
+
+class SendToChatRequest(BaseModel):
+    user_id: int
+
+
+@app.post("/api/materials/{material_id}/send-to-chat")
+async def send_material_to_chat(material_id: int, req: SendToChatRequest):
+    """Отправляет файл или фото напрямую в личный чат пользователя в Telegram через бота."""
+    if req.user_id <= 0 or req.user_id == 12345:
+        return {"sent": False, "reason": "guest"}
+
+    bot_token = (os.getenv("BOT_TOKEN") or "").strip()
+    if not bot_token:
+        return {"sent": False, "reason": "no_bot_token"}
+
+    resolved = await asyncio.to_thread(_resolve_material_payload, material_id)
+    api_base = f"https://api.telegram.org/bot{bot_token}"
+
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        if "redirect_url" in resolved:
+            resp = await client.post(
+                f"{api_base}/sendMessage",
+                json={"chat_id": req.user_id, "text": f"🔗 {resolved['redirect_url']}"},
+            )
+            data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            if resp.status_code == 200 and data.get("ok"):
+                return {"sent": True, "kind": "link", "filename": resolved["redirect_url"]}
+            return {"sent": False, "reason": "start_bot" if resp.status_code in (400, 403) else "telegram_error"}
+
+        cached = resolved["cached"]
+        content = cached["content"]
+        base_mime = (cached.get("media_type") or "application/octet-stream").split(";", 1)[0].strip().lower()
+        filename = cached.get("filename") or f"material_{material_id}"
+        is_photo = base_mime in ("image/jpeg", "image/jpg", "image/png", "image/webp")
+
+        if is_photo:
+            resp = await client.post(
+                f"{api_base}/sendPhoto",
+                data={"chat_id": str(req.user_id), "caption": f"🖼 {filename}"[:1024]},
+                files={"photo": (filename, content, base_mime)},
+            )
+            data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+            if resp.status_code == 200 and data.get("ok"):
+                return {"sent": True, "kind": "photo", "filename": filename}
+            desc = str(data.get("description") or "").lower()
+            if resp.status_code == 403 or "chat not found" in desc or "blocked" in desc:
+                return {"sent": False, "reason": "start_bot"}
+
+        # Документы или фолбэк (если Telegram отклонил размер/пропорции как фото)
+        resp = await client.post(
+            f"{api_base}/sendDocument",
+            data={"chat_id": str(req.user_id), "caption": f"📎 {filename}"[:1024]},
+            files={"document": (filename, content, base_mime)},
+        )
+        data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+        if resp.status_code == 200 and data.get("ok"):
+            return {"sent": True, "kind": "document", "filename": filename}
+        desc = str(data.get("description") or "").lower()
+        if resp.status_code == 403 or "chat not found" in desc or "blocked" in desc:
+            return {"sent": False, "reason": "start_bot"}
+        return {"sent": False, "reason": "telegram_error", "detail": data.get("description") or f"HTTP {resp.status_code}"}
 
 class TaskDone(BaseModel):
     user_id: int
@@ -852,24 +967,60 @@ def api_delete_task_comment(comment_id: int, user_id: int = 0):
         raise HTTPException(status_code=403, detail="Cannot delete comment")
     return {"status": "deleted", "id": comment_id}
 
+def _is_admin_user(user_id: int = 0, admin_secret: Optional[str] = None) -> bool:
+    secret_required = (os.getenv("ADMIN_SECRET_KEY") or "").strip()
+    if secret_required and admin_secret and admin_secret == secret_required:
+        return True
+    if is_admin_identity(user_id=user_id):
+        return True
+    if user_id and int(user_id) > 0:
+        u = get_user(int(user_id))
+        if isinstance(u, dict) and is_admin_identity(
+            user_id=user_id,
+            telegram_nick=u.get("telegram_nick"),
+            role=u.get("role"),
+        ):
+            return True
+    return False
+
+
 class UserSync(BaseModel):
     user_id: int
     telegram_nick: Optional[str] = None
     full_name: Optional[str] = None
 
+
 @app.post('/api/user/sync')
 def sync_user(data: UserSync):
-    existing = get_user(data.user_id)
-    if existing and (
-        (not data.telegram_nick or existing.get("telegram_nick") == data.telegram_nick)
-        and (not data.full_name or existing.get("full_name") == data.full_name)
-    ):
-        return {"status": "ok", "role": existing.get("role", "student")}
+    clean_nick = (data.telegram_nick or "").strip() or None
+    if clean_nick and clean_nick.lower() in ("@ученик_10а", "@ник"):
+        clean_nick = None
+    clean_name = (data.full_name or "").strip() or None
+    if clean_name == "Ученик":
+        clean_name = None
 
-    upsert_user(data.user_id, telegram_nick=data.telegram_nick, full_name=data.full_name)
-    user_info = get_user(data.user_id) if not existing else existing
-    role = user_info.get("role", "student") if isinstance(user_info, dict) else "student"
-    return {"status": "ok", "role": role}
+    existing = get_user(data.user_id)
+    existing_role = existing.get("role") if isinstance(existing, dict) else None
+    existing_nick = existing.get("telegram_nick") if isinstance(existing, dict) else None
+    effective_role = resolve_effective_role(
+        user_id=data.user_id,
+        telegram_nick=clean_nick or existing_nick,
+        existing_role=existing_role,
+    )
+    if existing and (
+        (not clean_nick or existing.get("telegram_nick") == clean_nick)
+        and (not clean_name or existing.get("full_name") == clean_name)
+        and existing_role == effective_role
+    ):
+        return {"status": "ok", "role": effective_role}
+
+    upsert_user(
+        data.user_id,
+        telegram_nick=clean_nick,
+        full_name=clean_name,
+        role=effective_role,
+    )
+    return {"status": "ok", "role": effective_role}
 
 @app.post("/api/upload")
 async def upload_photos(
@@ -1088,4 +1239,243 @@ def api_cleanup_old_tasks(days: int = 30, admin_secret: Optional[str] = None):
         "deleted_tasks": deleted_count,
         "days_threshold": safe_days,
         "message": f"Очищено {deleted_count} заданий старше {safe_days} дней"
+    }
+
+# ─────────────────────────────────────────────────────────────
+# ЛЁГКАЯ ТЕЛЕМЕТРИЯ ПОСЕЩЕНИЙ, КЛИКОВ И ОНЛАЙН-СТАТУСА
+# ─────────────────────────────────────────────────────────────
+def _clean_real_name(val: str) -> str:
+    s = (val or "").strip()
+    if not s or s == "Ученик" or s.startswith("ID ") or s.startswith("Ученик #"):
+        return ""
+    return s
+
+
+def _clean_real_nick(val: str) -> str:
+    s = (val or "").strip()
+    if not s or s == "@ученик_10а":
+        return ""
+    return s
+
+
+@app.post("/api/analytics/events")
+async def ingest_analytics_events(request: Request):
+    """Принимает пакеты событий телеметрии (включая navigator.sendBeacon) за <1мс в RAM."""
+    try:
+        raw_body = await request.body()
+        if not raw_body:
+            return {"ok": True, "accepted": 0}
+        payload = json.loads(raw_body.decode("utf-8"))
+    except Exception:
+        return {"ok": False, "accepted": 0}
+
+    events = payload.get("events") if isinstance(payload, dict) else None
+    if not isinstance(events, list) or not events:
+        return {"ok": True, "accepted": 0}
+
+    top_uid = payload.get("user_id")
+    top_name = str(payload.get("name") or "").strip()[:120]
+    top_nick = str(payload.get("nick") or "").strip()[:80]
+    top_platform = str(payload.get("platform") or "Web").strip()[:24]
+    now = time.time()
+    accepted = 0
+
+    with _ANALYTICS_LOCK:
+        users_map = _ANALYTICS_STATE["users"]
+        actions_map = _ANALYTICS_STATE["actions"]
+        recent_feed = _ANALYTICS_STATE["recent"]
+
+        for ev in events[:40]:
+            if not isinstance(ev, dict):
+                continue
+            try:
+                uid = int(ev.get("user_id") if ev.get("user_id") is not None else (top_uid or 0))
+            except (TypeError, ValueError):
+                uid = 0
+            if uid <= 0:
+                continue
+
+            ev_type = str(ev.get("type") or "click").strip().lower()
+            ev_key = str(ev.get("key") or ev_type).strip()[:100]
+            ev_label = str(ev.get("label") or ev_key).strip()[:120]
+            u_name = str(ev.get("name") or top_name).strip()[:120]
+            u_nick = str(ev.get("nick") or top_nick).strip()[:80]
+            u_plat = str(ev.get("platform") or top_platform or "Web").strip()[:24]
+
+            u_entry = users_map.get(uid)
+            if not u_entry:
+                u_entry = {
+                    "user_id": uid,
+                    "name": u_name,
+                    "nick": u_nick,
+                    "platform": u_plat,
+                    "visits": 0,
+                    "clicks": 0,
+                    "last_seen": now,
+                    "first_seen": now,
+                    "last_action": "",
+                    "explicit_offline": False,
+                }
+                users_map[uid] = u_entry
+
+            clean_name = _clean_real_name(u_name)
+            clean_nick = _clean_real_nick(u_nick)
+            if clean_name:
+                u_entry["name"] = clean_name
+            if clean_nick:
+                u_entry["nick"] = clean_nick
+            if u_plat:
+                u_entry["platform"] = u_plat
+            if u_entry["first_seen"] <= 0:
+                u_entry["first_seen"] = now
+            u_entry["last_seen"] = now
+
+            if ev_type == "leave":
+                u_entry["explicit_offline"] = True
+            elif ev_type == "heartbeat":
+                u_entry["explicit_offline"] = False
+            elif ev_type == "visit":
+                u_entry["explicit_offline"] = False
+                u_entry["visits"] += 1
+                u_entry["last_action"] = ev_label or "Открыл приложение"
+                recent_feed.appendleft({
+                    "ts": now,
+                    "user_id": uid,
+                    "name": u_entry["name"] or u_nick or f"ID {uid}",
+                    "nick": u_entry["nick"],
+                    "type": "visit",
+                    "label": u_entry["last_action"],
+                    "platform": u_entry["platform"],
+                })
+            else:
+                u_entry["explicit_offline"] = False
+                u_entry["clicks"] += 1
+                u_entry["last_action"] = ev_label
+                act = actions_map.get(ev_key)
+                if not act:
+                    actions_map[ev_key] = {"key": ev_key, "label": ev_label, "clicks": 1}
+                else:
+                    if ev_label:
+                        act["label"] = ev_label
+                    act["clicks"] += 1
+                recent_feed.appendleft({
+                    "ts": now,
+                    "user_id": uid,
+                    "name": u_entry["name"] or u_nick or f"ID {uid}",
+                    "nick": u_entry["nick"],
+                    "type": "click",
+                    "label": ev_label,
+                    "platform": u_entry["platform"],
+                })
+            accepted += 1
+
+        if accepted > 0:
+            _ANALYTICS_STATE["dirty"] = True
+
+    return {"ok": True, "accepted": accepted}
+
+
+@app.get("/api/admin/analytics")
+def get_admin_analytics(user_id: int = 0, admin_secret: Optional[str] = None):
+    """Возвращает живую статистику посещений, кликов и онлайн-статусов для админ-панели."""
+    if not _is_admin_user(user_id, admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    now = time.time()
+    db_users_by_id: Dict[int, Dict[str, Any]] = {}
+    try:
+        for u in get_all_users() or []:
+            if u and u.get("id"):
+                db_users_by_id[int(u["id"])] = u
+    except Exception:
+        pass
+
+    with _ANALYTICS_LOCK:
+        users_snapshot = {k: dict(v) for k, v in _ANALYTICS_STATE["users"].items()}
+        actions_snapshot = [dict(v) for v in _ANALYTICS_STATE["actions"].values()]
+        recent_snapshot = list(_ANALYTICS_STATE["recent"])[:60]
+
+    # Объединяем известных пользователей из БД, чтобы показывать и тех, кто ещё не заходил после обновления
+    all_uids = set(users_snapshot.keys()) | set(db_users_by_id.keys())
+    users_list: List[Dict[str, Any]] = []
+    online_now = 0
+    recent_now = 0
+    total_visits = 0
+    total_clicks = 0
+    active_users = 0
+
+    for uid in all_uids:
+        db_u = db_users_by_id.get(uid) or {}
+        st = users_snapshot.get(uid) or {}
+        last_seen = float(st.get("last_seen") or 0.0)
+        visits = int(st.get("visits") or 0)
+        clicks = int(st.get("clicks") or 0)
+        explicit_offline = bool(st.get("explicit_offline"))
+
+        if visits > 0 or clicks > 0:
+            active_users += 1
+        total_visits += visits
+        total_clicks += clicks
+
+        age = (now - last_seen) if last_seen > 0 else 9999999.0
+        if last_seen > 0 and not explicit_offline and age <= 75:
+            presence = "online"
+            online_now += 1
+        elif last_seen > 0 and age <= 300:
+            presence = "recent"
+            recent_now += 1
+        else:
+            presence = "offline"
+
+        display_name = (
+            _clean_real_name(db_u.get("full_name") or "")
+            or _clean_real_name(st.get("name") or "")
+            or _clean_real_nick(db_u.get("telegram_nick") or "")
+            or _clean_real_nick(st.get("nick") or "")
+            or ("Гость (браузер)" if uid == 12345 else f"Ученик #{uid}")
+        )
+        display_nick = _clean_real_nick(db_u.get("telegram_nick") or "") or _clean_real_nick(st.get("nick") or "")
+
+        users_list.append({
+            "user_id": uid,
+            "name": display_name,
+            "nick": display_nick,
+            "platform": st.get("platform") or ("TG Bot" if uid in db_users_by_id else "Web"),
+            "visits": visits,
+            "clicks": clicks,
+            "last_seen": last_seen,
+            "seconds_ago": int(age) if last_seen > 0 else None,
+            "last_action": st.get("last_action") or "",
+            "presence": presence,
+        })
+
+    # Сортируем: сначала онлайн -> недавние -> по времени последней активности
+    presence_rank = {"online": 0, "recent": 1, "offline": 2}
+    users_list.sort(key=lambda u: (presence_rank.get(u["presence"], 2), -(u["last_seen"] or 0.0), -u["visits"], -u["clicks"]))
+
+    actions_snapshot.sort(key=lambda a: -int(a.get("clicks") or 0))
+    for item in recent_snapshot:
+        uid = item.get("user_id")
+        db_u = db_users_by_id.get(uid) or {}
+        real_name = _clean_real_name(db_u.get("full_name") or "") or _clean_real_name(item.get("name") or "")
+        if real_name:
+            item["name"] = real_name
+        real_nick = _clean_real_nick(db_u.get("telegram_nick") or "") or _clean_real_nick(item.get("nick") or "")
+        item["nick"] = real_nick
+        item["seconds_ago"] = max(0, int(now - float(item.get("ts") or now)))
+
+    return {
+        "status": "ok",
+        "server_time": now,
+        "summary": {
+            "online_now": online_now,
+            "recent_now": recent_now,
+            "total_visits": total_visits,
+            "total_clicks": total_clicks,
+            "active_users": active_users,
+            "registered_users": len(db_users_by_id),
+        },
+        "top_actions": actions_snapshot[:20],
+        "users": users_list,
+        "recent_feed": recent_snapshot,
     }

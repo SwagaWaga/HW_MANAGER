@@ -4,8 +4,10 @@ from typing import Optional, List, Dict, Any, Tuple
 
 try:
     from app.database import supabase_db
+    from app.database.admin_config import is_admin_identity, resolve_effective_role
 except ImportError:
     import supabase_db
+    from admin_config import is_admin_identity, resolve_effective_role
 
 logger = logging.getLogger(__name__)
 
@@ -148,6 +150,29 @@ def init_db():
         except Exception:
             pass
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS analytics_users (
+        user_id INTEGER PRIMARY KEY,
+        name TEXT,
+        nick TEXT,
+        platform TEXT DEFAULT 'Web',
+        visits INTEGER DEFAULT 0,
+        clicks INTEGER DEFAULT 0,
+        last_seen REAL DEFAULT 0,
+        first_seen REAL DEFAULT 0,
+        last_action TEXT DEFAULT '',
+        status TEXT DEFAULT 'offline'
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS analytics_actions (
+        action_key TEXT PRIMARY KEY,
+        label TEXT,
+        clicks INTEGER DEFAULT 0
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -156,27 +181,54 @@ def init_db():
     else:
         logger.info("📁 Using local SQLite database (homework.db)")
 
-def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Optional[str] = None, role: str = 'student', class_name: str = '10-А'):
-    try:
-        from app.services.sync_service import sync_global_user
-        sync_global_user(user_id, telegram_nick=telegram_nick, full_name=full_name, role=role, class_name=class_name, source="sqlite")
-    except Exception:
-        pass
+def _is_sqlite_admin(cursor, user_id: Optional[int]) -> bool:
+    if not user_id:
+        return False
+    if is_admin_identity(user_id=user_id):
+        return True
+    cursor.execute("SELECT role, telegram_nick FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    return bool(row and is_admin_identity(user_id=user_id, role=row[0], telegram_nick=row[1]))
+
+
+def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Optional[str] = None, role: Optional[str] = None, class_name: str = '10-А'):
+    if telegram_nick and telegram_nick.strip().lower() in ("@ученик_10а", "@ник"):
+        telegram_nick = None
+    if full_name and full_name.strip() == "Ученик":
+        full_name = None
 
     if is_using_supabase():
         return supabase_db.upsert_user(user_id, telegram_nick, full_name, role, class_name)
-    
+
     conn = sqlite3.connect(DB_NAME, timeout=15.0)
     cursor = conn.cursor()
+    cursor.execute("SELECT role, telegram_nick FROM users WHERE id = ?", (user_id,))
+    existing_row = cursor.fetchone()
+    existing_role = existing_row[0] if existing_row else None
+    existing_nick = existing_row[1] if existing_row else None
+
+    effective_role = resolve_effective_role(
+        user_id=user_id,
+        telegram_nick=telegram_nick or existing_nick,
+        requested_role=role,
+        existing_role=existing_role,
+    )
+
+    try:
+        from app.services.sync_service import sync_global_user
+        sync_global_user(user_id, telegram_nick=telegram_nick, full_name=full_name, role=effective_role, class_name=class_name, source="sqlite")
+    except Exception:
+        pass
+
     cursor.execute("""
     INSERT INTO users (id, telegram_nick, full_name, role, class_name)
     VALUES (?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
         telegram_nick = COALESCE(excluded.telegram_nick, users.telegram_nick),
         full_name = COALESCE(excluded.full_name, users.full_name),
-        role = excluded.role,
+        role = CASE WHEN users.role = 'admin' THEN 'admin' ELSE excluded.role END,
         class_name = excluded.class_name
-    """, (user_id, telegram_nick, full_name, role, class_name))
+    """, (user_id, telegram_nick, full_name, effective_role, class_name))
     conn.commit()
     conn.close()
 
@@ -307,18 +359,19 @@ def update_task(task_id: int, subject: str, description: str, due_date: str, use
     if not task:
         return False, "Задание не найдено"
 
-    # Проверка прав: изменять может только автор задания или админ
+    conn = sqlite3.connect(DB_NAME, timeout=15.0)
+    cursor = conn.cursor()
+
+    # Проверка прав: изменять может автор задания или администратор
     task_author = task.get("user_id")
-    if user_id and task_author and int(task_author) != int(user_id):
+    if user_id and task_author and int(task_author) != int(user_id) and not _is_sqlite_admin(cursor, user_id):
+        conn.close()
         author_nick = task.get("author_nick") or f"ID {task_author}"
         return False, f"Изменять задание может только автор, который его опубликовал ({author_nick})"
 
     import datetime
     now_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
     clean_editor_name = editor_name or task.get("author_name") or task.get("author_nick") or "Редактор"
-
-    conn = sqlite3.connect(DB_NAME, timeout=15.0)
-    cursor = conn.cursor()
     cursor.execute("""
         UPDATE tasks
         SET subject = ?, description = ?, due_date = ?,
@@ -337,14 +390,15 @@ def delete_task(task_id: int, user_id: Optional[int] = None) -> tuple[bool, str]
     if not task:
         return True, "Задание уже удалено"
 
-    # Проверка прав: удалять может только автор задания
-    task_author = task.get("user_id")
-    if user_id and task_author and int(task_author) != int(user_id):
-        author_nick = task.get("author_nick") or f"ID {task_author}"
-        return False, f"Удалять задание может только автор, который его опубликовал ({author_nick})"
-
     conn = sqlite3.connect(DB_NAME, timeout=15.0)
     cursor = conn.cursor()
+
+    # Проверка прав: удалять может автор задания или администратор
+    task_author = task.get("user_id")
+    if user_id and task_author and int(task_author) != int(user_id) and not _is_sqlite_admin(cursor, user_id):
+        conn.close()
+        author_nick = task.get("author_nick") or f"ID {task_author}"
+        return False, f"Удалять задание может только автор, который его опубликовал ({author_nick})"
     cursor.execute("DELETE FROM task_materials WHERE task_id = ?", (task_id,))
     cursor.execute("DELETE FROM user_completions WHERE task_id = ?", (task_id,))
     cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
@@ -1111,9 +1165,7 @@ def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
         conn = sqlite3.connect(DB_NAME, timeout=15.0)
         cursor = conn.cursor()
         if user_id > 0:
-            cursor.execute("SELECT role FROM users WHERE id = ?", (user_id,))
-            u_row = cursor.fetchone()
-            is_admin = bool(u_row and u_row[0] == "admin")
+            is_admin = _is_sqlite_admin(cursor, user_id)
             if not is_admin:
                 cursor.execute("SELECT user_id FROM task_comments WHERE id = ?", (comment_id,))
                 c_row = cursor.fetchone()
@@ -1127,5 +1179,103 @@ def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
     except Exception as e:
         logger.error(f"Error in SQLite delete_task_comment: {e}")
         return False
+
+def load_analytics_snapshot() -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
+    """Загружает сохранённую статистику посещений и кликов из локальной WAL SQLite."""
+    users_map: Dict[int, Dict[str, Any]] = {}
+    actions_map: Dict[str, Dict[str, Any]] = {}
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=10.0)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute("SELECT user_id, name, nick, platform, visits, clicks, last_seen, first_seen, last_action, status FROM analytics_users")
+        for r in cur.fetchall():
+            uid = int(r["user_id"])
+            users_map[uid] = {
+                "user_id": uid,
+                "name": r["name"] or "",
+                "nick": r["nick"] or "",
+                "platform": r["platform"] or "Web",
+                "visits": int(r["visits"] or 0),
+                "clicks": int(r["clicks"] or 0),
+                "last_seen": float(r["last_seen"] or 0.0),
+                "first_seen": float(r["first_seen"] or 0.0),
+                "last_action": r["last_action"] or "",
+                "explicit_offline": (r["status"] == "offline"),
+            }
+        cur.execute("SELECT action_key, label, clicks FROM analytics_actions")
+        for r in cur.fetchall():
+            k = str(r["action_key"])
+            actions_map[k] = {
+                "key": k,
+                "label": r["label"] or k,
+                "clicks": int(r["clicks"] or 0),
+            }
+        conn.close()
+    except Exception as e:
+        logger.warning(f"load_analytics_snapshot note: {e}")
+    return users_map, actions_map
+
+def save_analytics_snapshot(users_items: List[Dict[str, Any]], actions_items: List[Dict[str, Any]]) -> None:
+    """Атомарно сохраняет накопленную аналитику в локальную SQLite (вне горячего пути HTTP)."""
+    if not users_items and not actions_items:
+        return
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=10.0)
+        cur = conn.cursor()
+        if users_items:
+            cur.executemany(
+                """
+                INSERT INTO analytics_users (user_id, name, nick, platform, visits, clicks, last_seen, first_seen, last_action, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    name = CASE WHEN excluded.name != '' THEN excluded.name ELSE analytics_users.name END,
+                    nick = CASE WHEN excluded.nick != '' THEN excluded.nick ELSE analytics_users.nick END,
+                    platform = COALESCE(NULLIF(excluded.platform, ''), analytics_users.platform),
+                    visits = MAX(analytics_users.visits, excluded.visits),
+                    clicks = MAX(analytics_users.clicks, excluded.clicks),
+                    last_seen = MAX(analytics_users.last_seen, excluded.last_seen),
+                    first_seen = CASE
+                        WHEN analytics_users.first_seen <= 0 THEN excluded.first_seen
+                        WHEN excluded.first_seen <= 0 THEN analytics_users.first_seen
+                        ELSE MIN(analytics_users.first_seen, excluded.first_seen)
+                    END,
+                    last_action = CASE WHEN excluded.last_action != '' THEN excluded.last_action ELSE analytics_users.last_action END,
+                    status = excluded.status
+                """,
+                [
+                    (
+                        int(u["user_id"]),
+                        str(u.get("name") or "")[:120],
+                        str(u.get("nick") or "")[:80],
+                        str(u.get("platform") or "Web")[:24],
+                        int(u.get("visits") or 0),
+                        int(u.get("clicks") or 0),
+                        float(u.get("last_seen") or 0.0),
+                        float(u.get("first_seen") or 0.0),
+                        str(u.get("last_action") or "")[:140],
+                        "offline" if u.get("explicit_offline") else "online",
+                    )
+                    for u in users_items
+                ],
+            )
+        if actions_items:
+            cur.executemany(
+                """
+                INSERT INTO analytics_actions (action_key, label, clicks)
+                VALUES (?, ?, ?)
+                ON CONFLICT(action_key) DO UPDATE SET
+                    label = CASE WHEN excluded.label != '' THEN excluded.label ELSE analytics_actions.label END,
+                    clicks = MAX(analytics_actions.clicks, excluded.clicks)
+                """,
+                [
+                    (str(a["key"])[:100], str(a.get("label") or a["key"])[:120], int(a.get("clicks") or 0))
+                    for a in actions_items
+                ],
+            )
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"save_analytics_snapshot note: {e}")
 
 init_db()
