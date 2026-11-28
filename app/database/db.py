@@ -1196,8 +1196,61 @@ def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
         logger.error(f"Error in SQLite delete_task_comment: {e}")
         return False
 
+def _merge_analytics_maps(
+    base_users: Dict[int, Dict[str, Any]],
+    extra_users: Dict[int, Dict[str, Any]],
+    base_actions: Dict[str, Dict[str, Any]],
+    extra_actions: Dict[str, Dict[str, Any]],
+    base_events: List[Dict[str, Any]],
+    extra_events: List[Dict[str, Any]],
+    event_limit: int = 1500,
+) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    for uid, u in extra_users.items():
+        cur = base_users.get(uid)
+        if not cur:
+            base_users[uid] = dict(u)
+            continue
+        cur["visits"] = max(int(cur.get("visits") or 0), int(u.get("visits") or 0))
+        cur["clicks"] = max(int(cur.get("clicks") or 0), int(u.get("clicks") or 0))
+        if float(u.get("last_seen") or 0.0) >= float(cur.get("last_seen") or 0.0):
+            cur["last_seen"] = float(u.get("last_seen") or 0.0)
+            if u.get("last_action"):
+                cur["last_action"] = u["last_action"]
+            cur["explicit_offline"] = bool(u.get("explicit_offline"))
+            if u.get("platform"):
+                cur["platform"] = u["platform"]
+        f_cur = float(cur.get("first_seen") or 0.0)
+        f_ext = float(u.get("first_seen") or 0.0)
+        if f_ext > 0 and (f_cur <= 0 or f_ext < f_cur):
+            cur["first_seen"] = f_ext
+        if u.get("name") and not cur.get("name"):
+            cur["name"] = u["name"]
+        if u.get("nick") and not cur.get("nick"):
+            cur["nick"] = u["nick"]
+
+    for k, a in extra_actions.items():
+        cur_a = base_actions.get(k)
+        if not cur_a:
+            base_actions[k] = dict(a)
+        else:
+            cur_a["clicks"] = max(int(cur_a.get("clicks") or 0), int(a.get("clicks") or 0))
+            if a.get("label") and not cur_a.get("label"):
+                cur_a["label"] = a["label"]
+
+    seen = set()
+    merged: List[Dict[str, Any]] = []
+    for ev in base_events + extra_events:
+        sig = (round(float(ev.get("ts") or 0.0), 2), int(ev.get("user_id") or 0), str(ev.get("type") or ""), str(ev.get("key") or ""))
+        if sig in seen:
+            continue
+        seen.add(sig)
+        merged.append(ev)
+    merged.sort(key=lambda x: float(x.get("ts") or 0.0))
+    return base_users, base_actions, merged[-int(event_limit):]
+
+
 def load_analytics_snapshot(event_limit: int = 1500) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
-    """Загружает сохранённую статистику посещений, кликов и журнал событий из WAL SQLite."""
+    """Загружает аналитику из WAL SQLite и постоянного хранилища Supabase (чтобы переживать деплои)."""
     users_map: Dict[int, Dict[str, Any]] = {}
     actions_map: Dict[str, Dict[str, Any]] = {}
     log_events: List[Dict[str, Any]] = []
@@ -1245,6 +1298,16 @@ def load_analytics_snapshot(event_limit: int = 1500) -> Tuple[Dict[int, Dict[str
         conn.close()
     except Exception as e:
         logger.warning(f"load_analytics_snapshot note: {e}")
+
+    if is_using_supabase():
+        try:
+            sb_u, sb_a, sb_e = supabase_db.load_analytics_snapshot_supabase()
+            users_map, actions_map, log_events = _merge_analytics_maps(
+                users_map, sb_u, actions_map, sb_a, log_events, sb_e, event_limit=event_limit
+            )
+        except Exception as e:
+            logger.warning(f"Supabase analytics hydrate note: {e}")
+
     return users_map, actions_map, log_events
 
 
@@ -1252,8 +1315,9 @@ def save_analytics_snapshot(
     users_items: List[Dict[str, Any]],
     actions_items: List[Dict[str, Any]],
     new_events: Optional[List[Dict[str, Any]]] = None,
+    all_events: Optional[List[Dict[str, Any]]] = None,
 ) -> None:
-    """Атомарно сохраняет статистику и новые события телеметрии в WAL SQLite (вне горячего пути HTTP)."""
+    """Атомарно сохраняет статистику в локальную WAL SQLite и постоянный снимок Supabase (вне HTTP-потока)."""
     if not users_items and not actions_items and not new_events:
         return
     try:
@@ -1339,9 +1403,16 @@ def save_analytics_snapshot(
     except Exception as e:
         logger.warning(f"save_analytics_snapshot note: {e}")
 
+    if is_using_supabase():
+        try:
+            events_for_sb = all_events if all_events is not None else (new_events or [])
+            supabase_db.save_analytics_snapshot_supabase(users_items, actions_items, events_for_sb)
+        except Exception as e:
+            logger.warning(f"Supabase analytics save note: {e}")
+
 
 def clear_analytics_snapshot() -> None:
-    """Полностью очищает накопленную локальную аналитику для начала нового периода сбора."""
+    """Полностью очищает локальную аналитику и снимок Supabase для нового периода сбора."""
     try:
         conn = sqlite3.connect(DB_NAME, timeout=10.0)
         cur = conn.cursor()
@@ -1352,5 +1423,17 @@ def clear_analytics_snapshot() -> None:
         conn.close()
     except Exception as e:
         logger.warning(f"clear_analytics_snapshot note: {e}")
+    if is_using_supabase():
+        try:
+            supabase_db.clear_analytics_snapshot_supabase()
+        except Exception as e:
+            logger.warning(f"Supabase clear analytics note: {e}")
+
+
+def get_historical_activity(limit: int = 250) -> Dict[str, Any]:
+    """Возвращает историческую активность учеников из постоянных таблиц Supabase."""
+    if is_using_supabase():
+        return supabase_db.get_supabase_historical_activity(limit=limit)
+    return {"events": [], "users_summary": []}
 
 init_db()

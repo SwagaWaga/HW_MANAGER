@@ -332,7 +332,7 @@ def _get_cached_feed_and_completions(
                             needed_uids.add(r["user_id"])
                     for r in mats_rows:
                         cap = r.get("caption") or ""
-                        if not cap.startswith("[COMMENT]") and r.get("uploader_id") and r["uploader_id"] not in users_map:
+                        if not cap.startswith(("[COMMENT]", "[ANALYTICS")) and r.get("uploader_id") and r["uploader_id"] not in users_map:
                             needed_uids.add(r["uploader_id"])
                     if needed_uids:
                         try:
@@ -920,7 +920,7 @@ def get_leaderboard(class_name: str = "10-А", force_refresh: bool = False) -> L
         with ThreadPoolExecutor(max_workers=4) as pool:
             f_users = pool.submit(lambda: client.table("users").select("id, telegram_nick, full_name, role, class_name").execute())
             f_tasks = pool.submit(lambda: client.table("tasks").select("user_id").execute())
-            f_mats = pool.submit(lambda: client.table("task_materials").select("uploader_id").execute())
+            f_mats = pool.submit(lambda: client.table("task_materials").select("uploader_id, caption").execute())
             f_comps = pool.submit(lambda: client.table("user_completions").select("user_id").execute())
             users_res = f_users.result()
             tasks_res = f_tasks.result()
@@ -928,9 +928,12 @@ def get_leaderboard(class_name: str = "10-А", force_refresh: bool = False) -> L
             comps_res = f_comps.result()
         users_map = {u["id"]: u for u in (users_res.data or [])}
 
-        t_counts = Counter(t["user_id"] for t in (tasks_res.data or []))
-        m_counts = Counter(m["uploader_id"] for m in (materials_res.data or []))
-        c_counts = Counter(c["user_id"] for c in (comps_res.data or []))
+        t_counts = Counter(t["user_id"] for t in (tasks_res.data or []) if t.get("user_id"))
+        m_counts = Counter(
+            m["uploader_id"] for m in (materials_res.data or [])
+            if m.get("uploader_id") and not str(m.get("caption") or "").startswith("[ANALYTICS")
+        )
+        c_counts = Counter(c["user_id"] for c in (comps_res.data or []) if c.get("user_id"))
 
         all_ids = set(users_map.keys()) | set(t_counts.keys()) | set(m_counts.keys()) | set(c_counts.keys())
         leaderboard = []
@@ -1361,4 +1364,271 @@ def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
     except Exception as e:
         logger.error(f"Error in Supabase delete_task_comment: {e}")
         return False
+
+
+ANALYTICS_SNAPSHOT_CAPTION = "[ANALYTICS_SNAPSHOT]"
+_ANALYTICS_ROW_LOCK = threading.Lock()
+_ANALYTICS_ROW_ID: Optional[int] = None
+
+
+def _parse_iso_to_epoch(val: Optional[str]) -> float:
+    if not val:
+        return 0.0
+    try:
+        from datetime import datetime as _dt
+        s = str(val).strip()
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        return _dt.fromisoformat(s).timestamp()
+    except Exception:
+        return 0.0
+
+
+def load_analytics_snapshot_supabase() -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    """Загружает сохранённый снимок аналитики из постоянной таблицы Supabase (переживает деплои Render)."""
+    global _ANALYTICS_ROW_ID
+    users_map: Dict[int, Dict[str, Any]] = {}
+    actions_map: Dict[str, Dict[str, Any]] = {}
+    log_events: List[Dict[str, Any]] = []
+    client = get_supabase_client()
+    if not client:
+        return users_map, actions_map, log_events
+
+    try:
+        res = (
+            client.table("task_materials")
+            .select("id, file_id")
+            .eq("caption", ANALYTICS_SNAPSHOT_CAPTION)
+            .is_("task_id", "null")
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        rows = res.data or []
+        if not rows:
+            return users_map, actions_map, log_events
+        row = rows[0]
+        with _ANALYTICS_ROW_LOCK:
+            _ANALYTICS_ROW_ID = int(row["id"])
+        raw_json = row.get("file_id") or ""
+        if not raw_json or not raw_json.startswith("{"):
+            return users_map, actions_map, log_events
+        data = json.loads(raw_json)
+        for u in data.get("users") or []:
+            uid = int(u.get("user_id") or 0)
+            if uid <= 0:
+                continue
+            users_map[uid] = {
+                "user_id": uid,
+                "name": str(u.get("name") or "")[:120],
+                "nick": str(u.get("nick") or "")[:80],
+                "platform": str(u.get("platform") or "Web")[:24],
+                "visits": int(u.get("visits") or 0),
+                "clicks": int(u.get("clicks") or 0),
+                "last_seen": float(u.get("last_seen") or 0.0),
+                "first_seen": float(u.get("first_seen") or 0.0),
+                "last_action": str(u.get("last_action") or "")[:140],
+                "explicit_offline": bool(u.get("explicit_offline")),
+            }
+        for a in data.get("actions") or []:
+            k = str(a.get("key") or "")[:100]
+            if not k:
+                continue
+            actions_map[k] = {
+                "key": k,
+                "label": str(a.get("label") or k)[:120],
+                "clicks": int(a.get("clicks") or 0),
+            }
+        for ev in data.get("events") or []:
+            uid = int(ev.get("user_id") or 0)
+            if uid <= 0:
+                continue
+            log_events.append({
+                "ts": float(ev.get("ts") or 0.0),
+                "user_id": uid,
+                "type": str(ev.get("type") or "click")[:24],
+                "key": str(ev.get("key") or "")[:100],
+                "label": str(ev.get("label") or "")[:140],
+                "platform": str(ev.get("platform") or "Web")[:24],
+            })
+    except Exception as e:
+        logger.warning(f"load_analytics_snapshot_supabase note: {e}")
+    return users_map, actions_map, log_events
+
+
+def save_analytics_snapshot_supabase(
+    users_items: List[Dict[str, Any]],
+    actions_items: List[Dict[str, Any]],
+    events_items: List[Dict[str, Any]],
+) -> bool:
+    """Атомарно сохраняет снимок аналитики в Supabase, чтобы статистика не сбрасывалась при деплое."""
+    global _ANALYTICS_ROW_ID
+    client = get_supabase_client()
+    if not client:
+        return False
+
+    try:
+        compact_events = events_items[-700:]
+        payload = {
+            "v": 1,
+            "saved_at": time.time(),
+            "users": users_items,
+            "actions": actions_items,
+            "events": compact_events,
+        }
+        raw_str = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+        if len(raw_str) > 850_000:
+            payload["events"] = compact_events[-350:]
+            raw_str = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+
+        with _ANALYTICS_ROW_LOCK:
+            row_id = _ANALYTICS_ROW_ID
+
+        if row_id:
+            upd = client.table("task_materials").update({"file_id": raw_str}).eq("id", row_id).execute()
+            if upd.data:
+                return True
+
+        existing = (
+            client.table("task_materials")
+            .select("id")
+            .eq("caption", ANALYTICS_SNAPSHOT_CAPTION)
+            .is_("task_id", "null")
+            .order("id", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if existing.data:
+            found_id = int(existing.data[0]["id"])
+            with _ANALYTICS_ROW_LOCK:
+                _ANALYTICS_ROW_ID = found_id
+            client.table("task_materials").update({"file_id": raw_str}).eq("id", found_id).execute()
+            return True
+
+        ins = client.table("task_materials").insert({
+            "task_id": None,
+            "file_id": raw_str,
+            "caption": ANALYTICS_SNAPSHOT_CAPTION,
+            "uploader_id": None,
+        }).execute()
+        if ins.data:
+            with _ANALYTICS_ROW_LOCK:
+                _ANALYTICS_ROW_ID = int(ins.data[0]["id"])
+        return True
+    except Exception as e:
+        logger.warning(f"save_analytics_snapshot_supabase note: {e}")
+        return False
+
+
+def clear_analytics_snapshot_supabase() -> None:
+    """Удаляет сохранённый снимок аналитики из Supabase по кнопке сброса администратора."""
+    global _ANALYTICS_ROW_ID
+    client = get_supabase_client()
+    if not client:
+        return
+    try:
+        client.table("task_materials").delete().eq("caption", ANALYTICS_SNAPSHOT_CAPTION).is_("task_id", "null").execute()
+        with _ANALYTICS_ROW_LOCK:
+            _ANALYTICS_ROW_ID = None
+    except Exception as e:
+        logger.warning(f"clear_analytics_snapshot_supabase note: {e}")
+
+
+def get_supabase_historical_activity(limit: int = 250) -> Dict[str, Any]:
+    """Восстанавливает реальную историю действий из постоянных таблиц Supabase (users, tasks, completions, materials)."""
+    client = get_supabase_client()
+    if not client:
+        return {"events": [], "users_summary": []}
+
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            f_u = pool.submit(lambda: client.table("users").select("id, telegram_nick, full_name, created_at, updated_at").execute())
+            f_t = pool.submit(lambda: client.table("tasks").select("id, user_id, subject, created_at").execute())
+            f_c = pool.submit(lambda: client.table("user_completions").select("user_id, task_id, completed_at").execute())
+            f_m = pool.submit(lambda: client.table("task_materials").select("id, task_id, uploader_id, caption, created_at").execute())
+            users_rows = f_u.result().data or []
+            tasks_rows = f_t.result().data or []
+            comps_rows = f_c.result().data or []
+            mats_rows = f_m.result().data or []
+
+        users_by_id = {int(u["id"]): u for u in users_rows if u.get("id")}
+        task_subj_by_id = {int(t["id"]): (t.get("subject") or "Д/З") for t in tasks_rows if t.get("id")}
+
+        events: List[Dict[str, Any]] = []
+        user_stats: Dict[int, Dict[str, Any]] = {}
+
+        def _touch(uid: Optional[int], ts: float, label: str, kind: str) -> None:
+            if not uid or ts <= 0:
+                return
+            u_int = int(uid)
+            events.append({"ts": ts, "user_id": u_int, "kind": kind, "label": label})
+            st = user_stats.setdefault(u_int, {"last_seen": 0.0, "last_action": "", "db_actions": 0})
+            st["db_actions"] += 1
+            if ts >= st["last_seen"]:
+                st["last_seen"] = ts
+                st["last_action"] = label
+
+        for u in users_rows:
+            uid = u.get("id")
+            cr = _parse_iso_to_epoch(u.get("created_at"))
+            up = _parse_iso_to_epoch(u.get("updated_at"))
+            if cr > 0:
+                _touch(uid, cr, "Первый вход / регистрация", "signup")
+            if up > cr + 60:
+                _touch(uid, up, "Вход / обновление профиля", "sync")
+
+        for t in tasks_rows:
+            ts = _parse_iso_to_epoch(t.get("created_at"))
+            subj = t.get("subject") or "Д/З"
+            _touch(t.get("user_id"), ts, f"Добавил Д/З: {subj}", "task")
+
+        for c in comps_rows:
+            ts = _parse_iso_to_epoch(c.get("completed_at"))
+            subj = task_subj_by_id.get(int(c.get("task_id") or 0), "Д/З")
+            _touch(c.get("user_id"), ts, f"Отметил выполненным: {subj}", "completion")
+
+        for m in mats_rows:
+            cap = str(m.get("caption") or "")
+            if cap.startswith("[ANALYTICS"):
+                continue
+            ts = _parse_iso_to_epoch(m.get("created_at"))
+            subj = task_subj_by_id.get(int(m.get("task_id") or 0), "Д/З")
+            if cap.startswith("[COMMENT]"):
+                _touch(m.get("uploader_id"), ts, f"Комментарий к Д/З ({subj})", "comment")
+            else:
+                _touch(m.get("uploader_id"), ts, f"Загрузил материал к Д/З ({subj})", "material")
+
+        events.sort(key=lambda e: e["ts"])
+        if limit > 0:
+            events = events[-int(limit):]
+
+        enriched_events = []
+        for ev in events:
+            u_info = users_by_id.get(ev["user_id"]) or {}
+            enriched_events.append({
+                "ts": ev["ts"],
+                "user_id": ev["user_id"],
+                "name": (u_info.get("full_name") or u_info.get("telegram_nick") or f"Ученик #{ev['user_id']}"),
+                "nick": u_info.get("telegram_nick") or "",
+                "kind": ev["kind"],
+                "label": ev["label"],
+            })
+
+        users_summary = []
+        for uid, st in user_stats.items():
+            u_info = users_by_id.get(uid) or {}
+            users_summary.append({
+                "user_id": uid,
+                "name": (u_info.get("full_name") or u_info.get("telegram_nick") or f"Ученик #{uid}"),
+                "nick": u_info.get("telegram_nick") or "",
+                "last_seen": st["last_seen"],
+                "last_action": st["last_action"],
+                "db_actions": st["db_actions"],
+            })
+        users_summary.sort(key=lambda x: -x["last_seen"])
+
+        return {"events": enriched_events, "users_summary": users_summary}
+    except Exception as e:
+        logger.warning(f"get_supabase_historical_activity note: {e}")
+        return {"events": [], "users_summary": []}
 

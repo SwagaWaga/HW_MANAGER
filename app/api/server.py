@@ -33,7 +33,8 @@ try:
         delete_task_comment,
         load_analytics_snapshot,
         save_analytics_snapshot,
-        clear_analytics_snapshot
+        clear_analytics_snapshot,
+        get_historical_activity
     )
     from app.database.admin_config import is_admin_identity, resolve_effective_role
 except ImportError:
@@ -65,7 +66,8 @@ except ImportError:
         delete_task_comment,
         load_analytics_snapshot,
         save_analytics_snapshot,
-        clear_analytics_snapshot
+        clear_analytics_snapshot,
+        get_historical_activity
     )
     from admin_config import is_admin_identity, resolve_effective_role
 import uuid
@@ -165,9 +167,10 @@ def _flush_analytics_sync():
         users_snapshot = [dict(v) for v in _ANALYTICS_STATE["users"].values()]
         actions_snapshot = [dict(v) for v in _ANALYTICS_STATE["actions"].values()]
         pending_snapshot = list(_ANALYTICS_STATE["pending_events"])
+        all_events_snapshot = list(_ANALYTICS_STATE["events"])
         _ANALYTICS_STATE["pending_events"].clear()
         _ANALYTICS_STATE["dirty"] = False
-    save_analytics_snapshot(users_snapshot, actions_snapshot, pending_snapshot)
+    save_analytics_snapshot(users_snapshot, actions_snapshot, pending_snapshot, all_events=all_events_snapshot)
 
 async def run_periodic_analytics_flush():
     """Периодически сбрасывает накопленную в RAM аналитику в WAL SQLite (0мс для пользователей)."""
@@ -1593,11 +1596,35 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
         for d in sorted(daily_map.keys())
     ]
 
+    sb_hist_raw = get_historical_activity(limit=150)
+    sb_hist_users = [
+        {
+            "user_id": u["user_id"],
+            "name": u["name"],
+            "nick": u["nick"],
+            "last_seen": _fmt_local_dt(float(u.get("last_seen") or 0.0)),
+            "last_action": u.get("last_action") or "",
+            "db_actions": int(u.get("db_actions") or 0),
+        }
+        for u in (sb_hist_raw.get("users_summary") or [])
+    ]
+    sb_hist_events = [
+        {
+            "time": _fmt_local_dt(float(ev.get("ts") or 0.0)),
+            "user_id": ev["user_id"],
+            "name": ev["name"],
+            "nick": ev["nick"],
+            "kind": ev.get("kind") or "action",
+            "label": ev.get("label") or "",
+        }
+        for ev in (sb_hist_raw.get("events") or [])
+    ]
+
     return {
         "ai_context": {
             "app": "Homework Portal (10-А)",
             "timezone": "Asia/Tashkent (UTC+5)",
-            "note": "Usage analytics exported for AI product/engagement analysis: summary KPIs, clicked features with unique user reach, daily & hourly usage (UTC+5), per-student activity profiles, and chronological event log.",
+            "note": "Usage analytics exported for AI product/engagement analysis: summary KPIs, clicked features with unique user reach, daily & hourly usage (UTC+5), per-student activity profiles, chronological event log, and historical database actions preserved in Supabase.",
         },
         "summary": {
             "generated_at": _fmt_local_dt(now),
@@ -1616,6 +1643,10 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
         "hourly_activity": hourly_activity,
         "users": users_list,
         "events": chronological_events,
+        "supabase_history": {
+            "users_summary": sb_hist_users,
+            "events": sb_hist_events,
+        },
     }
 
 
@@ -1687,6 +1718,23 @@ def _format_analytics_ai_txt(dataset: Dict[str, Any]) -> str:
         for ev in ev_list:
             nick_disp = f"@{ev['nick'].lstrip('@')}, " if ev.get("nick") else ""
             lines.append(f"[{ev['time']}] {ev['name']} ({nick_disp}{ev['platform']}) | {ev['type']} | {ev['label']}")
+
+    sb_hist = dataset.get("supabase_history") or {}
+    sb_users = sb_hist.get("users_summary") or []
+    sb_events = (sb_hist.get("events") or [])[-100:]
+    if sb_users or sb_events:
+        lines.extend(["", "## 7. История из постоянной БД (Supabase — сохраняется между деплоями)"])
+        if sb_users:
+            lines.append("| Ученик | Ник | Действий в БД | Последняя активность в БД | Последнее действие |")
+            lines.append("|---|---|---:|---|---|")
+            for u in sb_users:
+                nick_disp = f"@{u['nick'].lstrip('@')}" if u.get("nick") else f"ID {u['user_id']}"
+                lines.append(f"| {u['name']} | {nick_disp} | {u['db_actions']} | {u['last_seen']} | {u['last_action']} |")
+        if sb_events:
+            lines.extend(["", f"Последние события из БД ({len(sb_events)}):"])
+            for ev in sb_events:
+                nick_disp = f"@{ev['nick'].lstrip('@')}" if ev.get("nick") else f"ID {ev['user_id']}"
+                lines.append(f"[{ev['time']}] {ev['name']} ({nick_disp}) | {ev['label']}")
 
     return "\n".join(lines) + "\n"
 
