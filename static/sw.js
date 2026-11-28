@@ -1,4 +1,4 @@
-const SW_VERSION = 'v1.0.6';
+const SW_VERSION = 'v1.0.8';
 const SHELL_CACHE = `hw-portal-shell-${SW_VERSION}`;
 const RUNTIME_CACHE = `hw-portal-runtime-${SW_VERSION}`;
 const API_CACHE = `hw-portal-api-${SW_VERSION}`;
@@ -38,6 +38,12 @@ self.addEventListener('activate', (event) => {
       keys.filter((k) => !VALID_CACHES.has(k)).map((k) => caches.delete(k))
     );
     await self.clients.claim();
+    const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    clientsList.forEach((client) => {
+      try {
+        client.postMessage({ type: 'SW_UPDATED', version: SW_VERSION });
+      } catch (e) {}
+    });
   })());
 });
 
@@ -121,6 +127,7 @@ self.addEventListener('fetch', (event) => {
     (
       url.pathname.startsWith('/api/admin/') ||
       url.pathname.startsWith('/api/analytics/') ||
+      url.pathname === '/api/app-version' ||
       url.pathname.endsWith('/download') ||
       url.searchParams.get('download') === '1' ||
       request.headers.has('range')

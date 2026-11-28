@@ -173,6 +173,22 @@ def init_db():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS analytics_events (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts REAL NOT NULL,
+        user_id INTEGER NOT NULL,
+        event_type TEXT NOT NULL,
+        action_key TEXT NOT NULL,
+        label TEXT NOT NULL,
+        platform TEXT DEFAULT 'Web'
+    )
+    """)
+    try:
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_analytics_events_ts ON analytics_events(ts DESC)")
+    except Exception:
+        pass
+
     conn.commit()
     conn.close()
 
@@ -1180,10 +1196,11 @@ def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
         logger.error(f"Error in SQLite delete_task_comment: {e}")
         return False
 
-def load_analytics_snapshot() -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict[str, Any]]]:
-    """Загружает сохранённую статистику посещений и кликов из локальной WAL SQLite."""
+def load_analytics_snapshot(event_limit: int = 1500) -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    """Загружает сохранённую статистику посещений, кликов и журнал событий из WAL SQLite."""
     users_map: Dict[int, Dict[str, Any]] = {}
     actions_map: Dict[str, Dict[str, Any]] = {}
+    log_events: List[Dict[str, Any]] = []
     try:
         conn = sqlite3.connect(DB_NAME, timeout=10.0)
         conn.row_factory = sqlite3.Row
@@ -1211,14 +1228,33 @@ def load_analytics_snapshot() -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict
                 "label": r["label"] or k,
                 "clicks": int(r["clicks"] or 0),
             }
+        cur.execute(
+            "SELECT ts, user_id, event_type, action_key, label, platform FROM analytics_events ORDER BY id DESC LIMIT ?",
+            (int(event_limit),),
+        )
+        rows = cur.fetchall()
+        for r in reversed(rows):
+            log_events.append({
+                "ts": float(r["ts"] or 0.0),
+                "user_id": int(r["user_id"] or 0),
+                "type": r["event_type"] or "click",
+                "key": r["action_key"] or "",
+                "label": r["label"] or "",
+                "platform": r["platform"] or "Web",
+            })
         conn.close()
     except Exception as e:
         logger.warning(f"load_analytics_snapshot note: {e}")
-    return users_map, actions_map
+    return users_map, actions_map, log_events
 
-def save_analytics_snapshot(users_items: List[Dict[str, Any]], actions_items: List[Dict[str, Any]]) -> None:
-    """Атомарно сохраняет накопленную аналитику в локальную SQLite (вне горячего пути HTTP)."""
-    if not users_items and not actions_items:
+
+def save_analytics_snapshot(
+    users_items: List[Dict[str, Any]],
+    actions_items: List[Dict[str, Any]],
+    new_events: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """Атомарно сохраняет статистику и новые события телеметрии в WAL SQLite (вне горячего пути HTTP)."""
+    if not users_items and not actions_items and not new_events:
         return
     try:
         conn = sqlite3.connect(DB_NAME, timeout=10.0)
@@ -1273,9 +1309,48 @@ def save_analytics_snapshot(users_items: List[Dict[str, Any]], actions_items: Li
                     for a in actions_items
                 ],
             )
+        if new_events:
+            cur.executemany(
+                """
+                INSERT INTO analytics_events (ts, user_id, event_type, action_key, label, platform)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        float(ev.get("ts") or 0.0),
+                        int(ev.get("user_id") or 0),
+                        str(ev.get("type") or "click")[:24],
+                        str(ev.get("key") or "")[:100],
+                        str(ev.get("label") or "")[:140],
+                        str(ev.get("platform") or "Web")[:24],
+                    )
+                    for ev in new_events
+                    if int(ev.get("user_id") or 0) > 0
+                ],
+            )
+            cur.execute("SELECT COUNT(*) FROM analytics_events")
+            total_rows = cur.fetchone()[0]
+            if total_rows > 2500:
+                cur.execute(
+                    "DELETE FROM analytics_events WHERE id NOT IN (SELECT id FROM analytics_events ORDER BY id DESC LIMIT 2000)"
+                )
         conn.commit()
         conn.close()
     except Exception as e:
         logger.warning(f"save_analytics_snapshot note: {e}")
+
+
+def clear_analytics_snapshot() -> None:
+    """Полностью очищает накопленную локальную аналитику для начала нового периода сбора."""
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=10.0)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM analytics_users")
+        cur.execute("DELETE FROM analytics_actions")
+        cur.execute("DELETE FROM analytics_events")
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        logger.warning(f"clear_analytics_snapshot note: {e}")
 
 init_db()

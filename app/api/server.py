@@ -32,7 +32,8 @@ try:
         get_comments_count_batch,
         delete_task_comment,
         load_analytics_snapshot,
-        save_analytics_snapshot
+        save_analytics_snapshot,
+        clear_analytics_snapshot
     )
     from app.database.admin_config import is_admin_identity, resolve_effective_role
 except ImportError:
@@ -63,7 +64,8 @@ except ImportError:
         get_comments_count_batch,
         delete_task_comment,
         load_analytics_snapshot,
-        save_analytics_snapshot
+        save_analytics_snapshot,
+        clear_analytics_snapshot
     )
     from admin_config import is_admin_identity, resolve_effective_role
 import uuid
@@ -74,6 +76,7 @@ import io
 import time
 import threading
 from collections import deque
+from datetime import datetime, timezone, timedelta
 import mimetypes
 import base64
 import hashlib
@@ -143,24 +146,28 @@ _ANALYTICS_LOCK = threading.Lock()
 _ANALYTICS_STATE: Dict[str, Any] = {
     "users": {},
     "actions": {},
-    "recent": deque(maxlen=150),
+    "events": deque(maxlen=2000),
+    "pending_events": [],
     "dirty": False,
 }
 
 def _hydrate_analytics():
-    users_map, actions_map = load_analytics_snapshot()
+    users_map, actions_map, log_events = load_analytics_snapshot(event_limit=1500)
     with _ANALYTICS_LOCK:
         _ANALYTICS_STATE["users"].update(users_map)
         _ANALYTICS_STATE["actions"].update(actions_map)
+        _ANALYTICS_STATE["events"].extend(log_events)
 
 def _flush_analytics_sync():
     with _ANALYTICS_LOCK:
-        if not _ANALYTICS_STATE["dirty"]:
+        if not _ANALYTICS_STATE["dirty"] and not _ANALYTICS_STATE["pending_events"]:
             return
         users_snapshot = [dict(v) for v in _ANALYTICS_STATE["users"].values()]
         actions_snapshot = [dict(v) for v in _ANALYTICS_STATE["actions"].values()]
+        pending_snapshot = list(_ANALYTICS_STATE["pending_events"])
+        _ANALYTICS_STATE["pending_events"].clear()
         _ANALYTICS_STATE["dirty"] = False
-    save_analytics_snapshot(users_snapshot, actions_snapshot)
+    save_analytics_snapshot(users_snapshot, actions_snapshot, pending_snapshot)
 
 async def run_periodic_analytics_flush():
     """Периодически сбрасывает накопленную в RAM аналитику в WAL SQLite (0мс для пользователей)."""
@@ -426,6 +433,19 @@ def pwa_service_worker():
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Service-Worker-Allowed": "/",
         },
+    )
+
+
+@app.get("/api/app-version")
+def get_app_version():
+    """Возвращает текущую версию сборки (ETag index.html + mtime sw.js) для авто-обновления PWA."""
+    _, _, etag = _get_cached_index_payload()
+    sw_path = os.path.join(_static_dir, "sw.js")
+    sw_mtime = int(os.stat(sw_path).st_mtime) if os.path.isfile(sw_path) else 0
+    return Response(
+        content=json.dumps({"version": f"{etag.strip(chr(34))}:{sw_mtime}"}),
+        media_type="application/json; charset=utf-8",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
     )
 
 @app.get("/favicon.ico")
@@ -751,6 +771,29 @@ def download_material(material_id: int, request: Request):
 
 class SendToChatRequest(BaseModel):
     user_id: int
+
+
+async def _send_telegram_document(chat_id: int, filename: str, content: bytes, mime_type: str, caption: str) -> Dict[str, Any]:
+    """Отправляет документ пользователю в личный чат через Telegram Bot API."""
+    if chat_id <= 0 or chat_id == 12345:
+        return {"sent": False, "reason": "guest"}
+    bot_token = (os.getenv("BOT_TOKEN") or "").strip()
+    if not bot_token:
+        return {"sent": False, "reason": "no_bot_token"}
+    api_base = f"https://api.telegram.org/bot{bot_token}"
+    async with httpx.AsyncClient(timeout=25.0) as client:
+        resp = await client.post(
+            f"{api_base}/sendDocument",
+            data={"chat_id": str(chat_id), "caption": caption[:1024]},
+            files={"document": (filename, content, mime_type)},
+        )
+    data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+    if resp.status_code == 200 and data.get("ok"):
+        return {"sent": True, "kind": "document", "filename": filename}
+    desc = str(data.get("description") or "").lower()
+    if resp.status_code == 403 or "chat not found" in desc or "blocked" in desc:
+        return {"sent": False, "reason": "start_bot"}
+    return {"sent": False, "reason": "telegram_error", "detail": data.get("description") or f"HTTP {resp.status_code}"}
 
 
 @app.post("/api/materials/{material_id}/send-to-chat")
@@ -1258,6 +1301,22 @@ def _clean_real_nick(val: str) -> str:
     return s
 
 
+_SCHOOL_TZ = timezone(timedelta(hours=5))
+
+
+def _fmt_local_dt(ts: float) -> str:
+    if not ts or ts <= 0:
+        return "—"
+    return datetime.fromtimestamp(float(ts), tz=_SCHOOL_TZ).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _sanitize_analytics_label(val: str, fallback: str) -> str:
+    s = (val or "").strip()
+    if s in ("—", "✕", "") or s.lower() == "закрыть":
+        return fallback
+    return s
+
+
 @app.post("/api/analytics/events")
 async def ingest_analytics_events(request: Request):
     """Принимает пакеты событий телеметрии (включая navigator.sendBeacon) за <1мс в RAM."""
@@ -1283,7 +1342,8 @@ async def ingest_analytics_events(request: Request):
     with _ANALYTICS_LOCK:
         users_map = _ANALYTICS_STATE["users"]
         actions_map = _ANALYTICS_STATE["actions"]
-        recent_feed = _ANALYTICS_STATE["recent"]
+        events_log = _ANALYTICS_STATE["events"]
+        pending_events = _ANALYTICS_STATE["pending_events"]
 
         for ev in events[:40]:
             if not isinstance(ev, dict):
@@ -1297,7 +1357,7 @@ async def ingest_analytics_events(request: Request):
 
             ev_type = str(ev.get("type") or "click").strip().lower()
             ev_key = str(ev.get("key") or ev_type).strip()[:100]
-            ev_label = str(ev.get("label") or ev_key).strip()[:120]
+            ev_label = _sanitize_analytics_label(str(ev.get("label") or ev_key), ev_key)[:120]
             u_name = str(ev.get("name") or top_name).strip()[:120]
             u_nick = str(ev.get("nick") or top_nick).strip()[:80]
             u_plat = str(ev.get("platform") or top_platform or "Web").strip()[:24]
@@ -1332,21 +1392,32 @@ async def ingest_analytics_events(request: Request):
 
             if ev_type == "leave":
                 u_entry["explicit_offline"] = True
+                log_item = {
+                    "ts": now,
+                    "user_id": uid,
+                    "type": "leave",
+                    "key": ev_key,
+                    "label": ev_label or "Закрыл приложение",
+                    "platform": u_entry["platform"],
+                }
+                events_log.append(log_item)
+                pending_events.append(log_item)
             elif ev_type == "heartbeat":
                 u_entry["explicit_offline"] = False
             elif ev_type == "visit":
                 u_entry["explicit_offline"] = False
                 u_entry["visits"] += 1
                 u_entry["last_action"] = ev_label or "Открыл приложение"
-                recent_feed.appendleft({
+                log_item = {
                     "ts": now,
                     "user_id": uid,
-                    "name": u_entry["name"] or u_nick or f"ID {uid}",
-                    "nick": u_entry["nick"],
                     "type": "visit",
+                    "key": ev_key,
                     "label": u_entry["last_action"],
                     "platform": u_entry["platform"],
-                })
+                }
+                events_log.append(log_item)
+                pending_events.append(log_item)
             else:
                 u_entry["explicit_offline"] = False
                 u_entry["clicks"] += 1
@@ -1358,15 +1429,16 @@ async def ingest_analytics_events(request: Request):
                     if ev_label:
                         act["label"] = ev_label
                     act["clicks"] += 1
-                recent_feed.appendleft({
+                log_item = {
                     "ts": now,
                     "user_id": uid,
-                    "name": u_entry["name"] or u_nick or f"ID {uid}",
-                    "nick": u_entry["nick"],
                     "type": "click",
+                    "key": ev_key,
                     "label": ev_label,
                     "platform": u_entry["platform"],
-                })
+                }
+                events_log.append(log_item)
+                pending_events.append(log_item)
             accepted += 1
 
         if accepted > 0:
@@ -1375,12 +1447,8 @@ async def ingest_analytics_events(request: Request):
     return {"ok": True, "accepted": accepted}
 
 
-@app.get("/api/admin/analytics")
-def get_admin_analytics(user_id: int = 0, admin_secret: Optional[str] = None):
-    """Возвращает живую статистику посещений, кликов и онлайн-статусов для админ-панели."""
-    if not _is_admin_user(user_id, admin_secret):
-        raise HTTPException(status_code=403, detail="Admin access required")
-
+def _collect_analytics_dataset() -> Dict[str, Any]:
+    """Собирает единый структурированный снимок статистики для краткого экрана и экспорта ИИ."""
     now = time.time()
     db_users_by_id: Dict[int, Dict[str, Any]] = {}
     try:
@@ -1393,89 +1461,320 @@ def get_admin_analytics(user_id: int = 0, admin_secret: Optional[str] = None):
     with _ANALYTICS_LOCK:
         users_snapshot = {k: dict(v) for k, v in _ANALYTICS_STATE["users"].items()}
         actions_snapshot = [dict(v) for v in _ANALYTICS_STATE["actions"].values()]
-        recent_snapshot = list(_ANALYTICS_STATE["recent"])[:60]
+        events_snapshot = [dict(ev) for ev in _ANALYTICS_STATE["events"]]
 
-    # Объединяем известных пользователей из БД, чтобы показывать и тех, кто ещё не заходил после обновления
+    # Считаем уникальных пользователей на действие, активность по дням/часам и топ действий каждого ученика
+    action_unique_users: Dict[str, set] = {}
+    user_action_counts: Dict[int, Dict[str, int]] = {}
+    hourly_map: Dict[str, Dict[str, int]] = {}
+    daily_map: Dict[str, Dict[str, Any]] = {}
+    first_event_ts = 0.0
+    last_event_ts = 0.0
+
+    for ev in events_snapshot:
+        ts = float(ev.get("ts") or 0.0)
+        uid = int(ev.get("user_id") or 0)
+        ev_type = ev.get("type") or "click"
+        ev_key = str(ev.get("key") or "")
+        ev_label = str(ev.get("label") or ev_key)
+        if ts > 0:
+            if first_event_ts <= 0 or ts < first_event_ts:
+                first_event_ts = ts
+            if ts > last_event_ts:
+                last_event_ts = ts
+            dt_local = datetime.fromtimestamp(ts, tz=_SCHOOL_TZ)
+            hour_label = dt_local.strftime("%H:00")
+            day_label = dt_local.strftime("%Y-%m-%d")
+            hb = hourly_map.setdefault(hour_label, {"hour": hour_label, "visits": 0, "clicks": 0})
+            db_day = daily_map.setdefault(day_label, {"date": day_label, "visits": 0, "clicks": 0, "uids": set()})
+            if uid > 0:
+                db_day["uids"].add(uid)
+            if ev_type == "visit":
+                hb["visits"] += 1
+                db_day["visits"] += 1
+            elif ev_type == "click":
+                hb["clicks"] += 1
+                db_day["clicks"] += 1
+        if ev_type == "click" and ev_key and uid > 0:
+            action_unique_users.setdefault(ev_key, set()).add(uid)
+            ua = user_action_counts.setdefault(uid, {})
+            ua[ev_label] = ua.get(ev_label, 0) + 1
+
     all_uids = set(users_snapshot.keys()) | set(db_users_by_id.keys())
     users_list: List[Dict[str, Any]] = []
+    platform_counts: Dict[str, int] = {}
     online_now = 0
-    recent_now = 0
     total_visits = 0
     total_clicks = 0
     active_users = 0
 
-    for uid in all_uids:
+    def _resolve_identity(uid: int) -> tuple[str, str]:
         db_u = db_users_by_id.get(uid) or {}
         st = users_snapshot.get(uid) or {}
-        last_seen = float(st.get("last_seen") or 0.0)
-        visits = int(st.get("visits") or 0)
-        clicks = int(st.get("clicks") or 0)
-        explicit_offline = bool(st.get("explicit_offline"))
-
-        if visits > 0 or clicks > 0:
-            active_users += 1
-        total_visits += visits
-        total_clicks += clicks
-
-        age = (now - last_seen) if last_seen > 0 else 9999999.0
-        if last_seen > 0 and not explicit_offline and age <= 75:
-            presence = "online"
-            online_now += 1
-        elif last_seen > 0 and age <= 300:
-            presence = "recent"
-            recent_now += 1
-        else:
-            presence = "offline"
-
-        display_name = (
+        name = (
             _clean_real_name(db_u.get("full_name") or "")
             or _clean_real_name(st.get("name") or "")
             or _clean_real_nick(db_u.get("telegram_nick") or "")
             or _clean_real_nick(st.get("nick") or "")
             or ("Гость (браузер)" if uid == 12345 else f"Ученик #{uid}")
         )
-        display_nick = _clean_real_nick(db_u.get("telegram_nick") or "") or _clean_real_nick(st.get("nick") or "")
+        nick = _clean_real_nick(db_u.get("telegram_nick") or "") or _clean_real_nick(st.get("nick") or "")
+        return name, nick
+
+    for uid in all_uids:
+        st = users_snapshot.get(uid) or {}
+        last_seen = float(st.get("last_seen") or 0.0)
+        first_seen = float(st.get("first_seen") or 0.0)
+        visits = int(st.get("visits") or 0)
+        clicks = int(st.get("clicks") or 0)
+        explicit_offline = bool(st.get("explicit_offline"))
+        platform = st.get("platform") or ("TG Bot" if uid in db_users_by_id else "Web")
+
+        if visits > 0 or clicks > 0:
+            active_users += 1
+            platform_counts[platform] = platform_counts.get(platform, 0) + 1
+        total_visits += visits
+        total_clicks += clicks
+
+        age = (now - last_seen) if last_seen > 0 else 9999999.0
+        is_online = bool(last_seen > 0 and not explicit_offline and age <= 90)
+        if is_online:
+            online_now += 1
+
+        display_name, display_nick = _resolve_identity(uid)
+        top_user_actions = sorted(user_action_counts.get(uid, {}).items(), key=lambda x: -x[1])[:3]
 
         users_list.append({
             "user_id": uid,
             "name": display_name,
             "nick": display_nick,
-            "platform": st.get("platform") or ("TG Bot" if uid in db_users_by_id else "Web"),
+            "platform": platform,
+            "status": "online" if is_online else "offline",
             "visits": visits,
             "clicks": clicks,
-            "last_seen": last_seen,
-            "seconds_ago": int(age) if last_seen > 0 else None,
+            "first_seen": _fmt_local_dt(first_seen),
+            "last_seen": _fmt_local_dt(last_seen),
             "last_action": st.get("last_action") or "",
-            "presence": presence,
+            "top_actions": [{"label": lbl, "count": cnt} for lbl, cnt in top_user_actions],
         })
 
-    # Сортируем: сначала онлайн -> недавние -> по времени последней активности
-    presence_rank = {"online": 0, "recent": 1, "offline": 2}
-    users_list.sort(key=lambda u: (presence_rank.get(u["presence"], 2), -(u["last_seen"] or 0.0), -u["visits"], -u["clicks"]))
+    users_list.sort(key=lambda u: (-(u["visits"] + u["clicks"]), 0 if u["status"] == "online" else 1, u["name"]))
 
     actions_snapshot.sort(key=lambda a: -int(a.get("clicks") or 0))
-    for item in recent_snapshot:
-        uid = item.get("user_id")
-        db_u = db_users_by_id.get(uid) or {}
-        real_name = _clean_real_name(db_u.get("full_name") or "") or _clean_real_name(item.get("name") or "")
-        if real_name:
-            item["name"] = real_name
-        real_nick = _clean_real_nick(db_u.get("telegram_nick") or "") or _clean_real_nick(item.get("nick") or "")
-        item["nick"] = real_nick
-        item["seconds_ago"] = max(0, int(now - float(item.get("ts") or now)))
+    sum_clicks = max(1, sum(int(a.get("clicks") or 0) for a in actions_snapshot))
+    for act in actions_snapshot:
+        c = int(act.get("clicks") or 0)
+        act["share_pct"] = round((c / sum_clicks) * 100, 1)
+        act["unique_users"] = len(action_unique_users.get(act.get("key") or "", set()))
+
+    chronological_events: List[Dict[str, Any]] = []
+    for ev in events_snapshot[-600:]:
+        uid = int(ev.get("user_id") or 0)
+        u_name, u_nick = _resolve_identity(uid)
+        chronological_events.append({
+            "time": _fmt_local_dt(float(ev.get("ts") or 0.0)),
+            "user_id": uid,
+            "name": u_name,
+            "nick": u_nick,
+            "type": ev.get("type") or "click",
+            "key": ev.get("key") or "",
+            "label": ev.get("label") or "",
+            "platform": ev.get("platform") or "Web",
+        })
+
+    hourly_activity = [hourly_map[h] for h in sorted(hourly_map.keys())]
+    daily_activity = [
+        {
+            "date": d,
+            "unique_users": len(daily_map[d]["uids"]),
+            "visits": daily_map[d]["visits"],
+            "clicks": daily_map[d]["clicks"],
+        }
+        for d in sorted(daily_map.keys())
+    ]
 
     return {
-        "status": "ok",
-        "server_time": now,
+        "ai_context": {
+            "app": "Homework Portal (10-А)",
+            "timezone": "Asia/Tashkent (UTC+5)",
+            "note": "Usage analytics exported for AI product/engagement analysis: summary KPIs, clicked features with unique user reach, daily & hourly usage (UTC+5), per-student activity profiles, and chronological event log.",
+        },
         "summary": {
+            "generated_at": _fmt_local_dt(now),
+            "period_start": _fmt_local_dt(first_event_ts) if first_event_ts > 0 else _fmt_local_dt(now),
+            "period_end": _fmt_local_dt(last_event_ts) if last_event_ts > 0 else _fmt_local_dt(now),
             "online_now": online_now,
-            "recent_now": recent_now,
             "total_visits": total_visits,
             "total_clicks": total_clicks,
             "active_users": active_users,
             "registered_users": len(db_users_by_id),
+            "log_events_count": len(events_snapshot),
+            "platforms": platform_counts,
         },
-        "top_actions": actions_snapshot[:20],
+        "top_actions": actions_snapshot,
+        "daily_activity": daily_activity,
+        "hourly_activity": hourly_activity,
         "users": users_list,
-        "recent_feed": recent_snapshot,
+        "events": chronological_events,
     }
+
+
+def _format_analytics_ai_txt(dataset: Dict[str, Any]) -> str:
+    """Форматирует статистику в понятный структурированный отчёт (.txt/Markdown) специально для анализа ИИ."""
+    s = dataset["summary"]
+    lines = [
+        "# Отчёт активности Homework Portal (10-А) для анализа ИИ",
+        f"Сформировано: {s['generated_at']} (UTC+5)",
+        f"Период событий: {s['period_start']} — {s['period_end']}",
+        "",
+        "Инструкция для ИИ: Проанализируй вовлечённость учеников, какие разделы/функции используют чаще всего и что почти не открывают, пиковые часы нагрузки, распределение платформ и предложи конкретные UX-улучшения.",
+        "",
+        "## 1. Общая сводка",
+        f"- Сейчас онлайн: {s['online_now']}",
+        f"- Всего заходов в приложение: {s['total_visits']}",
+        f"- Всего кликов и действий: {s['total_clicks']}",
+        f"- Активных учеников: {s['active_users']} из {s['registered_users']} в базе",
+        f"- Записей в журнале событий: {s['log_events_count']}",
+    ]
+    if s.get("platforms"):
+        plat_str = ", ".join(f"{k}: {v}" for k, v in s["platforms"].items())
+        lines.append(f"- Платформы активных учеников: {plat_str}")
+
+    lines.extend(["", "## 2. Куда чаще нажимают (разделы и кнопки)"])
+    top_actions = dataset.get("top_actions") or []
+    if not top_actions:
+        lines.append("Кликов пока не зафиксировано.")
+    else:
+        lines.append("| № | Действие | Ключ | Кликов | Доля | Уникальных учеников |")
+        lines.append("|---:|---|---|---:|---:|---:|")
+        for idx, act in enumerate(top_actions, 1):
+            lines.append(
+                f"| {idx} | {act.get('label', '')} | {act.get('key', '')} | {act.get('clicks', 0)} | {act.get('share_pct', 0)}% | {act.get('unique_users', 0)} |"
+            )
+
+    daily = dataset.get("daily_activity") or []
+    if daily:
+        lines.extend(["", "## 3. Активность по дням (UTC+5)", "| Дата | Уникальных учеников | Заходов | Кликов |", "|---|---:|---:|---:|"])
+        for d in daily:
+            lines.append(f"| {d['date']} | {d['unique_users']} | {d['visits']} | {d['clicks']} |")
+
+    hourly = dataset.get("hourly_activity") or []
+    if hourly:
+        lines.extend(["", "## 4. Активность по часам (UTC+5)", "| Час | Заходов | Кликов |", "|---|---:|---:|"])
+        for h in hourly:
+            lines.append(f"| {h['hour']} | {h['visits']} | {h['clicks']} |")
+
+    active_list = [u for u in dataset.get("users") or [] if (u["visits"] > 0 or u["clicks"] > 0)]
+    inactive_count = max(0, len(dataset.get("users") or []) - len(active_list))
+    lines.extend(["", f"## 5. Активные ученики ({len(active_list)}, ещё не заходили за период: {inactive_count})"])
+    if not active_list:
+        lines.append("За этот период активных пользователей нет.")
+    else:
+        lines.append("| Ученик | Ник | Статус | Платформа | Заходы | Клики | Последняя активность | Топ действий |")
+        lines.append("|---|---|---|---|---:|---:|---|---|")
+        for u in active_list:
+            nick_disp = f"@{u['nick'].lstrip('@')}" if u.get("nick") else f"ID {u['user_id']}"
+            top_u = ", ".join(f"{x['label']} ({x['count']})" for x in u.get("top_actions") or []) or (u.get("last_action") or "—")
+            lines.append(
+                f"| {u['name']} | {nick_disp} | {u['status']} | {u['platform']} | {u['visits']} | {u['clicks']} | {u['last_seen']} | {top_u} |"
+            )
+
+    ev_list = (dataset.get("events") or [])[-400:]
+    lines.extend(["", f"## 6. Хронология событий (последние {len(ev_list)})"])
+    if not ev_list:
+        lines.append("Журнал событий пуст.")
+    else:
+        for ev in ev_list:
+            nick_disp = f"@{ev['nick'].lstrip('@')}, " if ev.get("nick") else ""
+            lines.append(f"[{ev['time']}] {ev['name']} ({nick_disp}{ev['platform']}) | {ev['type']} | {ev['label']}")
+
+    return "\n".join(lines) + "\n"
+
+
+@app.get("/api/admin/analytics")
+def get_admin_analytics(user_id: int = 0, admin_secret: Optional[str] = None):
+    """Возвращает компактную сводку статистики и топ-5 действий для админ-окна."""
+    if not _is_admin_user(user_id, admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    dataset = _collect_analytics_dataset()
+    return {
+        "status": "ok",
+        "server_time": time.time(),
+        "summary": dataset["summary"],
+        "top_actions": dataset["top_actions"][:8],
+    }
+
+
+@app.get("/api/admin/analytics/export")
+def export_admin_analytics(user_id: int = 0, format: str = "txt", admin_secret: Optional[str] = None):
+    """Скачивание готового файла статистики (.txt для ИИ или .json) для анализа в нейросети."""
+    if not _is_admin_user(user_id, admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    dataset = _collect_analytics_dataset()
+    date_tag = datetime.now(_SCHOOL_TZ).strftime("%Y-%m-%d_%H-%M")
+    fmt = (format or "txt").strip().lower()
+    if fmt == "json":
+        body = json.dumps(dataset, ensure_ascii=False, indent=2)
+        filename = f"hw_analytics_{date_tag}.json"
+        media_type = "application/json; charset=utf-8"
+    else:
+        body = _format_analytics_ai_txt(dataset)
+        filename = f"hw_analytics_for_ai_{date_tag}.txt"
+        media_type = "text/plain; charset=utf-8"
+
+    return Response(
+        content=body.encode("utf-8"),
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+class AdminExportChatRequest(BaseModel):
+    user_id: int
+    format: str = "txt"
+    admin_secret: Optional[str] = None
+
+
+@app.post("/api/admin/analytics/send-to-chat")
+async def send_analytics_to_chat(req: AdminExportChatRequest):
+    """Отправляет файл статистики напрямую в личный Telegram-чат администратора."""
+    if not _is_admin_user(req.user_id, req.admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+    dataset = await asyncio.to_thread(_collect_analytics_dataset)
+    date_tag = datetime.now(_SCHOOL_TZ).strftime("%Y-%m-%d_%H-%M")
+    fmt = (req.format or "txt").strip().lower()
+    if fmt == "json":
+        content = json.dumps(dataset, ensure_ascii=False, indent=2).encode("utf-8")
+        filename = f"hw_analytics_{date_tag}.json"
+        mime_type = "application/json"
+    else:
+        content = _format_analytics_ai_txt(dataset).encode("utf-8")
+        filename = f"hw_analytics_for_ai_{date_tag}.txt"
+        mime_type = "text/plain"
+
+    s = dataset["summary"]
+    caption = (
+        f"📊 Статистика для ИИ ({s['generated_at']})\n"
+        f"Заходов: {s['total_visits']} · Кликов: {s['total_clicks']} · "
+        f"Активных: {s['active_users']}/{s['registered_users']} · Событий: {s['log_events_count']}"
+    )
+    return await _send_telegram_document(req.user_id, filename, content, mime_type, caption)
+
+
+@app.post("/api/admin/analytics/reset")
+async def reset_admin_analytics(user_id: int = 0, admin_secret: Optional[str] = None):
+    """Очищает собранную статистику для начала нового периода измерений."""
+    if not _is_admin_user(user_id, admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    with _ANALYTICS_LOCK:
+        _ANALYTICS_STATE["users"].clear()
+        _ANALYTICS_STATE["actions"].clear()
+        _ANALYTICS_STATE["events"].clear()
+        _ANALYTICS_STATE["pending_events"].clear()
+        _ANALYTICS_STATE["dirty"] = False
+    await asyncio.to_thread(clear_analytics_snapshot)
+    return {"status": "ok"}

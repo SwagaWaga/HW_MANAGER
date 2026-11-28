@@ -651,21 +651,22 @@
   </div>
 
   <!-- ===== МОДАЛЬНОЕ ОКНО АДМИН-АНАЛИТИКИ ===== -->
+  <!-- ===== МОДАЛЬНОЕ ОКНО: СТАТИСТИКА ДЛЯ ИИ ===== -->
   <div id="admin-analytics-modal" class="fixed inset-0 bg-[#0b1b30]/75 hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeAdminAnalyticsModal()">
-    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden border-0">
+    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-md rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden border-0">
       <!-- Градиентная шапка -->
-      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-5 pt-3 sm:pt-4 pb-3.5 shrink-0">
+      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-5 pt-3 sm:pt-4 pb-4 shrink-0">
         <div class="w-10 h-1 rounded-full bg-white/30 mx-auto mb-3 sm:hidden"></div>
         <div class="flex items-center justify-between gap-2">
           <div class="min-w-0">
             <div class="flex items-center gap-2">
-              <h2 class="text-[17px] font-extrabold tracking-tight text-white truncate">Админ-аналитика</h2>
+              <h2 class="text-[17px] font-extrabold tracking-tight text-white">Статистика</h2>
               <span id="admin-live-pill" class="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 text-[10.5px] font-bold flex items-center gap-1 shrink-0">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-300"></span>
                 <span id="admin-live-count">0 онлайн</span>
               </span>
             </div>
-            <p class="text-[11px] text-white/75 mt-0.5 truncate" id="admin-analytics-subtitle">Заходы, клики и живые статусы · 10-А</p>
+            <p class="text-[11px] text-white/75 mt-0.5 truncate" id="admin-analytics-subtitle">Заходы, клики и лог действий · 10-А</p>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
             <button type="button" id="admin-user-view-btn" onclick="switchToUserVersion()" class="px-2.5 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition shrink-0" title="Переключиться в обычную версию ученика">
@@ -677,68 +678,67 @@
             <button type="button" onclick="closeAdminAnalyticsModal()" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center text-sm font-bold active:scale-90 transition" title="Закрыть">✕</button>
           </div>
         </div>
-
-        <!-- Вкладки -->
-        <div class="grid grid-cols-3 gap-1 p-1 mt-3 bg-white/[0.16] dark:bg-white/[0.10] rounded-full select-none">
-          <button type="button" id="admin-tab-overview" onclick="switchAdminTab('overview')" class="py-1.5 px-2 rounded-full text-xs font-bold bg-white text-[#145594] dark:text-slate-950 shadow-xs transition active:scale-95">Обзор</button>
-          <button type="button" id="admin-tab-users" onclick="switchAdminTab('users')" class="py-1.5 px-2 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95">Ученики</button>
-          <button type="button" id="admin-tab-feed" onclick="switchAdminTab('feed')" class="py-1.5 px-2 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95">Лента</button>
-        </div>
       </div>
 
-      <!-- Контент -->
+      <!-- Контент: сводка и топ разделов -->
       <div class="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 bg-white dark:bg-[#0e223b] thin-scroll">
-        <!-- ВКЛАДКА 1: ОБЗОР -->
-        <div id="admin-pane-overview" class="space-y-4">
-          <div class="grid grid-cols-2 gap-2.5">
-            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
-              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Онлайн сейчас</span>
-              <span id="admin-kpi-online" class="text-xl font-extrabold text-[#16a34a] dark:text-emerald-300 mt-0.5 block font-mono">0</span>
-            </div>
-            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
-              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Всего заходов</span>
-              <span id="admin-kpi-visits" class="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5 block font-mono">0</span>
-            </div>
-            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
-              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Кликов и действий</span>
-              <span id="admin-kpi-clicks" class="text-xl font-extrabold text-[#2077cf] dark:text-sky-300 mt-0.5 block font-mono">0</span>
-            </div>
-            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
-              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Активных учеников</span>
-              <span id="admin-kpi-users" class="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5 block font-mono">0</span>
-            </div>
+        <!-- 4 краткие цифры -->
+        <div class="grid grid-cols-4 gap-2 text-center">
+          <div class="p-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+            <span id="admin-kpi-online" class="text-lg font-extrabold text-[#16a34a] dark:text-emerald-300 block font-mono leading-tight">0</span>
+            <span class="text-[10px] font-bold text-slate-500 dark:text-sky-100/60 block mt-0.5">Онлайн</span>
           </div>
-
-          <div class="space-y-2">
-            <div class="flex items-center justify-between px-0.5">
-              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/55">Куда чаще нажимают</span>
-              <span class="text-[10.5px] text-slate-400 dark:text-sky-100/50">Топ разделов и кнопок</span>
-            </div>
-            <div id="admin-top-actions-list" class="space-y-2">
-              <div class="text-center py-6 text-xs text-slate-400">Загрузка...</div>
-            </div>
+          <div class="p-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+            <span id="admin-kpi-visits" class="text-lg font-extrabold text-slate-900 dark:text-white block font-mono leading-tight">0</span>
+            <span class="text-[10px] font-bold text-slate-500 dark:text-sky-100/60 block mt-0.5">Заходов</span>
+          </div>
+          <div class="p-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+            <span id="admin-kpi-clicks" class="text-lg font-extrabold text-[#2077cf] dark:text-sky-300 block font-mono leading-tight">0</span>
+            <span class="text-[10px] font-bold text-slate-500 dark:text-sky-100/60 block mt-0.5">Кликов</span>
+          </div>
+          <div class="p-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+            <span id="admin-kpi-users" class="text-lg font-extrabold text-slate-900 dark:text-white block font-mono leading-tight">0</span>
+            <span class="text-[10px] font-bold text-slate-500 dark:text-sky-100/60 block mt-0.5">Активных</span>
           </div>
         </div>
 
-        <!-- ВКЛАДКА 2: УЧЕНИКИ -->
-        <div id="admin-pane-users" class="hidden space-y-3">
-          <div class="flex items-center gap-1.5" id="admin-user-filter-bar">
-            <button type="button" id="admin-ufilter-all" onclick="setAdminUserFilter('all')" class="px-3 py-1 rounded-full text-[11px] font-bold bg-[#2077cf] text-white transition active:scale-95">Все</button>
-            <button type="button" id="admin-ufilter-online" onclick="setAdminUserFilter('online')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95">Онлайн</button>
-            <button type="button" id="admin-ufilter-offline" onclick="setAdminUserFilter('offline')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95">Оффлайн</button>
+        <!-- Краткое превью топ-5 разделов -->
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between px-0.5">
+            <span class="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/55">Топ разделов сейчас</span>
+            <span id="admin-last-updated" class="text-[10px] font-mono text-slate-400 dark:text-sky-100/50">—</span>
           </div>
-          <div id="admin-users-list" class="space-y-2"></div>
-        </div>
-
-        <!-- ВКЛАДКА 3: ЖИВАЯ ЛЕНТА -->
-        <div id="admin-pane-feed" class="hidden space-y-2">
-          <div id="admin-feed-list" class="space-y-1.5"></div>
+          <div id="admin-top-actions-list" class="space-y-1.5">
+            <div class="text-center py-4 text-xs text-slate-400">Загрузка...</div>
+          </div>
         </div>
       </div>
 
-      <div class="px-5 py-2.5 flex items-center justify-between text-[10.5px] text-slate-400 dark:text-sky-100/55 bg-[#f4f7fc]/80 dark:bg-white/[0.03] shrink-0">
-        <span>Лёгкий буфер телеметрии · 0 мс задержки UI</span>
-        <span id="admin-last-updated" class="font-mono">—</span>
+      <!-- Нижний закреплённый блок: Экспорт статистики для ИИ -->
+      <div class="px-4 sm:px-5 pt-3 pb-3 bg-[#f4f7fc]/90 dark:bg-white/[0.04] border-t border-slate-200/60 dark:border-white/[0.08] space-y-2.5 shrink-0">
+        <div>
+          <span class="text-[11px] font-extrabold text-slate-800 dark:text-white block">Скачать статистику для анализа в ИИ</span>
+          <span class="text-[10.5px] text-slate-500 dark:text-sky-100/65 block leading-snug mt-0.5">Сводка, тренды по дням/часам, профили учеников и лог — готово для ChatGPT, Gemini или Claude.</span>
+        </div>
+        <button type="button" id="admin-download-txt-btn" onclick="downloadAnalyticsExport('txt')" class="w-full py-2.5 px-4 rounded-xl bg-[#2077cf] hover:bg-[#1a66b5] text-white text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Скачать статистику (.txt для ИИ)</span>
+        </button>
+        <div class="grid grid-cols-3 gap-1.5">
+          <button type="button" id="admin-download-json-btn" onclick="downloadAnalyticsExport('json')" class="py-2 px-2 rounded-xl bg-white dark:bg-white/[0.10] hover:bg-slate-50 dark:hover:bg-white/[0.16] text-slate-800 dark:text-white text-[11px] font-bold flex items-center justify-center active:scale-95 transition">
+            <span>.json</span>
+          </button>
+          <button type="button" id="admin-copy-txt-btn" onclick="copyAnalyticsForAi()" class="py-2 px-2 rounded-xl bg-white dark:bg-white/[0.10] hover:bg-slate-50 dark:hover:bg-white/[0.16] text-slate-800 dark:text-white text-[11px] font-bold flex items-center justify-center active:scale-95 transition">
+            <span>Копировать</span>
+          </button>
+          <button type="button" id="admin-send-chat-btn" onclick="sendAnalyticsToTelegram('txt')" class="py-2 px-2 rounded-xl bg-[#16a34a]/12 hover:bg-[#16a34a]/20 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-[#15803d] dark:text-emerald-200 text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition">
+            <span>В Telegram</span>
+          </button>
+        </div>
+        <div class="pt-0.5 flex items-center justify-between text-[10.5px] text-slate-400 dark:text-sky-100/55">
+          <span>Лёгкий сбор в фоне · 0 мс задержки UI</span>
+          <button type="button" id="admin-reset-btn" onclick="resetAnalyticsStats()" class="font-bold text-rose-500 dark:text-rose-300 hover:underline active:scale-95 transition">Очистить</button>
+        </div>
       </div>
     </div>
   </div>
@@ -1260,7 +1260,7 @@
                     <h4 class="text-xs font-extrabold text-slate-900 dark:text-white truncate">Админ-панель</h4>
                     <span id="settings-admin-mode-badge" class="px-1.5 py-0.5 rounded-md bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300 text-[9.5px] font-bold shrink-0">Админ</span>
                   </div>
-                  <p class="text-[10.5px] text-slate-500 dark:text-sky-100/70 leading-snug mt-0.5 truncate">Заходы, клики и кто сейчас онлайн</p>
+                  <p class="text-[10.5px] text-slate-500 dark:text-sky-100/70 leading-snug mt-0.5 truncate">Сводка активности и экспорт для ИИ</p>
                 </div>
               </div>
               <button type="button" id="settings-open-admin-btn" onclick="closeNotifModal(); openAdminAnalyticsModal();" class="px-3.5 py-1.5 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white text-xs font-bold shrink-0 active:scale-95 transition">Аналитика</button>
@@ -8933,8 +8933,8 @@
         if (headerBtn) headerBtn.classList.add('hidden');
         if (cardTitle) cardTitle.innerText = 'PWA установлено';
         if (cardDesc) cardDesc.innerText = isPwaStandalone()
-          ? 'Работает как отдельное приложение с оффлайн-кэшем'
-          : 'Приложение уже установлено на этом устройстве';
+          ? 'Работает как приложение · Авто-обновление включено'
+          : 'Приложение установлено и обновляется автоматически';
         if (cardBtn) cardBtn.classList.add('hidden');
         if (cardBadge) cardBadge.classList.remove('hidden');
         return;
@@ -9098,34 +9098,147 @@
       } catch (e) {}
     }
 
+    let pwaSwRegistration = null;
+    let pwaInitialAppVersion = '';
+    let pwaLastUpdateCheckAt = 0;
+    let pwaReloadPending = false;
+    let pwaReloadTriggered = false;
+
+    function _hasActiveDraftModal() {
+      return ['add-modal', 'edit-modal', 'task-comments-modal'].some((id) => {
+        const el = document.getElementById(id);
+        return el && !el.classList.contains('hidden');
+      });
+    }
+
+    function applyPwaAutoUpdate() {
+      if (pwaReloadTriggered) return;
+      if (_hasActiveDraftModal()) {
+        if (!pwaReloadPending) {
+          pwaReloadPending = true;
+          showToast('✨ Доступно обновление — применим после закрытия формы', 'info', 3500);
+          const waitTimer = setInterval(() => {
+            if (!_hasActiveDraftModal()) {
+              clearInterval(waitTimer);
+              applyPwaAutoUpdate();
+            }
+          }, 1000);
+        }
+        return;
+      }
+      pwaReloadTriggered = true;
+      showToast('✨ Установлена новая версия приложения', 'info', 900);
+      setTimeout(() => {
+        try { window.location.reload(); } catch (e) {}
+      }, 380);
+    }
+
+    async function checkPwaForUpdates(force = false) {
+      if (navigator.onLine === false) return;
+      const now = Date.now();
+      if (!force && (now - pwaLastUpdateCheckAt) < 45000) return;
+      pwaLastUpdateCheckAt = now;
+
+      try {
+        if (pwaSwRegistration && typeof pwaSwRegistration.update === 'function') {
+          pwaSwRegistration.update().catch(() => {});
+        }
+      } catch (e) {}
+
+      try {
+        const res = await fetch('/api/app-version', { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const remoteVer = String(data?.version || '');
+        if (!remoteVer) return;
+        if (!pwaInitialAppVersion) {
+          pwaInitialAppVersion = remoteVer;
+          return;
+        }
+        if (remoteVer !== pwaInitialAppVersion) {
+          pwaInitialAppVersion = remoteVer;
+          if (pwaSwRegistration?.waiting) {
+            try { pwaSwRegistration.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+          }
+          applyPwaAutoUpdate();
+        }
+      } catch (e) {}
+    }
+
     function registerPwaServiceWorker() {
-      if (!('serviceWorker' in navigator)) return;
+      if (!('serviceWorker' in navigator)) {
+        // Фолбэк авто-обновления по /api/app-version (например, iOS WebView без SW)
+        setTimeout(() => checkPwaForUpdates(true), 2500);
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) checkPwaForUpdates(false);
+        }, { passive: true });
+        return;
+      }
+
+      const hadController = Boolean(navigator.serviceWorker.controller);
+
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (hadController) applyPwaAutoUpdate();
+      });
+
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'SW_UPDATED' && hadController) {
+          applyPwaAutoUpdate();
+        }
+      });
+
+      const activateWaitingWorker = (reg) => {
+        if (!reg) return;
+        if (reg.waiting) {
+          try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+        }
+        reg.addEventListener('updatefound', () => {
+          const nw = reg.installing;
+          if (!nw) return;
+          nw.addEventListener('statechange', () => {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) {
+              try { nw.postMessage({ type: 'SKIP_WAITING' }); } catch (e) {}
+            }
+          });
+        });
+      };
+
       const startRegister = () => {
         navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' })
           .then((reg) => {
-            if (reg && typeof reg.update === 'function') {
-              reg.update().catch(() => {});
-            }
+            pwaSwRegistration = reg;
+            activateWaitingWorker(reg);
+            setTimeout(() => checkPwaForUpdates(true), 2200);
           })
           .catch((err) => {
             console.warn('SW registration note:', err);
           });
       };
+
       if (document.readyState === 'complete') {
         startRegister();
       } else {
         window.addEventListener('load', startRegister, { once: true });
+      }
+
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) checkPwaForUpdates(false);
+      }, { passive: true });
+      window.addEventListener('focus', () => checkPwaForUpdates(false), { passive: true });
+      window.addEventListener('online', () => checkPwaForUpdates(true), { passive: true });
+      if (isPwaStandalone()) {
+        setInterval(() => {
+          if (!document.hidden) checkPwaForUpdates(false);
+        }, 120000);
       }
     }
 
     // ========================================================
     // 📊 ЛЁГКАЯ ТЕЛЕМЕТРИЯ (0 МС UI) И АДМИН-АНАЛИТИКА
     // ========================================================
-    let adminModalTab = 'overview';
-    let adminUserFilter = 'all';
     let adminAnalyticsData = null;
-    let adminPollTimer = null;
     let adminFetchInFlight = false;
+    let adminResetConfirmUntil = 0;
 
     function syncAdminUI() {
       const realAdmin = isRealAdmin();
@@ -9193,14 +9306,6 @@
       if (typeof isPwaStandalone === 'function' && isPwaStandalone()) return 'PWA';
       if (window.Telegram?.WebApp?.initData) return 'TG';
       return 'Web';
-    }
-
-    function formatRelativeAgo(sec) {
-      const s = Math.max(0, Number(sec) || 0);
-      if (s < 45) return 'сейчас';
-      if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} мин назад`;
-      if (s < 86400) return `${Math.floor(s / 3600)} ч назад`;
-      return `${Math.floor(s / 86400)} дн назад`;
     }
 
     const CLICK_ID_TELEMETRY = {
@@ -9378,7 +9483,7 @@
             this.enqueue('heartbeat', 'active_session', 'В приложении');
             this.scheduleIdleFlush(300);
           }
-        }, 45000);
+        }, 60000);
 
         document.addEventListener('visibilitychange', () => {
           if (document.hidden) {
@@ -9388,8 +9493,6 @@
             if (this.hiddenAt && (Date.now() - this.hiddenAt) >= 600000) {
               this.enqueue('visit', 'app_return', 'Вернулся в приложение');
               this.scheduleIdleFlush(400);
-            } else if (adminPollTimer) {
-              loadAdminAnalytics(false);
             }
             this.hiddenAt = 0;
           }
@@ -9417,12 +9520,7 @@
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       triggerHaptic('light');
-      switchAdminTab(adminModalTab, true);
       AnalyticsTracker.flush(true).finally(() => loadAdminAnalytics(false));
-      if (adminPollTimer) clearInterval(adminPollTimer);
-      adminPollTimer = setInterval(() => {
-        if (!document.hidden) loadAdminAnalytics(false);
-      }, 10000);
     }
 
     function closeAdminAnalyticsModal() {
@@ -9432,40 +9530,6 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
       }
-      if (adminPollTimer) {
-        clearInterval(adminPollTimer);
-        adminPollTimer = null;
-      }
-    }
-
-    function switchAdminTab(tab, silent = false) {
-      adminModalTab = (tab === 'users' || tab === 'feed') ? tab : 'overview';
-      if (!silent) soundFx.playTab();
-      ['overview', 'users', 'feed'].forEach((t) => {
-        const btn = document.getElementById(`admin-tab-${t}`);
-        const pane = document.getElementById(`admin-pane-${t}`);
-        const active = t === adminModalTab;
-        if (btn) {
-          btn.className = active
-            ? 'py-1.5 px-2 rounded-full text-xs font-bold bg-white text-[#145594] dark:text-slate-950 shadow-xs transition active:scale-95'
-            : 'py-1.5 px-2 rounded-full text-xs font-semibold text-white/85 hover:text-white transition active:scale-95';
-        }
-        if (pane) pane.classList.toggle('hidden', !active);
-      });
-    }
-
-    function setAdminUserFilter(filterName) {
-      adminUserFilter = (filterName === 'online' || filterName === 'offline') ? filterName : 'all';
-      soundFx.playTap?.();
-      ['all', 'online', 'offline'].forEach((f) => {
-        const btn = document.getElementById(`admin-ufilter-${f}`);
-        if (!btn) return;
-        const active = f === adminUserFilter;
-        btn.className = active
-          ? 'px-3 py-1 rounded-full text-[11px] font-bold bg-[#2077cf] text-white transition active:scale-95'
-          : 'px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95';
-      });
-      renderAdminUsersList();
     }
 
     async function loadAdminAnalytics(manual = false) {
@@ -9483,7 +9547,7 @@
         adminAnalyticsData = await res.json();
         renderAdminAnalytics();
       } catch (err) {
-        if (manual) showToast('Не удалось обновить аналитику', 'error');
+        if (manual) showToast('Не удалось загрузить статистику', 'error');
       } finally {
         adminFetchInFlight = false;
       }
@@ -9506,145 +9570,134 @@
 
       const subtitleEl = document.getElementById('admin-analytics-subtitle');
       if (subtitleEl) {
-        subtitleEl.textContent = s.registered_users
-          ? `В сети: ${s.online_now || 0} · В базе класса: ${s.registered_users}`
-          : 'Заходы, клики и живые статусы · 10-А';
+        subtitleEl.textContent = `Событий в логе: ${s.log_events_count || 0} · Учеников: ${s.active_users || 0} из ${s.registered_users || 0}`;
       }
 
       const updatedEl = document.getElementById('admin-last-updated');
       if (updatedEl) {
         const d = new Date();
-        updatedEl.textContent = `Обновлено ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+        updatedEl.textContent = `Обновлено ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
       }
 
-      // Топ действий (Обзор)
       const topEl = document.getElementById('admin-top-actions-list');
       if (topEl) {
-        const actions = Array.isArray(data.top_actions) ? data.top_actions.slice(0, 10) : [];
+        const actions = Array.isArray(data.top_actions) ? data.top_actions.slice(0, 5) : [];
         if (!actions.length) {
-          topEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Пока нет записанных кликов</div>';
+          topEl.innerHTML = '<div class="text-center py-4 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Пока нет записанных кликов</div>';
         } else {
-          const maxClicks = Math.max(1, Number(actions[0]?.clicks) || 1);
-          topEl.innerHTML = actions.map((item, idx) => {
-            const clicks = Number(item.clicks) || 0;
-            const pct = Math.max(8, Math.round((clicks / maxClicks) * 100));
-            return `
-              <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] space-y-1.5">
-                <div class="flex items-center justify-between gap-2 text-xs">
-                  <span class="font-bold text-slate-800 dark:text-white truncate">${idx + 1}. ${escapeHtml(item.label || item.key || 'Действие')}</span>
-                  <span class="font-mono font-extrabold text-[#2077cf] dark:text-sky-300 shrink-0">${clicks}</span>
-                </div>
-                <div class="w-full h-1.5 rounded-full bg-slate-200/80 dark:bg-white/[0.08] overflow-hidden">
-                  <div class="h-full rounded-full bg-gradient-to-r from-[#2077cf] to-[#38bdf8]" style="width:${pct}%"></div>
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-      }
-
-      renderAdminUsersList();
-
-      // Лента активности
-      const feedEl = document.getElementById('admin-feed-list');
-      if (feedEl) {
-        const feed = Array.isArray(data.recent_feed) ? data.recent_feed : [];
-        if (!feed.length) {
-          feedEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">События появятся сразу после первых действий учеников</div>';
-        } else {
-          feedEl.innerHTML = feed.slice(0, 40).map((ev) => {
-            const typeBadge = ev.type === 'visit'
-              ? '<span class="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[9.5px] font-bold">Заход</span>'
-              : ev.type === 'leave'
-                ? '<span class="px-1.5 py-0.5 rounded-md bg-slate-500/15 text-slate-500 dark:text-slate-300 text-[9.5px] font-bold">Выход</span>'
-                : '<span class="px-1.5 py-0.5 rounded-md bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300 text-[9.5px] font-bold">Клик</span>';
-            const rawNick = String(ev.nick || '').trim().replace(/^@+/, '');
-            const nickLabel = rawNick ? `@${rawNick}` : '';
-            return `
-              <div class="px-3 py-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.05] flex items-center justify-between gap-2.5">
-                <div class="min-w-0">
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(ev.name || `ID ${ev.user_id}`)}</span>
-                    ${nickLabel ? `<span class="text-[10.5px] text-slate-400 dark:text-sky-100/50 truncate">${escapeHtml(nickLabel)}</span>` : ''}
-                    ${typeBadge}
-                  </div>
-                  <p class="text-[11px] text-slate-600 dark:text-sky-100/75 truncate mt-0.5">${escapeHtml(ev.label || 'Действие')} · ${escapeHtml(ev.platform || 'Web')}</p>
-                </div>
-                <span class="text-[10px] font-mono text-slate-400 dark:text-sky-100/50 shrink-0">${escapeHtml(formatRelativeAgo(ev.seconds_ago))}</span>
-              </div>
-            `;
-          }).join('');
+          topEl.innerHTML = actions.map((item, idx) => `
+            <div class="px-3 py-2 rounded-xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-2 text-xs">
+              <span class="font-bold text-slate-700 dark:text-white/90 truncate">${idx + 1}. ${escapeHtml(item.label || item.key || 'Действие')}</span>
+              <span class="font-mono font-extrabold text-[#2077cf] dark:text-sky-300 shrink-0">${Number(item.clicks) || 0}</span>
+            </div>
+          `).join('');
         }
       }
     }
 
-    function renderAdminUsersList() {
-      const listEl = document.getElementById('admin-users-list');
-      if (!listEl || !adminAnalyticsData) return;
-      const allUsers = Array.isArray(adminAnalyticsData.users) ? adminAnalyticsData.users : [];
+    async function _fetchAnalyticsExportText(fmt = 'txt') {
+      await AnalyticsTracker.flush(true);
+      const url = `/api/admin/analytics/export?user_id=${encodeURIComponent(userId)}&format=${encodeURIComponent(fmt)}`;
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const disp = res.headers.get('content-disposition') || '';
+      const fnMatch = disp.match(/filename="?([^"]+)"?/i);
+      const ext = fmt === 'json' ? 'json' : 'txt';
+      const filename = fnMatch ? fnMatch[1] : `hw_analytics_for_ai.${ext}`;
+      const blob = await res.blob();
+      return { blob, filename };
+    }
 
-      const onlineCount = allUsers.filter((u) => u.presence === 'online' || u.presence === 'recent').length;
-      const offlineCount = Math.max(0, allUsers.length - onlineCount);
-      const allBtn = document.getElementById('admin-ufilter-all');
-      const onBtn = document.getElementById('admin-ufilter-online');
-      const offBtn = document.getElementById('admin-ufilter-offline');
-      if (allBtn) allBtn.textContent = `Все (${allUsers.length})`;
-      if (onBtn) onBtn.textContent = `Онлайн (${onlineCount})`;
-      if (offBtn) offBtn.textContent = `Оффлайн (${offlineCount})`;
+    async function downloadAnalyticsExport(fmt = 'txt') {
+      if (!isRealAdmin()) return;
+      soundFx.playTap?.();
+      try {
+        const { blob, filename } = await _fetchAnalyticsExportText(fmt);
+        const blobUrl = URL.createObjectURL(blob);
+        _clickDownloadLink(blobUrl, filename, false);
+        setTimeout(() => { try { URL.revokeObjectURL(blobUrl); } catch (e) {} }, 30000);
+        const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+        showToast(
+          isMobile
+            ? `Файл ${filename} скачан (папка «Загрузки»)`
+            : `Отчёт ${filename} скачан`,
+          'success',
+          4000
+        );
+      } catch (err) {
+        showToast('Не удалось скачать отчёт', 'error');
+      }
+    }
 
-      const filtered = allUsers.filter((u) => {
-        if (adminUserFilter === 'online') return u.presence === 'online' || u.presence === 'recent';
-        if (adminUserFilter === 'offline') return u.presence !== 'online' && u.presence !== 'recent';
-        return true;
-      });
+    async function copyAnalyticsForAi() {
+      if (!isRealAdmin()) return;
+      soundFx.playTap?.();
+      try {
+        const { blob } = await _fetchAnalyticsExportText('txt');
+        const txt = await blob.text();
+        await navigator.clipboard.writeText(txt);
+        triggerHaptic('success');
+        showToast('Отчёт скопирован — можно вставить в ИИ', 'success');
+      } catch (err) {
+        showToast('Не удалось скопировать текст', 'error');
+      }
+    }
 
-      if (!filtered.length) {
-        listEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Нет учеников в этом фильтре</div>';
+    async function sendAnalyticsToTelegram(fmt = 'txt') {
+      if (!isRealAdmin()) return;
+      const btn = document.getElementById('admin-send-chat-btn');
+      if (btn) btn.disabled = true;
+      soundFx.playTap?.();
+      try {
+        await AnalyticsTracker.flush(true);
+        const res = await fetch('/api/admin/analytics/send-to-chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: Number(userId) || 0, format: fmt })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (data.sent) {
+          triggerHaptic('success');
+          showToast('Отчёт отправлен в ваш чат с ботом @my_hw_manager_bot', 'success', 4000);
+        } else if (data.reason === 'start_bot') {
+          showToast('Сначала напишите /start боту @my_hw_manager_bot', 'info', 4200);
+        } else {
+          showToast('Не удалось отправить файл в Telegram', 'warning');
+        }
+      } catch (err) {
+        showToast('Ошибка отправки в Telegram', 'error');
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
+
+    async function resetAnalyticsStats() {
+      if (!isRealAdmin()) return;
+      const btn = document.getElementById('admin-reset-btn');
+      const now = Date.now();
+      if (now > adminResetConfirmUntil) {
+        adminResetConfirmUntil = now + 4000;
+        if (btn) btn.textContent = 'Точно очистить?';
+        setTimeout(() => {
+          if (Date.now() >= adminResetConfirmUntil && btn) btn.textContent = 'Очистить';
+        }, 4100);
         return;
       }
-
-      listEl.innerHTML = filtered.map((u) => {
-        const dotClass = u.presence === 'online'
-          ? 'bg-emerald-400'
-          : u.presence === 'recent'
-            ? 'bg-amber-400'
-            : 'bg-slate-400 dark:bg-slate-500';
-        const statusText = u.presence === 'online'
-          ? 'Онлайн'
-          : u.presence === 'recent'
-            ? `Недавно · ${formatRelativeAgo(u.seconds_ago)}`
-            : (u.last_seen ? formatRelativeAgo(u.seconds_ago) : 'Не заходил');
-        const statusColor = u.presence === 'online'
-          ? 'text-emerald-600 dark:text-emerald-300'
-          : u.presence === 'recent'
-            ? 'text-amber-600 dark:text-amber-300'
-            : 'text-slate-400 dark:text-sky-100/50';
-        const rawNick = String(u.nick || '').trim().replace(/^@+/, '');
-        const nickText = rawNick ? `@${rawNick}` : `ID ${u.user_id}`;
-
-        return `
-          <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-3">
-            <div class="flex items-center gap-2.5 min-w-0">
-              <div class="relative shrink-0">
-                ${renderAvatarElement(u.user_id, 'w-9 h-9 text-xs', u.name)}
-                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-[#0e223b] ${dotClass}"></span>
-              </div>
-              <div class="min-w-0">
-                <div class="flex items-center gap-1.5">
-                  <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(u.name || `ID ${u.user_id}`)}</span>
-                  <span class="px-1.5 py-0.5 rounded-md bg-slate-200/70 dark:bg-white/[0.10] text-[9px] font-bold text-slate-600 dark:text-sky-100/80 shrink-0">${escapeHtml(u.platform || 'Web')}</span>
-                </div>
-                <div class="text-[10.5px] ${statusColor} font-semibold truncate">${escapeHtml(statusText)} · ${escapeHtml(nickText)}</div>
-                ${u.last_action ? `<div class="text-[10.5px] text-slate-500 dark:text-sky-100/65 truncate mt-0.5">${escapeHtml(u.last_action)}</div>` : ''}
-              </div>
-            </div>
-            <div class="text-right shrink-0 space-y-0.5">
-              <div class="text-[11px] font-extrabold font-mono text-slate-800 dark:text-white">${Number(u.visits) || 0} <span class="text-[9.5px] font-semibold text-slate-400">заход</span></div>
-              <div class="text-[11px] font-extrabold font-mono text-[#2077cf] dark:text-sky-300">${Number(u.clicks) || 0} <span class="text-[9.5px] font-semibold text-slate-400">клик</span></div>
-            </div>
-          </div>
-        `;
-      }).join('');
+      adminResetConfirmUntil = 0;
+      if (btn) btn.textContent = 'Очистка...';
+      try {
+        const res = await fetch(`/api/admin/analytics/reset?user_id=${encodeURIComponent(userId)}`, {
+          method: 'POST'
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast('Статистика очищена — начат новый сбор', 'success');
+        await loadAdminAnalytics(false);
+      } catch (err) {
+        showToast('Не удалось очистить статистику', 'error');
+      } finally {
+        if (btn) btn.textContent = 'Очистить';
+      }
     }
 
     syncAdminUI();

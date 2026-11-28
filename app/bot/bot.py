@@ -14,7 +14,8 @@ from aiogram.filters import CommandStart, Command, CommandObject, ChatMemberUpda
 from aiogram.types import (
     Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo,
     ChatMemberUpdated, FSInputFile, InputMediaPhoto, TelegramObject,
-    BotCommandScopeAllPrivateChats, BotCommandScopeAllGroupChats
+    BotCommandScopeDefault, BotCommandScopeAllPrivateChats,
+    BotCommandScopeAllGroupChats, BotCommandScopeAllChatAdministrators
 )
 try:
     from app.database.db import (
@@ -321,31 +322,38 @@ async def sync_bot_profile():
     except Exception as e:
         logger.warning(f"Note setting full description: {e}")
 
-    # 4. Commands menu (для личных и групповых чатов)
+    # 4. Commands menu (для личных и групповых чатов, включая админов групп и default scope)
     try:
         private_commands = [
             BotCommand(command="start", description="🚀 Открыть ДЗ Портал 10-А"),
-            BotCommand(command="tomorrow", description="📚 Домашнее задание на завтра"),
+            BotCommand(command="dz", description="📚 Д/З на завтра (или /dz алгебра)"),
             BotCommand(command="today", description="📅 Уроки и задания на сегодня"),
             BotCommand(command="week", description="🗓️ Все задания на неделю"),
             BotCommand(command="priority", description="⚡ Срочные задания по дням"),
-            BotCommand(command="top", description="🏆 Таблица лидеров редакторов"),
-            BotCommand(command="settings", description="⚙️ Настройки уведомлений (ежедневно в 18:00)"),
             BotCommand(command="overdue", description="⏳ Просроченные задания"),
+            BotCommand(command="top", description="🏆 Таблица лидеров класса"),
+            BotCommand(command="settings", description="⚙️ Настройки уведомлений (18:00)"),
             BotCommand(command="help", description="ℹ️ Справка по всем командам"),
         ]
         group_commands = [
-            BotCommand(command="tomorrow", description="📚 Д/З на завтра (или /tomorrow алгебра)"),
-            BotCommand(command="today", description="📅 Д/З на сегодня (или /today физика)"),
-            BotCommand(command="remind_group", description="⏰ Напоминания в группе"),
-            BotCommand(command="help", description="ℹ️ Справка по командам в группе"),
+            BotCommand(command="dz", description="📚 Д/З на завтра (или /dz предмет)"),
+            BotCommand(command="today", description="📅 Д/З на сегодня (или /today предмет)"),
+            BotCommand(command="week", description="🗓️ Задания на всю неделю"),
+            BotCommand(command="top", description="🏆 Таблица лидеров класса"),
+            BotCommand(command="remind", description="⏰ Напоминания группы (on/off/18:00)"),
+            BotCommand(command="help", description="ℹ️ Команды бота в группе"),
         ]
-        try:
-            await bot.set_my_commands(private_commands, scope=BotCommandScopeAllPrivateChats())
-            await bot.set_my_commands(group_commands, scope=BotCommandScopeAllGroupChats())
-        except Exception:
-            await bot.set_my_commands(private_commands)
-        logger.info("✅ Bot commands updated for private and group chats.")
+        for scope_obj, cmds in (
+            (BotCommandScopeDefault(), private_commands),
+            (BotCommandScopeAllPrivateChats(), private_commands),
+            (BotCommandScopeAllGroupChats(), group_commands),
+            (BotCommandScopeAllChatAdministrators(), group_commands),
+        ):
+            try:
+                await bot.set_my_commands(cmds, scope=scope_obj)
+            except Exception as sc_err:
+                logger.warning(f"Note setting bot commands for {type(scope_obj).__name__}: {sc_err}")
+        logger.info("✅ Bot commands updated for default, private, group, and group-admin scopes.")
     except Exception as e:
         logger.warning(f"Note setting bot commands: {e}")
 
@@ -2068,9 +2076,13 @@ async def handle_leaderboard_command(message: Message):
 @dp.message(Command("remind", "notify"))
 async def handle_remind(message: Message, command: CommandObject = None):
     """
-    On-demand command for testing and checking homework notifications.
-    Supports optional hour argument: /remind, /remind 8, /remind 16, /remind 18
+    В группе настраивает групповые напоминания (/remind on/off/18:30).
+    В личном чате отправляет мгновенное персональное напоминание.
     """
+    if message.chat.type in ("group", "supergroup"):
+        await handle_remind_group(message, command=command)
+        return
+
     record_user_activity(message.from_user)
     target_hour = None
     if command and command.args:
@@ -2107,14 +2119,15 @@ async def on_bot_joined_group(event: ChatMemberUpdated):
             class_name="10-А"
         )
         welcome_text = (
-            f"👋 <b>Всем привет! Я помощник по домашним заданиям для {html.escape(chat.title or 'вашего класса')}!</b>\n\n"
-            "Я буду помогать классу не забывать про уроки и быстро находить Д/З прямо здесь.\n\n"
-            "📌 <b>Что я умею в группе:</b>\n"
-            "• <b>/tomorrow</b> (или <b>/завтра</b>, <b>/dz</b>) — показать всё Д/З на завтра\n"
-            "• <b>/tomorrow [предмет]</b> (например: <code>/dz алгебра</code>) — показать задание и фото страниц\n"
-            "• <b>/today</b> (или <b>/сегодня</b>) — показать Д/З на сегодня\n"
-            "• <b>/remind_group</b> — настройки вечернего напоминания в группу (по умолчанию в 18:00)\n\n"
-            "💡 <i>Также можно просто спросить в чате: «Что завтра по алгебре?» или «Какое дз на завтра?».</i>"
+            f"👋 <b>Всем привет! Я помощник по Д/З для {html.escape(chat.title or 'вашего класса')}!</b>\n\n"
+            "📌 <b>Простые команды в группе:</b>\n"
+            "• <b>/dz</b> (или <code>/dz алгебра</code>) — Д/З на завтра\n"
+            "• <b>/today</b> (или <code>/today физика</code>) — Д/З на сегодня\n"
+            "• <b>/week</b> — задания на всю неделю\n"
+            "• <b>/top</b> — таблица лидеров класса\n"
+            "• <b>/remind</b> — авто-напоминания группы (<code>on</code> / <code>off</code> / <code>18:30</code>)\n"
+            "• <b>/help</b> — справка по командам\n\n"
+            "💡 <i>Или просто напишите в чат: «Что завтра по алгебре?» — бот ответит!</i>"
         )
         btn = get_portal_keyboard("🎒 Открыть ДЗ Портал", chat_or_type="group")
         try:
@@ -2134,10 +2147,10 @@ async def on_bot_left_group(event: ChatMemberUpdated):
         logger.info(f"Bot was removed from group {event.chat.id} ({event.chat.title})")
 
 # ─────────────────────────────────────────────────────────────
-# КОМАНДЫ Д/З: /tomorrow, /today, /remind_group
+# КОМАНДЫ Д/З: /dz (/tomorrow), /today, /remind
 # ─────────────────────────────────────────────────────────────
 
-@dp.message(Command("tomorrow", "завтра", "dz", "дз", "hw", "tasks"))
+@dp.message(Command("dz", "дз", "tomorrow", "завтра", "hw", "tasks"))
 async def handle_tomorrow(message: Message, command: CommandObject = None):
     record_user_activity(message.from_user)
     now_local = datetime.now(TARGET_TZ)
@@ -2148,6 +2161,14 @@ async def handle_tomorrow(message: Message, command: CommandObject = None):
 
     if command and command.args:
         arg_subject = command.args.strip()
+        arg_low = arg_subject.lower()
+        if arg_low in ("сегодня", "today"):
+            await handle_today_tasks(message, command=CommandObject(prefix="/", command="today", args=None))
+            return
+        if arg_low.startswith(("сегодня ", "today ")):
+            subj_part = arg_subject.split(maxsplit=1)[1].strip()
+            await handle_today_tasks(message, command=CommandObject(prefix="/", command="today", args=subj_part))
+            return
         await send_subject_homework(message, subject_query=arg_subject, target_date_str=tomorrow_str)
         return
 
@@ -2204,8 +2225,8 @@ async def handle_remind_group(message: Message, command: CommandObject = None):
     chat = message.chat
     if chat.type not in ("group", "supergroup"):
         await message.answer(
-            "ℹ️ Команда <b>/remind_group</b> предназначена для групповых чатов класса.\n"
-            "Добавьте бота в чат класса и настройте автоматические напоминания!",
+            "ℹ️ Настройка групповых напоминаний работает прямо в чате класса командой <b>/remind</b>.\n"
+            "Добавьте бота в группу класса и отправьте <code>/remind</code>!",
             parse_mode="HTML"
         )
         return
@@ -2229,49 +2250,49 @@ async def handle_remind_group(message: Message, command: CommandObject = None):
         arg = command.args.strip().lower()
         if arg in ("off", "0", "выкл", "disable", "stop"):
             set_group_reminder(chat.id, is_active=False)
-            await message.answer(
+            await safe_reply(
+                message,
                 "🔕 <b>Ежедневные напоминания в этой группе выключены.</b>\n"
-                "Чтобы включить обратно, отправьте: <code>/remind_group on</code>",
-                parse_mode="HTML"
+                "Чтобы включить обратно, отправьте: <code>/remind on</code>",
             )
             return
         elif arg in ("on", "1", "вкл", "enable", "start"):
             set_group_reminder(chat.id, is_active=True)
-            await message.answer(
+            await safe_reply(
+                message,
                 f"🔔 <b>Ежедневные напоминания в группе включены!</b>\n"
                 f"⏰ Время отправки: <b>{cur_time}</b> (Asia/Tashkent).\n"
                 f"Бот будет каждый вечер присылать список Д/З на завтра.",
-                parse_mode="HTML"
             )
             return
         else:
             norm = normalize_time_str(arg)
             if norm:
                 set_group_reminder(chat.id, is_active=True, remind_time=norm)
-                await message.answer(
+                await safe_reply(
+                    message,
                     f"⏰ <b>Время вечернего напоминания в группе изменено на {norm}!</b>\n"
                     f"Каждый день в {norm} бот будет публиковать уроки на завтра.",
-                    parse_mode="HTML"
                 )
                 return
             else:
-                await message.answer(
-                    "❌ Неверный формат времени. Используйте ЧЧ:ММ (например: <code>/remind_group 18:30</code>) или <code>/remind_group on/off</code>.",
-                    parse_mode="HTML"
+                await safe_reply(
+                    message,
+                    "❌ Неверный формат времени. Используйте ЧЧ:ММ (например: <code>/remind 18:30</code>) или <code>/remind on/off</code>.",
                 )
                 return
 
     status_str = "🔔 <b>Включены</b>" if cur_active else "🔕 <b>Выключены</b>"
     text = (
-        f"⚙️ <b>Настройки напоминаний для группы «{html.escape(chat.title or '')}»:</b>\n\n"
+        f"⚙️ <b>Напоминания группы «{html.escape(chat.title or '')}»:</b>\n\n"
         f"• Статус: {status_str}\n"
         f"• Время отправки: <b>{cur_time}</b> (Asia/Tashkent)\n\n"
-        f"📌 <b>Управление:</b>\n"
-        f"• <code>/remind_group off</code> — выключить напоминания\n"
-        f"• <code>/remind_group on</code> — включить напоминания\n"
-        f"• <code>/remind_group 19:00</code> — изменить время напоминания\n"
+        f"📌 <b>Команды управления:</b>\n"
+        f"• <code>/remind off</code> — выключить\n"
+        f"• <code>/remind on</code> — включить\n"
+        f"• <code>/remind 19:00</code> — изменить время\n"
     )
-    await message.answer(text, parse_mode="HTML")
+    await safe_reply(message, text)
 
 @dp.message(Command("notify_all", "broadcast_reminders"))
 async def handle_notify_all(message: Message, command: CommandObject = None):
@@ -2379,8 +2400,9 @@ async def handle_today_tasks(message: Message, command: CommandObject = None):
 @dp.message(Command("overdue"))
 async def handle_overdue(message: Message):
     record_user_activity(message.from_user)
+    is_group = message.chat.type in ("group", "supergroup")
     today_str = get_local_today().isoformat()
-    overdue = get_overdue_tasks(message.from_user.id, today_str)
+    overdue = get_overdue_tasks(0 if is_group else message.from_user.id, today_str)
 
     if not overdue:
         await safe_reply(message, "✨ <b>Просроченных заданий нет! Вы молодец!</b>", reply_markup=get_portal_keyboard(chat_or_type=message))
@@ -2400,11 +2422,12 @@ async def handle_overdue(message: Message):
 @dp.message(Command("priority", "pending"))
 async def handle_priority(message: Message):
     record_user_activity(message.from_user)
+    is_group = message.chat.type in ("group", "supergroup")
     today = get_local_today()
     today_str = today.isoformat()
     tomorrow_str = (today + timedelta(days=1)).isoformat()
     in2days_str = (today + timedelta(days=2)).isoformat()
-    tasks = get_pending_tasks(message.from_user.id)
+    tasks = get_pending_tasks(0 if is_group else message.from_user.id)
 
     if not tasks:
         await safe_reply(message, "🎉 <b>У вас нет невыполненных заданий! Всё чисто.</b>", reply_markup=get_portal_keyboard(chat_or_type=message))
@@ -2453,7 +2476,8 @@ async def handle_priority(message: Message):
 @dp.message(Command("week", "weekly", "неделя"))
 async def handle_weekly_command(message: Message):
     record_user_activity(message.from_user)
-    text, has_tasks = build_weekly_notification(message.from_user.id)
+    is_group = message.chat.type in ("group", "supergroup")
+    text, has_tasks = build_weekly_notification(0 if is_group else message.from_user.id)
     await safe_reply(
         message,
         text,
@@ -2561,20 +2585,33 @@ async def handle_materials(message: Message, command: CommandObject):
 @dp.message(Command("help"))
 async def handle_help(message: Message):
     record_user_activity(message.from_user)
-    help_text = (
-        "🤖 <b>Команды ДЗ Бота 10-го класса:</b>\n\n"
-        "• <b>/start</b> — Главное меню и запуск приложения\n"
-        "• <b>/top</b> — 🏆 Таблица лидеров и самых активных редакторов\n"
-        "• <b>/tomorrow</b> (или <b>/завтра</b>) — Задания на завтра\n"
-        "• <b>/tomorrow [предмет]</b> — Д/З по конкретному предмету (с фото!)\n"
-        "• <b>/today</b> (или <b>/сегодня</b>) — Задания на сегодня\n"
-        "• <b>/priority</b> — Все невыполненные задания по дням\n"
-        "• <b>/settings</b> — Настройки личных уведомлений\n"
-        "• <b>/remind_group</b> — Напоминание в групповой чат прямо сейчас\n"
-        "• <b>/overdue</b> — Просроченные задания\n"
-        "• <b>/done &lt;id&gt;</b> — Отметить задание выполненным\n\n"
-        "💡 <i>В группе можно просто спросить: «что задали на завтра по алгебре?» или «что на завтра?» — бот всё поймет и покажет!</i>"
-    )
+    is_group = message.chat.type in ("group", "supergroup")
+    if is_group:
+        help_text = (
+            "🤖 <b>Простые команды бота в группе 10-А:</b>\n\n"
+            "• <b>/dz</b> — Д/З на завтра (или <code>/dz алгебра</code>, <code>/dz сегодня</code>)\n"
+            "• <b>/today</b> — Д/З на сегодня (или <code>/today физика</code>)\n"
+            "• <b>/week</b> — задания на всю неделю\n"
+            "• <b>/top</b> — таблица лидеров класса\n"
+            "• <b>/remind</b> — авто-напоминания группы (<code>on</code> / <code>off</code> / <code>18:30</code>)\n"
+            "• <b>/help</b> — эта справка\n\n"
+            "💡 <i>Или просто спросите в чате: «что задали на завтра по алгебре?» — бот ответит!</i>"
+        )
+    else:
+        help_text = (
+            "🤖 <b>Команды ДЗ Бота 10-го класса:</b>\n\n"
+            "• <b>/start</b> — Главное меню и запуск приложения\n"
+            "• <b>/dz</b> (или <b>/tomorrow</b>) — Задания на завтра\n"
+            "• <b>/dz [предмет]</b> — Д/З по предмету (с фото!)\n"
+            "• <b>/today</b> — Задания на сегодня\n"
+            "• <b>/week</b> — Все задания на неделю\n"
+            "• <b>/priority</b> — Невыполненные задания по дням\n"
+            "• <b>/overdue</b> — Просроченные задания\n"
+            "• <b>/top</b> — 🏆 Таблица лидеров класса\n"
+            "• <b>/settings</b> — Настройки уведомлений (18:00)\n"
+            "• <b>/done &lt;id&gt;</b> — Отметить задание выполненным\n\n"
+            "💡 <i>В группе можно использовать короткие команды /dz, /today, /week, /top, /remind!</i>"
+        )
     await safe_reply(message, help_text, reply_markup=get_portal_keyboard(chat_or_type=message))
 
 @dp.message(Command("cleanup"))
@@ -2612,9 +2649,24 @@ async def handle_text_fallback(message: Message):
             fake_cmd = CommandObject(prefix="/", command=cmd_clean, args=cmd_args)
             await handle_today_tasks(message, command=fake_cmd)
             return
-        elif cmd_clean in ("remind_group", "group_remind"):
+        elif cmd_clean in ("week", "weekly", "неделя"):
+            await handle_weekly_command(message)
+            return
+        elif cmd_clean in ("top", "leaderboard", "rating", "рейтинг"):
+            await handle_leaderboard_command(message)
+            return
+        elif cmd_clean in ("remind", "notify", "remind_group", "group_remind"):
             fake_cmd = CommandObject(prefix="/", command=cmd_clean, args=cmd_args)
-            await handle_remind_group(message, command=fake_cmd)
+            await handle_remind(message, command=fake_cmd)
+            return
+        elif cmd_clean in ("priority", "pending"):
+            await handle_priority(message)
+            return
+        elif cmd_clean == "overdue":
+            await handle_overdue(message)
+            return
+        elif cmd_clean == "help":
+            await handle_help(message)
             return
 
     is_group = message.chat.type in ("group", "supergroup")
