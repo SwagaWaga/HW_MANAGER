@@ -169,7 +169,7 @@ def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     if not client:
         return None
     try:
-        res = client.table("users").select("id, telegram_nick, full_name, role, class_name").eq("id", user_id).limit(1).execute()
+        res = client.table("users").select("id, telegram_nick, full_name, role, class_name, created_at").eq("id", user_id).limit(1).execute()
         row = res.data[0] if (res.data and len(res.data) > 0) else None
         if row:
             with _CACHE_LOCK:
@@ -298,7 +298,7 @@ def _get_cached_feed_and_completions(
             return res.data or []
 
         def _fetch_users_plain():
-            res = client.table("users").select("id, telegram_nick, full_name, role, class_name").execute()
+            res = client.table("users").select("id, telegram_nick, full_name, role, class_name, created_at").execute()
             return res.data or []
 
         with ThreadPoolExecutor(max_workers=4) as pool:
@@ -332,11 +332,11 @@ def _get_cached_feed_and_completions(
                             needed_uids.add(r["user_id"])
                     for r in mats_rows:
                         cap = r.get("caption") or ""
-                        if not cap.startswith(("[COMMENT]", "[ANALYTICS")) and r.get("uploader_id") and r["uploader_id"] not in users_map:
+                        if not cap.startswith(("[COMMENT]", "[ANALYTICS", "[FEEDBACK")) and r.get("uploader_id") and r["uploader_id"] not in users_map:
                             needed_uids.add(r["uploader_id"])
                     if needed_uids:
                         try:
-                            miss_res = client.table("users").select("id, telegram_nick, full_name, role, class_name").in_("id", list(needed_uids)).execute()
+                            miss_res = client.table("users").select("id, telegram_nick, full_name, role, class_name, created_at").in_("id", list(needed_uids)).execute()
                             if miss_res.data:
                                 with _CACHE_LOCK:
                                     for u in miss_res.data:
@@ -931,7 +931,7 @@ def get_leaderboard(class_name: str = "10-А", force_refresh: bool = False) -> L
         t_counts = Counter(t["user_id"] for t in (tasks_res.data or []) if t.get("user_id"))
         m_counts = Counter(
             m["uploader_id"] for m in (materials_res.data or [])
-            if m.get("uploader_id") and not str(m.get("caption") or "").startswith("[ANALYTICS")
+            if m.get("uploader_id") and not str(m.get("caption") or "").startswith(("[ANALYTICS", "[FEEDBACK"))
         )
         c_counts = Counter(c["user_id"] for c in (comps_res.data or []) if c.get("user_id"))
 
@@ -1367,8 +1367,9 @@ def delete_task_comment(comment_id: Any, user_id: int = 0) -> bool:
 
 
 ANALYTICS_SNAPSHOT_CAPTION = "[ANALYTICS_SNAPSHOT]"
-_ANALYTICS_ROW_LOCK = threading.Lock()
-_ANALYTICS_ROW_ID: Optional[int] = None
+FEEDBACK_SNAPSHOT_CAPTION = "[FEEDBACK_SNAPSHOT]"
+_SNAPSHOT_ROW_LOCK = threading.Lock()
+_SNAPSHOT_ROW_IDS: Dict[str, Optional[int]] = {}
 
 
 def _parse_iso_to_epoch(val: Optional[str]) -> float:
@@ -1384,21 +1385,16 @@ def _parse_iso_to_epoch(val: Optional[str]) -> float:
         return 0.0
 
 
-def load_analytics_snapshot_supabase() -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
-    """Загружает сохранённый снимок аналитики из постоянной таблицы Supabase (переживает деплои Render)."""
-    global _ANALYTICS_ROW_ID
-    users_map: Dict[int, Dict[str, Any]] = {}
-    actions_map: Dict[str, Dict[str, Any]] = {}
-    log_events: List[Dict[str, Any]] = []
+def _load_material_json_row(caption: str) -> Optional[Dict[str, Any]]:
+    """Загружает JSON-снимок служебной строки из task_materials (task_id IS NULL)."""
     client = get_supabase_client()
     if not client:
-        return users_map, actions_map, log_events
-
+        return None
     try:
         res = (
             client.table("task_materials")
             .select("id, file_id")
-            .eq("caption", ANALYTICS_SNAPSHOT_CAPTION)
+            .eq("caption", caption)
             .is_("task_id", "null")
             .order("id", desc=True)
             .limit(1)
@@ -1406,83 +1402,28 @@ def load_analytics_snapshot_supabase() -> Tuple[Dict[int, Dict[str, Any]], Dict[
         )
         rows = res.data or []
         if not rows:
-            return users_map, actions_map, log_events
+            return None
         row = rows[0]
-        with _ANALYTICS_ROW_LOCK:
-            _ANALYTICS_ROW_ID = int(row["id"])
+        with _SNAPSHOT_ROW_LOCK:
+            _SNAPSHOT_ROW_IDS[caption] = int(row["id"])
         raw_json = row.get("file_id") or ""
         if not raw_json or not raw_json.startswith("{"):
-            return users_map, actions_map, log_events
-        data = json.loads(raw_json)
-        for u in data.get("users") or []:
-            uid = int(u.get("user_id") or 0)
-            if uid <= 0:
-                continue
-            users_map[uid] = {
-                "user_id": uid,
-                "name": str(u.get("name") or "")[:120],
-                "nick": str(u.get("nick") or "")[:80],
-                "platform": str(u.get("platform") or "Web")[:24],
-                "visits": int(u.get("visits") or 0),
-                "clicks": int(u.get("clicks") or 0),
-                "last_seen": float(u.get("last_seen") or 0.0),
-                "first_seen": float(u.get("first_seen") or 0.0),
-                "last_action": str(u.get("last_action") or "")[:140],
-                "explicit_offline": bool(u.get("explicit_offline")),
-            }
-        for a in data.get("actions") or []:
-            k = str(a.get("key") or "")[:100]
-            if not k:
-                continue
-            actions_map[k] = {
-                "key": k,
-                "label": str(a.get("label") or k)[:120],
-                "clicks": int(a.get("clicks") or 0),
-            }
-        for ev in data.get("events") or []:
-            uid = int(ev.get("user_id") or 0)
-            if uid <= 0:
-                continue
-            log_events.append({
-                "ts": float(ev.get("ts") or 0.0),
-                "user_id": uid,
-                "type": str(ev.get("type") or "click")[:24],
-                "key": str(ev.get("key") or "")[:100],
-                "label": str(ev.get("label") or "")[:140],
-                "platform": str(ev.get("platform") or "Web")[:24],
-            })
+            return None
+        parsed = json.loads(raw_json)
+        return parsed if isinstance(parsed, dict) else None
     except Exception as e:
-        logger.warning(f"load_analytics_snapshot_supabase note: {e}")
-    return users_map, actions_map, log_events
+        logger.warning(f"_load_material_json_row({caption}) note: {e}")
+        return None
 
 
-def save_analytics_snapshot_supabase(
-    users_items: List[Dict[str, Any]],
-    actions_items: List[Dict[str, Any]],
-    events_items: List[Dict[str, Any]],
-) -> bool:
-    """Атомарно сохраняет снимок аналитики в Supabase, чтобы статистика не сбрасывалась при деплое."""
-    global _ANALYTICS_ROW_ID
+def _save_material_json_row(caption: str, raw_str: str) -> bool:
+    """Атомарно обновляет или создаёт служебную JSON-строку в task_materials."""
     client = get_supabase_client()
     if not client:
         return False
-
     try:
-        compact_events = events_items[-700:]
-        payload = {
-            "v": 1,
-            "saved_at": time.time(),
-            "users": users_items,
-            "actions": actions_items,
-            "events": compact_events,
-        }
-        raw_str = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        if len(raw_str) > 850_000:
-            payload["events"] = compact_events[-350:]
-            raw_str = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-
-        with _ANALYTICS_ROW_LOCK:
-            row_id = _ANALYTICS_ROW_ID
+        with _SNAPSHOT_ROW_LOCK:
+            row_id = _SNAPSHOT_ROW_IDS.get(caption)
 
         if row_id:
             upd = client.table("task_materials").update({"file_id": raw_str}).eq("id", row_id).execute()
@@ -1492,7 +1433,7 @@ def save_analytics_snapshot_supabase(
         existing = (
             client.table("task_materials")
             .select("id")
-            .eq("caption", ANALYTICS_SNAPSHOT_CAPTION)
+            .eq("caption", caption)
             .is_("task_id", "null")
             .order("id", desc=True)
             .limit(1)
@@ -1500,38 +1441,132 @@ def save_analytics_snapshot_supabase(
         )
         if existing.data:
             found_id = int(existing.data[0]["id"])
-            with _ANALYTICS_ROW_LOCK:
-                _ANALYTICS_ROW_ID = found_id
+            with _SNAPSHOT_ROW_LOCK:
+                _SNAPSHOT_ROW_IDS[caption] = found_id
             client.table("task_materials").update({"file_id": raw_str}).eq("id", found_id).execute()
             return True
 
         ins = client.table("task_materials").insert({
             "task_id": None,
             "file_id": raw_str,
-            "caption": ANALYTICS_SNAPSHOT_CAPTION,
+            "caption": caption,
             "uploader_id": None,
         }).execute()
         if ins.data:
-            with _ANALYTICS_ROW_LOCK:
-                _ANALYTICS_ROW_ID = int(ins.data[0]["id"])
+            with _SNAPSHOT_ROW_LOCK:
+                _SNAPSHOT_ROW_IDS[caption] = int(ins.data[0]["id"])
         return True
     except Exception as e:
-        logger.warning(f"save_analytics_snapshot_supabase note: {e}")
+        logger.warning(f"_save_material_json_row({caption}) note: {e}")
         return False
 
 
-def clear_analytics_snapshot_supabase() -> None:
-    """Удаляет сохранённый снимок аналитики из Supabase по кнопке сброса администратора."""
-    global _ANALYTICS_ROW_ID
+def _delete_material_json_row(caption: str) -> None:
+    """Удаляет служебную JSON-строку из task_materials."""
     client = get_supabase_client()
     if not client:
         return
     try:
-        client.table("task_materials").delete().eq("caption", ANALYTICS_SNAPSHOT_CAPTION).is_("task_id", "null").execute()
-        with _ANALYTICS_ROW_LOCK:
-            _ANALYTICS_ROW_ID = None
+        client.table("task_materials").delete().eq("caption", caption).is_("task_id", "null").execute()
+        with _SNAPSHOT_ROW_LOCK:
+            _SNAPSHOT_ROW_IDS.pop(caption, None)
     except Exception as e:
-        logger.warning(f"clear_analytics_snapshot_supabase note: {e}")
+        logger.warning(f"_delete_material_json_row({caption}) note: {e}")
+
+
+def load_analytics_snapshot_supabase() -> Tuple[Dict[int, Dict[str, Any]], Dict[str, Dict[str, Any]], List[Dict[str, Any]]]:
+    """Загружает сохранённый снимок аналитики из постоянной таблицы Supabase (переживает деплои Render)."""
+    users_map: Dict[int, Dict[str, Any]] = {}
+    actions_map: Dict[str, Dict[str, Any]] = {}
+    log_events: List[Dict[str, Any]] = []
+    data = _load_material_json_row(ANALYTICS_SNAPSHOT_CAPTION)
+    if not data:
+        return users_map, actions_map, log_events
+
+    for u in data.get("users") or []:
+        uid = int(u.get("user_id") or 0)
+        if uid <= 0:
+            continue
+        users_map[uid] = {
+            "user_id": uid,
+            "name": str(u.get("name") or "")[:120],
+            "nick": str(u.get("nick") or "")[:80],
+            "platform": str(u.get("platform") or "Web")[:24],
+            "visits": int(u.get("visits") or 0),
+            "clicks": int(u.get("clicks") or 0),
+            "last_seen": float(u.get("last_seen") or 0.0),
+            "first_seen": float(u.get("first_seen") or 0.0),
+            "last_action": str(u.get("last_action") or "")[:140],
+            "explicit_offline": bool(u.get("explicit_offline")),
+        }
+    for a in data.get("actions") or []:
+        k = str(a.get("key") or "")[:100]
+        if not k:
+            continue
+        actions_map[k] = {
+            "key": k,
+            "label": str(a.get("label") or k)[:120],
+            "clicks": int(a.get("clicks") or 0),
+        }
+    for ev in data.get("events") or []:
+        uid = int(ev.get("user_id") or 0)
+        if uid <= 0:
+            continue
+        log_events.append({
+            "ts": float(ev.get("ts") or 0.0),
+            "user_id": uid,
+            "type": str(ev.get("type") or "click")[:24],
+            "key": str(ev.get("key") or "")[:100],
+            "label": str(ev.get("label") or "")[:140],
+            "platform": str(ev.get("platform") or "Web")[:24],
+        })
+    return users_map, actions_map, log_events
+
+
+def save_analytics_snapshot_supabase(
+    users_items: List[Dict[str, Any]],
+    actions_items: List[Dict[str, Any]],
+    events_items: List[Dict[str, Any]],
+) -> bool:
+    """Атомарно сохраняет снимок аналитики в Supabase, чтобы статистика не сбрасывалась при деплое."""
+    compact_events = events_items[-700:]
+    payload = {
+        "v": 1,
+        "saved_at": time.time(),
+        "users": users_items,
+        "actions": actions_items,
+        "events": compact_events,
+    }
+    raw_str = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    if len(raw_str) > 850_000:
+        payload["events"] = compact_events[-350:]
+        raw_str = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+    return _save_material_json_row(ANALYTICS_SNAPSHOT_CAPTION, raw_str)
+
+
+def clear_analytics_snapshot_supabase() -> None:
+    """Удаляет сохранённый снимок аналитики из Supabase по кнопке сброса администратора."""
+    _delete_material_json_row(ANALYTICS_SNAPSHOT_CAPTION)
+
+
+def load_feedback_snapshot_supabase() -> Optional[Dict[str, Any]]:
+    """Загружает снимок отзывов/рекомендаций и лимитов антиспама из Supabase."""
+    return _load_material_json_row(FEEDBACK_SNAPSHOT_CAPTION)
+
+
+def save_feedback_snapshot_supabase(snapshot: Dict[str, Any]) -> bool:
+    """Сохраняет снимок отзывов/рекомендаций и антиспам-состояние в Supabase."""
+    raw_str = json.dumps(snapshot, ensure_ascii=False, separators=(",", ":"))
+    if len(raw_str) > 850_000 and isinstance(snapshot.get("items"), list):
+        trimmed = dict(snapshot)
+        trimmed["items"] = snapshot["items"][-400:]
+        raw_str = json.dumps(trimmed, ensure_ascii=False, separators=(",", ":"))
+    return _save_material_json_row(FEEDBACK_SNAPSHOT_CAPTION, raw_str)
+
+
+def clear_feedback_snapshot_supabase() -> None:
+    """Удаляет снимок отзывов из Supabase."""
+    _delete_material_json_row(FEEDBACK_SNAPSHOT_CAPTION)
 
 
 def get_supabase_historical_activity(limit: int = 250) -> Dict[str, Any]:
@@ -1589,7 +1624,7 @@ def get_supabase_historical_activity(limit: int = 250) -> Dict[str, Any]:
 
         for m in mats_rows:
             cap = str(m.get("caption") or "")
-            if cap.startswith("[ANALYTICS"):
+            if cap.startswith(("[ANALYTICS", "[FEEDBACK")):
                 continue
             ts = _parse_iso_to_epoch(m.get("created_at"))
             subj = task_subj_by_id.get(int(m.get("task_id") or 0), "Д/З")

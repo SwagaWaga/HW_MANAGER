@@ -34,9 +34,11 @@ try:
         load_analytics_snapshot,
         save_analytics_snapshot,
         clear_analytics_snapshot,
-        get_historical_activity
+        get_historical_activity,
+        load_feedback_snapshot,
+        save_feedback_snapshot,
     )
-    from app.database.admin_config import is_admin_identity, resolve_effective_role
+    from app.database.admin_config import is_admin_identity, resolve_effective_role, get_admin_ids
 except ImportError:
     from db import (
         mark_task_done,
@@ -67,14 +69,20 @@ except ImportError:
         load_analytics_snapshot,
         save_analytics_snapshot,
         clear_analytics_snapshot,
-        get_historical_activity
+        get_historical_activity,
+        load_feedback_snapshot,
+        save_feedback_snapshot,
     )
-    from admin_config import is_admin_identity, resolve_effective_role
+    from admin_config import is_admin_identity, resolve_effective_role, get_admin_ids
 import uuid
 import os
 import json
 import gzip
 import io
+import re
+import hmac
+import html
+import secrets
 import time
 import threading
 from collections import deque
@@ -84,7 +92,7 @@ import base64
 import hashlib
 import asyncio
 import logging
-from urllib.parse import quote
+from urllib.parse import quote, parse_qsl
 import httpx
 from dotenv import load_dotenv
 
@@ -186,7 +194,10 @@ async def run_periodic_analytics_flush():
 # ─────────────────────────────────────────────────────────────
 @app.on_event("startup")
 async def on_startup_tasks():
-    await asyncio.to_thread(_hydrate_analytics)
+    await asyncio.gather(
+        asyncio.to_thread(_hydrate_analytics),
+        asyncio.to_thread(_hydrate_feedback),
+    )
     asyncio.create_task(_prewarm_backend_caches())
     asyncio.create_task(run_periodic_cleanup_loop())
     asyncio.create_task(run_periodic_analytics_flush())
@@ -797,6 +808,27 @@ async def _send_telegram_document(chat_id: int, filename: str, content: bytes, m
     if resp.status_code == 403 or "chat not found" in desc or "blocked" in desc:
         return {"sent": False, "reason": "start_bot"}
     return {"sent": False, "reason": "telegram_error", "detail": data.get("description") or f"HTTP {resp.status_code}"}
+
+
+async def _send_telegram_message(chat_id: int, text: str, parse_mode: str = "HTML") -> bool:
+    """Асинхронно отправляет текстовое уведомление в Telegram (для оповещений админов)."""
+    bot_token = (os.getenv("BOT_TOKEN") or "").strip()
+    if not bot_token or chat_id <= 0 or chat_id == 12345:
+        return False
+    try:
+        async with httpx.AsyncClient(timeout=12.0) as client:
+            resp = await client.post(
+                f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                json={
+                    "chat_id": int(chat_id),
+                    "text": text[:4000],
+                    "parse_mode": parse_mode,
+                    "disable_web_page_preview": True,
+                },
+            )
+            return resp.status_code == 200
+    except Exception:
+        return False
 
 
 @app.post("/api/materials/{material_id}/send-to-chat")
@@ -1503,10 +1535,14 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
             ua = user_action_counts.setdefault(uid, {})
             ua[ev_label] = ua.get(ev_label, 0) + 1
 
+    sb_hist_raw = get_historical_activity(limit=150)
+    sb_hist_by_uid = {int(u["user_id"]): u for u in (sb_hist_raw.get("users_summary") or []) if u.get("user_id")}
+
     all_uids = set(users_snapshot.keys()) | set(db_users_by_id.keys())
     users_list: List[Dict[str, Any]] = []
     platform_counts: Dict[str, int] = {}
     online_now = 0
+    recent_now = 0
     total_visits = 0
     total_clicks = 0
     active_users = 0
@@ -1526,6 +1562,7 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
 
     for uid in all_uids:
         st = users_snapshot.get(uid) or {}
+        sb_u = sb_hist_by_uid.get(uid) or {}
         last_seen = float(st.get("last_seen") or 0.0)
         first_seen = float(st.get("first_seen") or 0.0)
         visits = int(st.get("visits") or 0)
@@ -1540,9 +1577,18 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
         total_clicks += clicks
 
         age = (now - last_seen) if last_seen > 0 else 9999999.0
-        is_online = bool(last_seen > 0 and not explicit_offline and age <= 90)
-        if is_online:
+        if last_seen > 0 and not explicit_offline and age <= 75:
+            presence = "online"
             online_now += 1
+        elif last_seen > 0 and age <= 300:
+            presence = "recent"
+            recent_now += 1
+        else:
+            presence = "offline"
+
+        effective_last_seen = last_seen if last_seen > 0 else float(sb_u.get("last_seen") or 0.0)
+        effective_seconds_ago = max(0, int(now - effective_last_seen)) if effective_last_seen > 0 else None
+        effective_last_action = st.get("last_action") or (f"БД: {sb_u['last_action']}" if sb_u.get("last_action") else "")
 
         display_name, display_nick = _resolve_identity(uid)
         top_user_actions = sorted(user_action_counts.get(uid, {}).items(), key=lambda x: -x[1])[:3]
@@ -1552,16 +1598,27 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
             "name": display_name,
             "nick": display_nick,
             "platform": platform,
-            "status": "online" if is_online else "offline",
+            "status": presence,
+            "presence": presence,
             "visits": visits,
             "clicks": clicks,
             "first_seen": _fmt_local_dt(first_seen),
-            "last_seen": _fmt_local_dt(last_seen),
-            "last_action": st.get("last_action") or "",
+            "last_seen": _fmt_local_dt(effective_last_seen),
+            "last_seen_ts": effective_last_seen,
+            "seconds_ago": effective_seconds_ago,
+            "last_action": effective_last_action,
             "top_actions": [{"label": lbl, "count": cnt} for lbl, cnt in top_user_actions],
         })
 
-    users_list.sort(key=lambda u: (-(u["visits"] + u["clicks"]), 0 if u["status"] == "online" else 1, u["name"]))
+    presence_rank = {"online": 0, "recent": 1, "offline": 2}
+    users_list.sort(
+        key=lambda u: (
+            presence_rank.get(u["presence"], 2),
+            -(u["last_seen_ts"] or 0.0),
+            -(u["visits"] + u["clicks"]),
+            u["name"],
+        )
+    )
 
     actions_snapshot.sort(key=lambda a: -int(a.get("clicks") or 0))
     sum_clicks = max(1, sum(int(a.get("clicks") or 0) for a in actions_snapshot))
@@ -1574,8 +1631,11 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
     for ev in events_snapshot[-600:]:
         uid = int(ev.get("user_id") or 0)
         u_name, u_nick = _resolve_identity(uid)
+        ev_ts = float(ev.get("ts") or 0.0)
         chronological_events.append({
-            "time": _fmt_local_dt(float(ev.get("ts") or 0.0)),
+            "ts": ev_ts,
+            "seconds_ago": max(0, int(now - ev_ts)) if ev_ts > 0 else 0,
+            "time": _fmt_local_dt(ev_ts),
             "user_id": uid,
             "name": u_name,
             "nick": u_nick,
@@ -1584,6 +1644,25 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
             "label": ev.get("label") or "",
             "platform": ev.get("platform") or "Web",
         })
+
+    recent_feed = list(reversed(chronological_events[-60:]))
+    if len(recent_feed) < 25:
+        for sb_ev in reversed(sb_hist_raw.get("events") or []):
+            if len(recent_feed) >= 60:
+                break
+            ev_ts = float(sb_ev.get("ts") or 0.0)
+            recent_feed.append({
+                "ts": ev_ts,
+                "seconds_ago": max(0, int(now - ev_ts)) if ev_ts > 0 else 0,
+                "time": _fmt_local_dt(ev_ts),
+                "user_id": sb_ev["user_id"],
+                "name": sb_ev["name"],
+                "nick": sb_ev["nick"],
+                "type": "db",
+                "key": sb_ev.get("kind") or "db",
+                "label": sb_ev.get("label") or "",
+                "platform": "БД",
+            })
 
     hourly_activity = [hourly_map[h] for h in sorted(hourly_map.keys())]
     daily_activity = [
@@ -1596,7 +1675,6 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
         for d in sorted(daily_map.keys())
     ]
 
-    sb_hist_raw = get_historical_activity(limit=150)
     sb_hist_users = [
         {
             "user_id": u["user_id"],
@@ -1620,33 +1698,41 @@ def _collect_analytics_dataset() -> Dict[str, Any]:
         for ev in (sb_hist_raw.get("events") or [])
     ]
 
+    feedback_data = _collect_feedback_dataset(db_users_by_id=db_users_by_id)
+
     return {
         "ai_context": {
             "app": "Homework Portal (10-А)",
             "timezone": "Asia/Tashkent (UTC+5)",
-            "note": "Usage analytics exported for AI product/engagement analysis: summary KPIs, clicked features with unique user reach, daily & hourly usage (UTC+5), per-student activity profiles, chronological event log, and historical database actions preserved in Supabase.",
+            "note": "Usage analytics exported for AI product/engagement analysis: summary KPIs, clicked features with unique user reach, daily & hourly usage (UTC+5), per-student activity profiles, chronological event log, historical database actions preserved in Supabase, and verified user feedback/recommendations.",
         },
         "summary": {
             "generated_at": _fmt_local_dt(now),
             "period_start": _fmt_local_dt(first_event_ts) if first_event_ts > 0 else _fmt_local_dt(now),
             "period_end": _fmt_local_dt(last_event_ts) if last_event_ts > 0 else _fmt_local_dt(now),
             "online_now": online_now,
+            "recent_now": recent_now,
             "total_visits": total_visits,
             "total_clicks": total_clicks,
             "active_users": active_users,
             "registered_users": len(db_users_by_id),
             "log_events_count": len(events_snapshot),
             "platforms": platform_counts,
+            "feedback_total": feedback_data["counts"]["all"],
+            "feedback_new": feedback_data["counts"]["new"],
+            "feedback_spam_blocked": feedback_data["spam_blocked"],
         },
         "top_actions": actions_snapshot,
         "daily_activity": daily_activity,
         "hourly_activity": hourly_activity,
         "users": users_list,
         "events": chronological_events,
+        "recent_feed": recent_feed,
         "supabase_history": {
             "users_summary": sb_hist_users,
             "events": sb_hist_events,
         },
+        "feedback": feedback_data,
     }
 
 
@@ -1736,12 +1822,30 @@ def _format_analytics_ai_txt(dataset: Dict[str, Any]) -> str:
                 nick_disp = f"@{ev['nick'].lstrip('@')}" if ev.get("nick") else f"ID {ev['user_id']}"
                 lines.append(f"[{ev['time']}] {ev['name']} ({nick_disp}) | {ev['label']}")
 
+    fb = dataset.get("feedback") or {}
+    fb_items = fb.get("items") or []
+    lines.extend([
+        "",
+        f"## 8. Фидбек и рекомендации учеников (всего: {len(fb_items)}, новых: {fb.get('counts', {}).get('new', 0)}, заблокировано антиспамом: {fb.get('spam_blocked', 0)})",
+    ])
+    if not fb_items:
+        lines.append("Отзывов и рекомендаций пока нет.")
+    else:
+        for it in fb_items:
+            nick_disp = f"@{it['nick'].lstrip('@')}" if it.get("nick") else f"ID {it['user_id']}"
+            stars = f"{it['rating']}/5" if it.get("rating") else "без оценки"
+            note_part = f" | Заметка админа: {it['admin_note']}" if it.get("admin_note") else ""
+            lines.append(
+                f"- [#{it['id']} | {it['status_label']} | {it['category_label']} | ★ {stars}] "
+                f"{it['name']} ({nick_disp}, {it['platform']}, {it['created_at_str']}): {it['text']}{note_part}"
+            )
+
     return "\n".join(lines) + "\n"
 
 
 @app.get("/api/admin/analytics")
 def get_admin_analytics(user_id: int = 0, admin_secret: Optional[str] = None):
-    """Возвращает компактную сводку статистики и топ-5 действий для админ-окна."""
+    """Возвращает живую статистику посещений, кликов, учеников, ленту событий и отзывы для админ-панели."""
     if not _is_admin_user(user_id, admin_secret):
         raise HTTPException(status_code=403, detail="Admin access required")
     dataset = _collect_analytics_dataset()
@@ -1749,7 +1853,10 @@ def get_admin_analytics(user_id: int = 0, admin_secret: Optional[str] = None):
         "status": "ok",
         "server_time": time.time(),
         "summary": dataset["summary"],
-        "top_actions": dataset["top_actions"][:8],
+        "top_actions": dataset["top_actions"][:20],
+        "users": dataset["users"],
+        "recent_feed": dataset["recent_feed"],
+        "feedback": dataset["feedback"],
     }
 
 
@@ -1826,3 +1933,698 @@ async def reset_admin_analytics(user_id: int = 0, admin_secret: Optional[str] = 
         _ANALYTICS_STATE["dirty"] = False
     await asyncio.to_thread(clear_analytics_snapshot)
     return {"status": "ok"}
+
+
+# ─────────────────────────────────────────────────────────────
+# ОБРАТНЫЙ ФИДБЕК И РЕКОМЕНДАЦИИ С МНОГОУРОВНЕВОЙ АНТИСПАМ-ЗАЩИТОЙ
+# ─────────────────────────────────────────────────────────────
+FEEDBACK_COOLDOWN_SEC = 600
+FEEDBACK_ADMIN_COOLDOWN_SEC = 20
+FEEDBACK_MAX_DAILY_USER = 3
+FEEDBACK_ADMIN_MAX_DAILY = 15
+FEEDBACK_MAX_ATTEMPTS_10M_IP = 15
+FEEDBACK_MAX_CHALLENGES_10M_IP = 25
+FEEDBACK_MAX_ACCEPTED_1H_IP = 5
+FEEDBACK_MAX_GLOBAL_1H = 30
+FEEDBACK_POW_BITS = 14
+FEEDBACK_MIN_DWELL_SEC = 2.0
+FEEDBACK_CHALLENGE_TTL_SEC = 1800
+FEEDBACK_NEW_ACCOUNT_WARMUP_SEC = 120
+
+FEEDBACK_CATEGORY_LABELS = {
+    "idea": "Идея",
+    "bug": "Ошибка",
+    "ux": "Интерфейс",
+    "other": "Другое",
+}
+FEEDBACK_STATUS_LABELS = {
+    "new": "Новый",
+    "in_progress": "В работе",
+    "done": "Готово",
+    "rejected": "Отклонён",
+}
+
+_FEEDBACK_BOOT_SEED = (
+    (os.getenv("ADMIN_SECRET_KEY") or "").strip()
+    or (os.getenv("BOT_TOKEN") or "").strip()
+    or secrets.token_hex(32)
+)
+_FEEDBACK_HMAC_KEY = hashlib.sha256(f"hw_feedback_hmac_v1:{_FEEDBACK_BOOT_SEED}".encode("utf-8")).digest()
+
+_FEEDBACK_LOCK = threading.Lock()
+_FEEDBACK_LOADED = False
+_FEEDBACK_STATE: Dict[str, Any] = {
+    "v": 1,
+    "next_id": 1,
+    "items": [],
+    "user_submissions": {},
+    "blocked_users": [],
+    "spam_blocked": 0,
+}
+_FEEDBACK_USED_NONCES: Dict[str, float] = {}
+_FEEDBACK_IP_CHALLENGES: Dict[str, deque] = {}
+_FEEDBACK_IP_ATTEMPTS: Dict[str, deque] = {}
+_FEEDBACK_IP_ACCEPTED: Dict[str, deque] = {}
+_FEEDBACK_GLOBAL_ACCEPTED: deque = deque()
+
+_URL_RE = re.compile(r"(?:https?://|t\.me/|www\.)\S+", re.IGNORECASE)
+_INVITE_RE = re.compile(r"t\.me/(?:joinchat|\+)", re.IGNORECASE)
+
+
+def _hydrate_feedback() -> None:
+    global _FEEDBACK_LOADED, _FEEDBACK_STATE
+    snap = load_feedback_snapshot()
+    with _FEEDBACK_LOCK:
+        _FEEDBACK_STATE = snap
+        _FEEDBACK_LOADED = True
+
+
+def _ensure_feedback_loaded() -> None:
+    with _FEEDBACK_LOCK:
+        if _FEEDBACK_LOADED:
+            return
+    _hydrate_feedback()
+
+
+def _snapshot_feedback_locked() -> Dict[str, Any]:
+    return {
+        "v": 1,
+        "next_id": int(_FEEDBACK_STATE.get("next_id") or 1),
+        "items": [dict(it) for it in (_FEEDBACK_STATE.get("items") or [])],
+        "user_submissions": {k: list(v) for k, v in (_FEEDBACK_STATE.get("user_submissions") or {}).items()},
+        "blocked_users": list(_FEEDBACK_STATE.get("blocked_users") or []),
+        "spam_blocked": int(_FEEDBACK_STATE.get("spam_blocked") or 0),
+    }
+
+
+def _get_client_ip_digest(request: Request) -> str:
+    xff = (request.headers.get("x-forwarded-for") or "").split(",")[0].strip()
+    xri = (request.headers.get("x-real-ip") or "").strip()
+    raw_ip = xff or xri or (request.client.host if request.client else "") or "unknown"
+    return hashlib.sha256(f"ip:{raw_ip}".encode("utf-8")).hexdigest()[:16]
+
+
+def _check_sliding_window(buckets: Dict[str, deque], key: str, window_sec: float, limit: int, now: float, record: bool = True) -> Tuple[bool, int]:
+    """Проверяет скользящее окно запросов по ключу и возвращает (allowed, retry_after_sec)."""
+    q = buckets.setdefault(key, deque())
+    cutoff = now - window_sec
+    while q and q[0] <= cutoff:
+        q.popleft()
+    if len(q) >= limit:
+        retry_after = max(1, int(q[0] + window_sec - now) + 1)
+        return False, retry_after
+    if record:
+        q.append(now)
+    if len(buckets) > 4096:
+        stale = [k for k, dq in buckets.items() if not dq or dq[-1] <= cutoff]
+        for k in stale[:1024]:
+            buckets.pop(k, None)
+    return True, 0
+
+
+def _bump_spam_blocked() -> None:
+    with _FEEDBACK_LOCK:
+        _FEEDBACK_STATE["spam_blocked"] = int(_FEEDBACK_STATE.get("spam_blocked") or 0) + 1
+
+
+def _verify_telegram_init_data(raw_init_data: Optional[str], expected_user_id: int) -> bool:
+    """Криптографическая проверка Telegram WebApp initData через BOT_TOKEN HMAC-SHA256."""
+    raw = (raw_init_data or "").strip()
+    bot_token = (os.getenv("BOT_TOKEN") or "").strip()
+    if not raw or not bot_token or expected_user_id <= 0:
+        return False
+    try:
+        pairs = parse_qsl(raw, keep_blank_values=True)
+        data_map: Dict[str, str] = {}
+        recv_hash = ""
+        for k, v in pairs:
+            if k == "hash":
+                recv_hash = v
+            else:
+                data_map[k] = v
+        if not recv_hash or not data_map:
+            return False
+
+        check_str = "\n".join(f"{k}={data_map[k]}" for k in sorted(data_map.keys()))
+        secret_key = hmac.new(b"WebAppData", bot_token.encode("utf-8"), hashlib.sha256).digest()
+        calc_hash = hmac.new(secret_key, check_str.encode("utf-8"), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(calc_hash, recv_hash):
+            return False
+
+        auth_date = int(data_map.get("auth_date") or 0)
+        now = time.time()
+        if auth_date <= 0 or (now - auth_date) > 86400 or (auth_date - now) > 120:
+            return False
+
+        user_raw = data_map.get("user") or ""
+        user_obj = json.loads(user_raw) if user_raw else {}
+        return int(user_obj.get("id") or 0) == int(expected_user_id)
+    except Exception:
+        return False
+
+
+def _parse_created_at_ts(val: Any) -> float:
+    if val is None or val == "":
+        return 0.0
+    if isinstance(val, (int, float)):
+        return float(val)
+    try:
+        s = str(val).strip()
+        if s.replace(".", "", 1).isdigit():
+            return float(s)
+        if s.endswith("Z"):
+            s = s[:-1] + "+00:00"
+        return datetime.fromisoformat(s).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _leading_zero_bits(digest: bytes) -> int:
+    total = 0
+    for b in digest:
+        if b == 0:
+            total += 8
+        else:
+            total += 8 - b.bit_length()
+            break
+    return total
+
+
+def _issue_feedback_challenge(user_id: int, ip_digest: str, now: float) -> Dict[str, Any]:
+    nonce = secrets.token_hex(12)
+    issued_ms = int(now * 1000)
+    body = f"{int(user_id)}|{ip_digest}|{nonce}|{issued_ms}|{FEEDBACK_POW_BITS}"
+    sig = hmac.new(_FEEDBACK_HMAC_KEY, body.encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+    return {
+        "challenge_token": f"{body}|{sig}",
+        "nonce": nonce,
+        "difficulty": FEEDBACK_POW_BITS,
+        "min_wait_sec": FEEDBACK_MIN_DWELL_SEC,
+        "expires_in": FEEDBACK_CHALLENGE_TTL_SEC,
+    }
+
+
+def _verify_and_burn_challenge(token: str, user_id: int, ip_digest: str, pow_nonce: str, now: float) -> Tuple[bool, str, int]:
+    parts = (token or "").strip().split("|")
+    if len(parts) != 6:
+        return False, "Недействительный токен проверки — обновите форму", 403
+    tok_uid_s, tok_ip, nonce, issued_ms_s, diff_s, sig = parts
+    body = f"{tok_uid_s}|{tok_ip}|{nonce}|{issued_ms_s}|{diff_s}"
+    expected_sig = hmac.new(_FEEDBACK_HMAC_KEY, body.encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+    if not hmac.compare_digest(expected_sig, sig):
+        return False, "Ошибка подписи формы — обновите страницу", 403
+
+    try:
+        tok_uid = int(tok_uid_s)
+        issued_at = int(issued_ms_s) / 1000.0
+        difficulty = max(8, min(20, int(diff_s)))
+    except (TypeError, ValueError):
+        return False, "Повреждённый токен проверки", 403
+
+    if tok_uid != int(user_id) or tok_ip != ip_digest:
+        return False, "Токен привязан к другой сессии — откройте форму заново", 403
+
+    age = now - issued_at
+    if age < -5 or age > FEEDBACK_CHALLENGE_TTL_SEC:
+        return False, "Срок формы истёк — попробуйте отправить ещё раз", 403
+    if age < FEEDBACK_MIN_DWELL_SEC:
+        return False, "Слишком быстрая отправка — подождите пару секунд", 429
+
+    pnonce = str(pow_nonce or "").strip()
+    if not pnonce or len(pnonce) > 64:
+        return False, "Не пройдена антибот-проверка", 403
+
+    digest = hashlib.sha256(f"{nonce}:{pnonce}".encode("utf-8")).digest()
+    if _leading_zero_bits(digest) < difficulty:
+        return False, "Не пройдена антибот-проверка (PoW)", 403
+
+    with _FEEDBACK_LOCK:
+        expired_nonces = [k for k, exp in _FEEDBACK_USED_NONCES.items() if exp <= now]
+        for k in expired_nonces:
+            _FEEDBACK_USED_NONCES.pop(k, None)
+        if nonce in _FEEDBACK_USED_NONCES:
+            return False, "Эта форма уже была отправлена — откройте окно заново", 403
+        _FEEDBACK_USED_NONCES[nonce] = issued_at + FEEDBACK_CHALLENGE_TTL_SEC + 60
+        if len(_FEEDBACK_USED_NONCES) > 5000:
+            oldest = sorted(_FEEDBACK_USED_NONCES.items(), key=lambda kv: kv[1])[:1000]
+            for k, _ in oldest:
+                _FEEDBACK_USED_NONCES.pop(k, None)
+
+    return True, "", 200
+
+
+def _validate_feedback_text(raw_text: str) -> Tuple[Optional[str], Optional[str], str]:
+    clean = re.sub(r"[\u200b-\u200f\ufeff\u2060]", "", raw_text or "")
+    clean = re.sub(r"\r\n?", "\n", clean)
+    clean = "\n".join(re.sub(r"[ \t]+", " ", ln).strip() for ln in clean.split("\n"))
+    clean = re.sub(r"\n{3,}", "\n\n", clean).strip()
+
+    non_space = re.sub(r"\s+", "", clean)
+    if len(non_space) < 8:
+        return None, None, "Опишите идею или проблему подробнее (минимум 8 символов)"
+    if len(clean) > 800:
+        return None, None, "Слишком длинное сообщение (максимум 800 символов)"
+    if len(set(non_space.lower())) < 4 or len(re.findall(r"[A-Za-zА-Яа-яЁё0-9]", clean)) < 5:
+        return None, None, "Сообщение похоже на случайный набор символов"
+    if re.search(r"(.)\1{6,}", non_space.lower()):
+        return None, None, "Пожалуйста, не используйте длинные повторы одинаковых символов"
+
+    urls = _URL_RE.findall(clean)
+    if _INVITE_RE.search(clean) or len(urls) >= 2:
+        return None, None, "Запрещено вставлять рекламные или пригласительные ссылки"
+    if urls and sum(len(u) for u in urls) > len(non_space) * 0.45:
+        return None, None, "Добавьте текстовое описание вместо одной ссылки"
+
+    norm = re.sub(r"[^a-zа-яё0-9]+", "", clean.lower())
+    text_hash = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:24]
+    return clean, text_hash, ""
+
+
+def _check_user_eligibility(user_id: int, verified_tg: bool, now: float) -> Tuple[bool, Optional[Dict[str, Any]], str, int]:
+    if not user_id or int(user_id) <= 0 or int(user_id) == 12345:
+        return False, None, "Откройте приложение через бота @my_hw_manager_bot в Telegram, чтобы отправить отзыв", 401
+
+    user_row = get_user(int(user_id))
+    is_admin = _is_admin_user(int(user_id))
+
+    if not verified_tg:
+        if not user_row:
+            return False, None, "Аккаунт не найден в классе — откройте приложение через бота @my_hw_manager_bot", 403
+        created_ts = _parse_created_at_ts(user_row.get("created_at"))
+        if created_ts > 0 and (now - created_ts) < FEEDBACK_NEW_ACCOUNT_WARMUP_SEC and not is_admin:
+            return False, user_row, "Новым профилям для первого отзыва нужно открыть приложение в Telegram-боте @my_hw_manager_bot", 403
+
+    with _FEEDBACK_LOCK:
+        if int(user_id) in (_FEEDBACK_STATE.get("blocked_users") or []):
+            return False, user_row, "Отправка отзывов для вашего аккаунта ограничена администратором", 403
+
+    return True, user_row, "", 200
+
+
+def _compute_user_quota(user_id: int, now: float) -> Dict[str, Any]:
+    is_admin = _is_admin_user(int(user_id))
+    cooldown_sec = FEEDBACK_ADMIN_COOLDOWN_SEC if is_admin else FEEDBACK_COOLDOWN_SEC
+    daily_limit = FEEDBACK_ADMIN_MAX_DAILY if is_admin else FEEDBACK_MAX_DAILY_USER
+
+    with _FEEDBACK_LOCK:
+        ts_list = list((_FEEDBACK_STATE.get("user_submissions") or {}).get(str(int(user_id)), []))
+        blocked = int(user_id) in (_FEEDBACK_STATE.get("blocked_users") or [])
+
+    day_hits = [t for t in ts_list if (now - t) < 86400.0]
+    cooldown_remaining = 0
+    if day_hits:
+        last_ts = max(day_hits)
+        elapsed = now - last_ts
+        if elapsed < cooldown_sec:
+            cooldown_remaining = max(1, int(cooldown_sec - elapsed) + 1)
+
+    daily_remaining = max(0, daily_limit - len(day_hits))
+    return {
+        "cooldown_sec": cooldown_sec,
+        "cooldown_remaining": cooldown_remaining,
+        "daily_limit": daily_limit,
+        "daily_used": len(day_hits),
+        "daily_remaining": daily_remaining,
+        "blocked": blocked,
+        "min_chars": 8,
+        "max_chars": 800,
+    }
+
+
+def _enrich_feedback_item(it: Dict[str, Any], db_users_by_id: Dict[int, Dict[str, Any]], now: float) -> Dict[str, Any]:
+    uid = int(it["user_id"])
+    u_info = db_users_by_id.get(uid) or {}
+    name = _clean_real_name(str(it.get("name") or "")) or _clean_real_name(str(u_info.get("full_name") or "")) or f"Ученик #{uid}"
+    nick = _clean_real_nick(str(it.get("nick") or "")) or _clean_real_nick(str(u_info.get("telegram_nick") or ""))
+    cat = str(it.get("category") or "idea")
+    st = str(it.get("status") or "new")
+    created_at = float(it.get("created_at") or 0.0)
+    seconds_ago = max(0, int(now - created_at)) if created_at > 0 else 0
+    return {
+        "id": int(it["id"]),
+        "user_id": uid,
+        "name": name,
+        "nick": nick,
+        "category": cat,
+        "category_label": FEEDBACK_CATEGORY_LABELS.get(cat, "Другое"),
+        "rating": int(it.get("rating") or 0),
+        "text": it["text"],
+        "platform": it.get("platform") or "Web",
+        "verified_tg": bool(it.get("verified_tg")),
+        "status": st,
+        "status_label": FEEDBACK_STATUS_LABELS.get(st, "Новый"),
+        "admin_note": it.get("admin_note") or "",
+        "created_at": created_at,
+        "created_at_str": _fmt_local_dt(created_at),
+        "seconds_ago": seconds_ago,
+    }
+
+
+def _collect_feedback_dataset(db_users_by_id: Optional[Dict[int, Dict[str, Any]]] = None) -> Dict[str, Any]:
+    _ensure_feedback_loaded()
+    now = time.time()
+    if db_users_by_id is None:
+        all_db = get_all_users("10-А") or []
+        db_users_by_id = {int(u["id"]): u for u in all_db if u.get("id")}
+
+    with _FEEDBACK_LOCK:
+        raw_items = [dict(it) for it in (_FEEDBACK_STATE.get("items") or [])]
+        spam_blocked = int(_FEEDBACK_STATE.get("spam_blocked") or 0)
+        blocked_users = list(_FEEDBACK_STATE.get("blocked_users") or [])
+
+    enriched = [_enrich_feedback_item(it, db_users_by_id, now) for it in reversed(raw_items)]
+    counts = {
+        "all": len(enriched),
+        "new": sum(1 for x in enriched if x["status"] == "new"),
+        "in_progress": sum(1 for x in enriched if x["status"] == "in_progress"),
+        "done": sum(1 for x in enriched if x["status"] == "done"),
+        "rejected": sum(1 for x in enriched if x["status"] == "rejected"),
+    }
+    return {
+        "items": enriched,
+        "counts": counts,
+        "spam_blocked": spam_blocked,
+        "blocked_users": blocked_users,
+    }
+
+
+async def _notify_admins_feedback(item: Dict[str, Any]) -> None:
+    if _is_admin_user(int(item["user_id"])):
+        return
+    cat_lbl = FEEDBACK_CATEGORY_LABELS.get(item.get("category", "idea"), "Отзыв")
+    stars = f" · ★ {item['rating']}/5" if int(item.get("rating") or 0) > 0 else ""
+    nick_str = f" (@{item['nick'].lstrip('@')})" if item.get("nick") else ""
+    badge = " ✅TG" if item.get("verified_tg") else f" ({item.get('platform', 'Web')})"
+    msg = (
+        f"💡 <b>Новый фидбек · {html.escape(cat_lbl)}{html.escape(stars)}</b>\n"
+        f"От: <b>{html.escape(item['name'])}</b>{html.escape(nick_str)}{html.escape(badge)}\n\n"
+        f"{html.escape(item['text'])}"
+    )
+    for admin_id in get_admin_ids():
+        await _send_telegram_message(admin_id, msg)
+
+
+class FeedbackSubmitRequest(BaseModel):
+    user_id: int
+    category: str = "idea"
+    rating: int = 0
+    text: str
+    platform: str = "Web"
+    challenge_token: str = ""
+    pow_nonce: str = ""
+    website: Optional[str] = ""  # Honeypot (должно оставаться пустым)
+    tg_init_data: Optional[str] = ""
+
+
+class AdminFeedbackStatusRequest(BaseModel):
+    user_id: int
+    status: str
+    admin_note: Optional[str] = None
+    admin_secret: Optional[str] = None
+
+
+class AdminFeedbackBlockRequest(BaseModel):
+    user_id: int
+    target_user_id: int
+    blocked: bool = True
+    admin_secret: Optional[str] = None
+
+
+@app.get("/api/feedback/status")
+def get_feedback_status(user_id: int = 0):
+    """Возвращает статус антиспам-лимитов пользователя и параметры валидации формы."""
+    _ensure_feedback_loaded()
+    now = time.time()
+    if not user_id or int(user_id) <= 0 or int(user_id) == 12345:
+        return {
+            "status": "ok",
+            "eligible": False,
+            "reason": "Откройте приложение через бота @my_hw_manager_bot в Telegram, чтобы оставить отзыв",
+            "quota": {
+                "cooldown_sec": FEEDBACK_COOLDOWN_SEC,
+                "cooldown_remaining": 0,
+                "daily_limit": FEEDBACK_MAX_DAILY_USER,
+                "daily_used": 0,
+                "daily_remaining": 0,
+                "blocked": False,
+                "min_chars": 8,
+                "max_chars": 800,
+            },
+        }
+
+    quota = _compute_user_quota(int(user_id), now)
+    eligible = not quota["blocked"]
+    reason = "Отправка отзывов ограничена администратором" if quota["blocked"] else ""
+    return {
+        "status": "ok",
+        "eligible": eligible,
+        "reason": reason,
+        "quota": quota,
+    }
+
+
+@app.get("/api/feedback/challenge")
+def get_feedback_challenge(request: Request, user_id: int = 0):
+    """Выдаёт одноразовый HMAC-токен и лёгкий PoW-челлендж против ботов."""
+    _ensure_feedback_loaded()
+    now = time.time()
+    ip_digest = _get_client_ip_digest(request)
+
+    with _FEEDBACK_LOCK:
+        ok_ip, retry_ip = _check_sliding_window(_FEEDBACK_IP_CHALLENGES, ip_digest, 600.0, FEEDBACK_MAX_CHALLENGES_10M_IP, now)
+    if not ok_ip:
+        _bump_spam_blocked()
+        raise HTTPException(status_code=429, detail=f"Слишком много запросов. Подождите {retry_ip} сек.")
+
+    if not user_id or int(user_id) <= 0 or int(user_id) == 12345:
+        raise HTTPException(status_code=401, detail="Авторизуйтесь через бота @my_hw_manager_bot в Telegram")
+    with _FEEDBACK_LOCK:
+        if int(user_id) in (_FEEDBACK_STATE.get("blocked_users") or []):
+            raise HTTPException(status_code=403, detail="Отправка отзывов ограничена администратором")
+
+    return {"status": "ok", **_issue_feedback_challenge(int(user_id), ip_digest, now)}
+
+
+@app.get("/api/feedback/mine")
+def get_my_feedback(user_id: int = 0):
+    """Возвращает отзывы конкретного ученика и актуальную квоту антиспама."""
+    _ensure_feedback_loaded()
+    now = time.time()
+    if not user_id or int(user_id) <= 0 or int(user_id) == 12345:
+        return {"status": "ok", "items": [], "quota": None}
+
+    uid = int(user_id)
+    u_row = get_user(uid) or {}
+    db_map = {uid: u_row} if u_row else {}
+    with _FEEDBACK_LOCK:
+        mine = [dict(it) for it in (_FEEDBACK_STATE.get("items") or []) if int(it.get("user_id") or 0) == uid]
+    items_out = [_enrich_feedback_item(it, db_map, now) for it in reversed(mine[-20:])]
+    return {"status": "ok", "items": items_out, "quota": _compute_user_quota(uid, now)}
+
+
+@app.post("/api/feedback")
+async def submit_user_feedback(request: Request, req: FeedbackSubmitRequest):
+    """Принимает рекомендацию/отзыв с проверкой initData, PoW, honeypot, cooldown и антиспамом."""
+    _ensure_feedback_loaded()
+    now = time.time()
+    ip_digest = _get_client_ip_digest(request)
+
+    if (req.website or "").strip():
+        _bump_spam_blocked()
+        raise HTTPException(status_code=400, detail="Обнаружена автоматическая отправка")
+
+    with _FEEDBACK_LOCK:
+        ok_att, retry_att = _check_sliding_window(_FEEDBACK_IP_ATTEMPTS, ip_digest, 600.0, FEEDBACK_MAX_ATTEMPTS_10M_IP, now)
+    if not ok_att:
+        _bump_spam_blocked()
+        raise HTTPException(status_code=429, detail=f"Слишком много попыток отправки. Повторите через {retry_att} сек.")
+
+    verified_tg = _verify_telegram_init_data(req.tg_init_data, req.user_id)
+    eligible, user_row, err_msg, err_code = _check_user_eligibility(req.user_id, verified_tg, now)
+    if not eligible:
+        _bump_spam_blocked()
+        raise HTTPException(status_code=err_code, detail=err_msg)
+
+    ok_ch, ch_msg, ch_code = _verify_and_burn_challenge(req.challenge_token, req.user_id, ip_digest, req.pow_nonce, now)
+    if not ok_ch:
+        _bump_spam_blocked()
+        raise HTTPException(status_code=ch_code, detail=ch_msg)
+
+    clean_text, text_hash, val_err = _validate_feedback_text(req.text)
+    if val_err or not clean_text or not text_hash:
+        _bump_spam_blocked()
+        raise HTTPException(status_code=400, detail=val_err or "Некорректный текст отзыва")
+
+    cat = (req.category or "idea").strip().lower()
+    if cat not in FEEDBACK_CATEGORY_LABELS:
+        cat = "other"
+    rating = max(0, min(5, int(req.rating or 0)))
+    platform = str(req.platform or "Web").strip()[:24] or "Web"
+
+    uid = int(req.user_id)
+    is_admin = _is_admin_user(uid)
+    cooldown_sec = FEEDBACK_ADMIN_COOLDOWN_SEC if is_admin else FEEDBACK_COOLDOWN_SEC
+    daily_limit = FEEDBACK_ADMIN_MAX_DAILY if is_admin else FEEDBACK_MAX_DAILY_USER
+
+    u_name = ""
+    u_nick = ""
+    if isinstance(user_row, dict):
+        u_name = _clean_real_name(str(user_row.get("full_name") or ""))
+        u_nick = _clean_real_nick(str(user_row.get("telegram_nick") or ""))
+
+    with _ANALYTICS_LOCK:
+        a_user = _ANALYTICS_STATE["users"].get(uid)
+        if isinstance(a_user, dict):
+            u_name = u_name or _clean_real_name(str(a_user.get("name") or ""))
+            u_nick = u_nick or _clean_real_nick(str(a_user.get("nick") or ""))
+
+    if not u_name:
+        u_name = u_nick or f"Ученик #{uid}"
+
+    with _FEEDBACK_LOCK:
+        # 1. Глобальный антифлуд
+        while _FEEDBACK_GLOBAL_ACCEPTED and _FEEDBACK_GLOBAL_ACCEPTED[0] <= (now - 3600.0):
+            _FEEDBACK_GLOBAL_ACCEPTED.popleft()
+        if len(_FEEDBACK_GLOBAL_ACCEPTED) >= FEEDBACK_MAX_GLOBAL_1H:
+            _FEEDBACK_STATE["spam_blocked"] = int(_FEEDBACK_STATE.get("spam_blocked") or 0) + 1
+            raise HTTPException(status_code=429, detail="Сервер временно перегружен отзывами — попробуйте чуть позже")
+
+        # 2. Лимит с одного IP (учитывает школьный Wi-Fi: до 5 принятых в час)
+        ok_ip_acc, retry_ip_acc = _check_sliding_window(_FEEDBACK_IP_ACCEPTED, ip_digest, 3600.0, FEEDBACK_MAX_ACCEPTED_1H_IP, now, record=False)
+        if not ok_ip_acc:
+            _FEEDBACK_STATE["spam_blocked"] = int(_FEEDBACK_STATE.get("spam_blocked") or 0) + 1
+            raise HTTPException(status_code=429, detail=f"С этой сети недавно отправлено много отзывов. Подождите {retry_ip_acc} сек.")
+
+        # 3. Кулдаун и суточный лимит пользователя
+        us_map = _FEEDBACK_STATE.setdefault("user_submissions", {})
+        day_hits = [t for t in us_map.get(str(uid), []) if (now - t) < 86400.0]
+        if day_hits:
+            last_ts = max(day_hits)
+            if (now - last_ts) < cooldown_sec:
+                wait_sec = max(1, int(cooldown_sec - (now - last_ts)) + 1)
+                raise HTTPException(status_code=429, detail=f"Повторная отправка доступна через {wait_sec} сек.")
+        if len(day_hits) >= daily_limit:
+            raise HTTPException(status_code=429, detail=f"Достигнут лимит: не более {daily_limit} отзывов за 24 часа")
+
+        # 4. Дедупликация текста (от пользователя или глобальный копипаст-спам за 24ч)
+        for existing in _FEEDBACK_STATE.get("items") or []:
+            if existing.get("text_hash") == text_hash:
+                if int(existing.get("user_id") or 0) == uid:
+                    raise HTTPException(status_code=409, detail="Вы уже отправляли такое предложение")
+                if (now - float(existing.get("created_at") or 0.0)) < 86400.0:
+                    _FEEDBACK_STATE["spam_blocked"] = int(_FEEDBACK_STATE.get("spam_blocked") or 0) + 1
+                    raise HTTPException(status_code=409, detail="Похожий отзыв уже был недавно отправлен")
+
+        new_id = int(_FEEDBACK_STATE.get("next_id") or 1)
+        _FEEDBACK_STATE["next_id"] = new_id + 1
+        item = {
+            "id": new_id,
+            "user_id": uid,
+            "name": u_name[:120],
+            "nick": u_nick[:80],
+            "category": cat,
+            "rating": rating,
+            "text": clean_text,
+            "text_hash": text_hash,
+            "platform": platform,
+            "verified_tg": verified_tg,
+            "status": "new",
+            "admin_note": "",
+            "created_at": now,
+            "updated_at": now,
+        }
+        items = _FEEDBACK_STATE.setdefault("items", [])
+        items.append(item)
+        if len(items) > 500:
+            del items[:-500]
+
+        day_hits.append(now)
+        us_map[str(uid)] = day_hits[-20:]
+        _check_sliding_window(_FEEDBACK_IP_ACCEPTED, ip_digest, 3600.0, FEEDBACK_MAX_ACCEPTED_1H_IP, now, record=True)
+        _FEEDBACK_GLOBAL_ACCEPTED.append(now)
+        snap = _snapshot_feedback_locked()
+
+    await asyncio.to_thread(save_feedback_snapshot, snap)
+    asyncio.create_task(_notify_admins_feedback(item))
+
+    enriched = _enrich_feedback_item(item, {uid: user_row or {}}, now)
+    return {"status": "ok", "item": enriched, "quota": _compute_user_quota(uid, now)}
+
+
+@app.get("/api/admin/feedback")
+def get_admin_feedback(user_id: int = 0, admin_secret: Optional[str] = None):
+    """Список всех отзывов и счётчик заблокированного спама для администратора."""
+    if not _is_admin_user(user_id, admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return {"status": "ok", **_collect_feedback_dataset()}
+
+
+@app.post("/api/admin/feedback/{feedback_id}/status")
+async def update_admin_feedback_status(feedback_id: int, req: AdminFeedbackStatusRequest):
+    """Обновляет статус рассмотрения отзыва (new / in_progress / done / rejected)."""
+    if not _is_admin_user(req.user_id, req.admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    st = (req.status or "").strip().lower()
+    if st not in FEEDBACK_STATUS_LABELS:
+        raise HTTPException(status_code=400, detail="Invalid feedback status")
+
+    _ensure_feedback_loaded()
+    now = time.time()
+    found = None
+    with _FEEDBACK_LOCK:
+        for it in _FEEDBACK_STATE.get("items") or []:
+            if int(it.get("id") or 0) == int(feedback_id):
+                it["status"] = st
+                if req.admin_note is not None:
+                    it["admin_note"] = str(req.admin_note).strip()[:300]
+                it["updated_at"] = now
+                found = dict(it)
+                break
+        if not found:
+            raise HTTPException(status_code=404, detail="Feedback item not found")
+        snap = _snapshot_feedback_locked()
+
+    await asyncio.to_thread(save_feedback_snapshot, snap)
+    return {"status": "ok", "item": found}
+
+
+@app.delete("/api/admin/feedback/{feedback_id}")
+@app.post("/api/admin/feedback/{feedback_id}/delete")
+async def delete_admin_feedback(feedback_id: int, user_id: int = 0, admin_secret: Optional[str] = None):
+    """Удаляет отзыв/спам из списка администратором."""
+    if not _is_admin_user(user_id, admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    _ensure_feedback_loaded()
+    with _FEEDBACK_LOCK:
+        items = _FEEDBACK_STATE.get("items") or []
+        before = len(items)
+        _FEEDBACK_STATE["items"] = [it for it in items if int(it.get("id") or 0) != int(feedback_id)]
+        if len(_FEEDBACK_STATE["items"]) == before:
+            raise HTTPException(status_code=404, detail="Feedback item not found")
+        snap = _snapshot_feedback_locked()
+
+    await asyncio.to_thread(save_feedback_snapshot, snap)
+    return {"status": "ok", "deleted_id": int(feedback_id)}
+
+
+@app.post("/api/admin/feedback/block")
+async def toggle_admin_feedback_block(req: AdminFeedbackBlockRequest):
+    """Блокирует или разблокирует пользователя от отправки фидбека."""
+    if not _is_admin_user(req.user_id, req.admin_secret):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    target_uid = int(req.target_user_id or 0)
+    if target_uid <= 0 or _is_admin_user(target_uid):
+        raise HTTPException(status_code=400, detail="Cannot block invalid or admin user")
+    _ensure_feedback_loaded()
+    with _FEEDBACK_LOCK:
+        blocked = [int(u) for u in (_FEEDBACK_STATE.get("blocked_users") or []) if int(u) > 0]
+        if req.blocked:
+            if target_uid not in blocked:
+                blocked.append(target_uid)
+        else:
+            blocked = [u for u in blocked if u != target_uid]
+        _FEEDBACK_STATE["blocked_users"] = blocked
+        snap = _snapshot_feedback_locked()
+
+    await asyncio.to_thread(save_feedback_snapshot, snap)
+    return {"status": "ok", "target_user_id": target_uid, "blocked": req.blocked}

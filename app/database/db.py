@@ -1,5 +1,7 @@
+import json
 import sqlite3
 import logging
+import time
 from typing import Optional, List, Dict, Any, Tuple
 
 try:
@@ -32,9 +34,14 @@ def init_db():
         full_name TEXT,
         role TEXT DEFAULT 'student',
         class_name TEXT DEFAULT '10-А',
-        is_verified BOOLEAN DEFAULT 1
+        is_verified BOOLEAN DEFAULT 1,
+        created_at REAL DEFAULT 0
     )
     """)
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN created_at REAL DEFAULT 0")
+    except Exception:
+        pass
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS tasks (
@@ -189,6 +196,32 @@ def init_db():
     except Exception:
         pass
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS feedback_items (
+        id INTEGER PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        name TEXT DEFAULT '',
+        nick TEXT DEFAULT '',
+        category TEXT DEFAULT 'idea',
+        rating INTEGER DEFAULT 0,
+        text TEXT NOT NULL,
+        text_hash TEXT DEFAULT '',
+        platform TEXT DEFAULT 'Web',
+        verified_tg INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'new',
+        admin_note TEXT DEFAULT '',
+        created_at REAL NOT NULL,
+        updated_at REAL NOT NULL
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS feedback_meta (
+        meta_key TEXT PRIMARY KEY,
+        meta_value TEXT NOT NULL
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -237,14 +270,14 @@ def upsert_user(user_id: int, telegram_nick: Optional[str] = None, full_name: Op
         pass
 
     cursor.execute("""
-    INSERT INTO users (id, telegram_nick, full_name, role, class_name)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO users (id, telegram_nick, full_name, role, class_name, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
     ON CONFLICT(id) DO UPDATE SET
         telegram_nick = COALESCE(excluded.telegram_nick, users.telegram_nick),
         full_name = COALESCE(excluded.full_name, users.full_name),
         role = CASE WHEN users.role = 'admin' THEN 'admin' ELSE excluded.role END,
         class_name = excluded.class_name
-    """, (user_id, telegram_nick, full_name, effective_role, class_name))
+    """, (user_id, telegram_nick, full_name, effective_role, class_name, time.time()))
     conn.commit()
     conn.close()
 
@@ -254,7 +287,7 @@ def get_user(user_id: int) -> Optional[Dict[str, Any]]:
     conn = sqlite3.connect(DB_NAME, timeout=15.0)
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
-    cursor.execute("SELECT id, telegram_nick, full_name, role, class_name FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT id, telegram_nick, full_name, role, class_name, COALESCE(created_at, 0) AS created_at FROM users WHERE id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -1435,5 +1468,179 @@ def get_historical_activity(limit: int = 250) -> Dict[str, Any]:
     if is_using_supabase():
         return supabase_db.get_supabase_historical_activity(limit=limit)
     return {"events": [], "users_summary": []}
+
+def _default_feedback_snapshot() -> Dict[str, Any]:
+    return {
+        "v": 1,
+        "next_id": 1,
+        "items": [],
+        "user_submissions": {},
+        "blocked_users": [],
+        "spam_blocked": 0,
+    }
+
+
+def _normalize_feedback_snapshot(raw: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    snap = _default_feedback_snapshot()
+    if not isinstance(raw, dict):
+        return snap
+
+    items_out: List[Dict[str, Any]] = []
+    max_id = 0
+    for it in raw.get("items") or []:
+        if not isinstance(it, dict):
+            continue
+        fid = int(it.get("id") or 0)
+        uid = int(it.get("user_id") or 0)
+        txt = str(it.get("text") or "").strip()
+        if fid <= 0 or uid <= 0 or not txt:
+            continue
+        max_id = max(max_id, fid)
+        items_out.append({
+            "id": fid,
+            "user_id": uid,
+            "name": str(it.get("name") or "")[:120],
+            "nick": str(it.get("nick") or "")[:80],
+            "category": str(it.get("category") or "idea")[:24],
+            "rating": max(0, min(5, int(it.get("rating") or 0))),
+            "text": txt[:800],
+            "text_hash": str(it.get("text_hash") or "")[:64],
+            "platform": str(it.get("platform") or "Web")[:24],
+            "verified_tg": bool(it.get("verified_tg")),
+            "status": str(it.get("status") or "new")[:24],
+            "admin_note": str(it.get("admin_note") or "")[:300],
+            "created_at": float(it.get("created_at") or 0.0),
+            "updated_at": float(it.get("updated_at") or 0.0),
+        })
+
+    snap["items"] = items_out[-500:]
+    snap["next_id"] = max(int(raw.get("next_id") or 1), max_id + 1)
+
+    us_clean: Dict[str, List[float]] = {}
+    cutoff = time.time() - 172800.0
+    for k, ts_list in (raw.get("user_submissions") or {}).items():
+        if not str(k).isdigit() or not isinstance(ts_list, list):
+            continue
+        valid_ts = sorted(float(x) for x in ts_list if isinstance(x, (int, float)) and float(x) > cutoff)[-20:]
+        if valid_ts:
+            us_clean[str(k)] = valid_ts
+    snap["user_submissions"] = us_clean
+
+    blocked = []
+    for u in raw.get("blocked_users") or []:
+        try:
+            ui = int(u)
+            if ui > 0 and ui not in blocked:
+                blocked.append(ui)
+        except (TypeError, ValueError):
+            pass
+    snap["blocked_users"] = blocked
+    snap["spam_blocked"] = max(0, int(raw.get("spam_blocked") or 0))
+    return snap
+
+
+def load_feedback_snapshot() -> Dict[str, Any]:
+    """Загружает отзывы и антиспам-историю из SQLite и Supabase (с автослиянием по ID)."""
+    local_raw: Dict[str, Any] = _default_feedback_snapshot()
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=10.0)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, user_id, name, nick, category, rating, text, text_hash, platform, verified_tg, status, admin_note, created_at, updated_at FROM feedback_items ORDER BY id ASC"
+        )
+        local_raw["items"] = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT meta_key, meta_value FROM feedback_meta")
+        for r in cur.fetchall():
+            mk = r["meta_key"]
+            mv = r["meta_value"]
+            if mk in ("next_id", "spam_blocked"):
+                try:
+                    local_raw[mk] = int(mv)
+                except ValueError:
+                    pass
+            elif mk in ("user_submissions", "blocked_users"):
+                try:
+                    local_raw[mk] = json.loads(mv)
+                except Exception:
+                    pass
+        conn.close()
+    except Exception as e:
+        logger.warning(f"load_feedback_snapshot sqlite note: {e}")
+
+    local_norm = _normalize_feedback_snapshot(local_raw)
+    if is_using_supabase():
+        try:
+            sb_raw = supabase_db.load_feedback_snapshot_supabase()
+            if sb_raw is not None:
+                return _normalize_feedback_snapshot(sb_raw)
+        except Exception as e:
+            logger.warning(f"load_feedback_snapshot supabase note: {e}")
+    return local_norm
+
+
+def save_feedback_snapshot(snapshot: Dict[str, Any]) -> bool:
+    """Атомарно сохраняет отзывы и антиспам-данные в локальную SQLite и постоянный снимок Supabase."""
+    norm = _normalize_feedback_snapshot(snapshot)
+    ok_sqlite = False
+    try:
+        conn = sqlite3.connect(DB_NAME, timeout=10.0)
+        cur = conn.cursor()
+        cur.execute("DELETE FROM feedback_items")
+        if norm["items"]:
+            cur.executemany(
+                """
+                INSERT INTO feedback_items (id, user_id, name, nick, category, rating, text, text_hash, platform, verified_tg, status, admin_note, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        int(it["id"]),
+                        int(it["user_id"]),
+                        it["name"],
+                        it["nick"],
+                        it["category"],
+                        int(it["rating"]),
+                        it["text"],
+                        it["text_hash"],
+                        it["platform"],
+                        1 if it["verified_tg"] else 0,
+                        it["status"],
+                        it["admin_note"],
+                        float(it["created_at"]),
+                        float(it["updated_at"]),
+                    )
+                    for it in norm["items"]
+                ],
+            )
+        meta_rows = [
+            ("next_id", str(norm["next_id"])),
+            ("spam_blocked", str(norm["spam_blocked"])),
+            ("user_submissions", json.dumps(norm["user_submissions"], ensure_ascii=False)),
+            ("blocked_users", json.dumps(norm["blocked_users"], ensure_ascii=False)),
+        ]
+        cur.executemany(
+            """
+            INSERT INTO feedback_meta (meta_key, meta_value) VALUES (?, ?)
+            ON CONFLICT(meta_key) DO UPDATE SET meta_value = excluded.meta_value
+            """,
+            meta_rows,
+        )
+        conn.commit()
+        conn.close()
+        ok_sqlite = True
+    except Exception as e:
+        logger.warning(f"save_feedback_snapshot sqlite note: {e}")
+
+    ok_sb = True
+    if is_using_supabase():
+        try:
+            ok_sb = supabase_db.save_feedback_snapshot_supabase(norm)
+        except Exception as e:
+            logger.warning(f"save_feedback_snapshot supabase note: {e}")
+            ok_sb = False
+
+    return ok_sqlite or ok_sb
+
 
 init_db()

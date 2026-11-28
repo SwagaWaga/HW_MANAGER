@@ -1,4 +1,4 @@
-const SW_VERSION = 'v1.0.8';
+const SW_VERSION = 'v1.0.10';
 const SHELL_CACHE = `hw-portal-shell-${SW_VERSION}`;
 const RUNTIME_CACHE = `hw-portal-runtime-${SW_VERSION}`;
 const API_CACHE = `hw-portal-api-${SW_VERSION}`;

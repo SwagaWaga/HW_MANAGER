@@ -451,10 +451,29 @@
   </div>
 
   <!-- Список домашних заданий -->
-  <main id="tasks-container" class="space-y-2.5 pb-24">
+  <main id="tasks-container" class="space-y-2.5 pb-4">
     <div class="animate-pulse hybrid-card p-4 rounded-[22px] h-24"></div>
     <div class="animate-pulse hybrid-card p-4 rounded-[22px] h-24"></div>
   </main>
+
+  <!-- Компактная плашка обратной связи в конце ленты -->
+  <section class="pb-24 pt-1">
+    <button type="button" id="main-feedback-open-btn" onclick="openFeedbackModal()" class="w-full px-4 py-3 rounded-[20px] bg-white/[0.14] hover:bg-white/[0.20] dark:bg-white/[0.09] dark:hover:bg-white/[0.14] text-left flex items-center justify-between gap-3 transition active:scale-[0.99]">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-full bg-white/[0.18] text-white flex items-center justify-center shrink-0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+            <path d="M9.5 9.5h.01"/><path d="M14.5 9.5h.01"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <span class="text-[12.5px] font-bold text-white block truncate leading-tight">Есть идея или нашли баг?</span>
+          <span class="text-[11px] text-white/75 block truncate mt-0.5">Напишите рекомендацию по улучшению портала</span>
+        </div>
+      </div>
+      <span class="px-3 py-1 rounded-full bg-white text-[#145594] dark:text-slate-950 text-[11px] font-extrabold shrink-0 shadow-xs">Отзыв</span>
+    </button>
+  </section>
 
   <!-- МЯГКАЯ НИЖНЯЯ ПОДЛОЖКА + ЧИСТАЯ БЕЛАЯ КНОПКА СОЗДАНИЯ Д/З (КАК В РЕФЕРЕНСЕ) -->
   <div class="fixed bottom-0 left-0 right-0 h-16 bottom-cta-scrim pointer-events-none z-30"></div>
@@ -651,22 +670,22 @@
   </div>
 
   <!-- ===== МОДАЛЬНОЕ ОКНО АДМИН-АНАЛИТИКИ ===== -->
-  <!-- ===== МОДАЛЬНОЕ ОКНО: СТАТИСТИКА ДЛЯ ИИ ===== -->
+  <!-- ===== МОДАЛЬНОЕ ОКНО: АДМИН-АНАЛИТИКА + ЭКСПОРТ ДЛЯ ИИ ===== -->
   <div id="admin-analytics-modal" class="fixed inset-0 bg-[#0b1b30]/75 hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeAdminAnalyticsModal()">
-    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-md rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[90vh] flex flex-col overflow-hidden border-0">
-      <!-- Градиентная шапка -->
-      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-5 pt-3 sm:pt-4 pb-4 shrink-0">
-        <div class="w-10 h-1 rounded-full bg-white/30 mx-auto mb-3 sm:hidden"></div>
+    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[92vh] flex flex-col overflow-hidden border-0">
+      <!-- Градиентная шапка + 3 вкладки -->
+      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-4 sm:px-5 pt-3 sm:pt-4 pb-3 shrink-0">
+        <div class="w-10 h-1 rounded-full bg-white/30 mx-auto mb-2.5 sm:hidden"></div>
         <div class="flex items-center justify-between gap-2">
           <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <h2 class="text-[17px] font-extrabold tracking-tight text-white">Статистика</h2>
+            <div class="flex items-center gap-1.5 sm:gap-2">
+              <h2 class="text-[15.5px] sm:text-[17px] font-extrabold tracking-tight text-white">Аналитика</h2>
               <span id="admin-live-pill" class="px-2 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 text-[10.5px] font-bold flex items-center gap-1 shrink-0">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-300"></span>
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse"></span>
                 <span id="admin-live-count">0 онлайн</span>
               </span>
             </div>
-            <p class="text-[11px] text-white/75 mt-0.5 truncate" id="admin-analytics-subtitle">Заходы, клики и лог действий · 10-А</p>
+            <p class="text-[11px] text-white/75 mt-0.5 truncate" id="admin-analytics-subtitle">Заходы, клики и живые статусы · 10-А</p>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
             <button type="button" id="admin-user-view-btn" onclick="switchToUserVersion()" class="px-2.5 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white text-[11px] font-bold flex items-center gap-1 active:scale-95 transition shrink-0" title="Переключиться в обычную версию ученика">
@@ -678,66 +697,174 @@
             <button type="button" onclick="closeAdminAnalyticsModal()" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center text-sm font-bold active:scale-90 transition" title="Закрыть">✕</button>
           </div>
         </div>
+
+        <!-- Вкладки: Обзор / Ученики / Лента / Отзывы -->
+        <div class="grid grid-cols-4 gap-1 p-1 mt-3 bg-white/[0.16] dark:bg-white/[0.10] rounded-full select-none">
+          <button type="button" id="admin-tab-overview" onclick="switchAdminTab('overview')" class="py-1.5 px-1 rounded-full text-[11px] sm:text-xs font-bold bg-white text-[#145594] dark:text-slate-950 shadow-xs transition active:scale-95 truncate">Обзор</button>
+          <button type="button" id="admin-tab-users" onclick="switchAdminTab('users')" class="py-1.5 px-1 rounded-full text-[11px] sm:text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 truncate">Ученики</button>
+          <button type="button" id="admin-tab-feed" onclick="switchAdminTab('feed')" class="py-1.5 px-1 rounded-full text-[11px] sm:text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 truncate">Лента</button>
+          <button type="button" id="admin-tab-feedback" onclick="switchAdminTab('feedback')" class="py-1.5 px-1 rounded-full text-[11px] sm:text-xs font-semibold text-white/85 hover:text-white transition active:scale-95 flex items-center justify-center gap-1 min-w-0">
+            <span class="truncate">Отзывы</span>
+            <span id="admin-feedback-badge" class="hidden px-1.5 py-0.2 rounded-full bg-amber-300 text-slate-950 text-[9.5px] font-extrabold font-mono shrink-0 leading-tight">0</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Контент: сводка и топ разделов -->
+      <!-- Прокручиваемый контент вкладок -->
       <div class="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 bg-white dark:bg-[#0e223b] thin-scroll">
-        <!-- 4 краткие цифры -->
-        <div class="grid grid-cols-4 gap-2 text-center">
-          <div class="p-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
-            <span id="admin-kpi-online" class="text-lg font-extrabold text-[#16a34a] dark:text-emerald-300 block font-mono leading-tight">0</span>
-            <span class="text-[10px] font-bold text-slate-500 dark:text-sky-100/60 block mt-0.5">Онлайн</span>
+        <!-- ВКЛАДКА 1: ОБЗОР -->
+        <div id="admin-pane-overview" class="space-y-4">
+          <div class="grid grid-cols-2 gap-2.5">
+            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Онлайн сейчас</span>
+              <span id="admin-kpi-online" class="text-xl font-extrabold text-[#16a34a] dark:text-emerald-300 mt-0.5 block font-mono">0</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Всего заходов</span>
+              <span id="admin-kpi-visits" class="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5 block font-mono">0</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Кликов и действий</span>
+              <span id="admin-kpi-clicks" class="text-xl font-extrabold text-[#2077cf] dark:text-sky-300 mt-0.5 block font-mono">0</span>
+            </div>
+            <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+              <span class="text-[10.5px] font-bold text-slate-500 dark:text-sky-100/60 block">Активных учеников</span>
+              <span id="admin-kpi-users" class="text-xl font-extrabold text-slate-900 dark:text-white mt-0.5 block font-mono">0</span>
+            </div>
           </div>
-          <div class="p-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
-            <span id="admin-kpi-visits" class="text-lg font-extrabold text-slate-900 dark:text-white block font-mono leading-tight">0</span>
-            <span class="text-[10px] font-bold text-slate-500 dark:text-sky-100/60 block mt-0.5">Заходов</span>
-          </div>
-          <div class="p-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
-            <span id="admin-kpi-clicks" class="text-lg font-extrabold text-[#2077cf] dark:text-sky-300 block font-mono leading-tight">0</span>
-            <span class="text-[10px] font-bold text-slate-500 dark:text-sky-100/60 block mt-0.5">Кликов</span>
-          </div>
-          <div class="p-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
-            <span id="admin-kpi-users" class="text-lg font-extrabold text-slate-900 dark:text-white block font-mono leading-tight">0</span>
-            <span class="text-[10px] font-bold text-slate-500 dark:text-sky-100/60 block mt-0.5">Активных</span>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between px-0.5">
+              <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/55">Куда чаще нажимают</span>
+              <span class="text-[10.5px] text-slate-400 dark:text-sky-100/50">Топ разделов и кнопок</span>
+            </div>
+            <div id="admin-top-actions-list" class="space-y-2">
+              <div class="text-center py-6 text-xs text-slate-400">Загрузка...</div>
+            </div>
           </div>
         </div>
 
-        <!-- Краткое превью топ-5 разделов -->
-        <div class="space-y-1.5">
-          <div class="flex items-center justify-between px-0.5">
-            <span class="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/55">Топ разделов сейчас</span>
-            <span id="admin-last-updated" class="text-[10px] font-mono text-slate-400 dark:text-sky-100/50">—</span>
+        <!-- ВКЛАДКА 2: УЧЕНИКИ -->
+        <div id="admin-pane-users" class="hidden space-y-3">
+          <div class="flex items-center gap-1.5" id="admin-user-filter-bar">
+            <button type="button" id="admin-ufilter-all" onclick="setAdminUserFilter('all')" class="px-3 py-1 rounded-full text-[11px] font-bold bg-[#2077cf] text-white transition active:scale-95">Все</button>
+            <button type="button" id="admin-ufilter-online" onclick="setAdminUserFilter('online')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95">Онлайн</button>
+            <button type="button" id="admin-ufilter-offline" onclick="setAdminUserFilter('offline')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95">Оффлайн</button>
           </div>
-          <div id="admin-top-actions-list" class="space-y-1.5">
-            <div class="text-center py-4 text-xs text-slate-400">Загрузка...</div>
+          <div id="admin-users-list" class="space-y-2"></div>
+        </div>
+
+        <!-- ВКЛАДКА 3: ЖИВАЯ ЛЕНТА -->
+        <div id="admin-pane-feed" class="hidden space-y-2">
+          <div id="admin-feed-list" class="space-y-1.5"></div>
+        </div>
+
+        <!-- ВКЛАДКА 4: ОТЗЫВЫ И РЕКОМЕНДАЦИИ -->
+        <div id="admin-pane-feedback" class="hidden space-y-3">
+          <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-2 text-[11px]">
+            <span class="font-bold text-slate-700 dark:text-white/85 flex items-center gap-1.5">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 text-[#16a34a] dark:text-emerald-300 shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              <span>Антиспам-щит активен</span>
+            </span>
+            <span id="admin-feedback-shield-stats" class="font-mono text-[10.5px] text-slate-500 dark:text-sky-100/70">Отбито спама: 0</span>
           </div>
+          <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-0.5" id="admin-feedback-filter-bar">
+            <button type="button" id="admin-ffilter-all" onclick="setAdminFeedbackFilter('all')" class="px-3 py-1 rounded-full text-[11px] font-bold bg-[#2077cf] text-white shrink-0 transition active:scale-95">Все</button>
+            <button type="button" id="admin-ffilter-new" onclick="setAdminFeedbackFilter('new')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 shrink-0 transition active:scale-95">Новые</button>
+            <button type="button" id="admin-ffilter-in_progress" onclick="setAdminFeedbackFilter('in_progress')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 shrink-0 transition active:scale-95">В работе</button>
+            <button type="button" id="admin-ffilter-done" onclick="setAdminFeedbackFilter('done')" class="px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 shrink-0 transition active:scale-95">Готово</button>
+          </div>
+          <div id="admin-feedback-list" class="space-y-2.5"></div>
         </div>
       </div>
 
-      <!-- Нижний закреплённый блок: Экспорт статистики для ИИ -->
-      <div class="px-4 sm:px-5 pt-3 pb-3 bg-[#f4f7fc]/90 dark:bg-white/[0.04] border-t border-slate-200/60 dark:border-white/[0.08] space-y-2.5 shrink-0">
-        <div>
-          <span class="text-[11px] font-extrabold text-slate-800 dark:text-white block">Скачать статистику для анализа в ИИ</span>
-          <span class="text-[10.5px] text-slate-500 dark:text-sky-100/65 block leading-snug mt-0.5">Сводка, тренды по дням/часам, профили учеников и лог — готово для ChatGPT, Gemini или Claude.</span>
+      <!-- Нижний закреплённый блок: Скачать статистику для анализа в ИИ -->
+      <div class="px-4 sm:px-5 pt-2.5 pb-2.5 bg-[#f4f7fc]/90 dark:bg-white/[0.04] border-t border-slate-200/60 dark:border-white/[0.08] space-y-2 shrink-0">
+        <div class="flex items-center gap-1.5">
+          <button type="button" id="admin-download-txt-btn" onclick="downloadAnalyticsExport('txt')" class="flex-1 py-2 px-3 rounded-xl bg-[#2077cf] hover:bg-[#1a66b5] text-white text-[11.5px] font-bold flex items-center justify-center gap-1.5 active:scale-[0.98] transition truncate">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <span class="truncate">Скачать для ИИ (.txt)</span>
+          </button>
+          <button type="button" id="admin-download-json-btn" onclick="downloadAnalyticsExport('json')" class="py-2 px-2.5 rounded-xl bg-white dark:bg-white/[0.10] hover:bg-slate-50 dark:hover:bg-white/[0.16] text-slate-800 dark:text-white text-[11px] font-bold active:scale-95 transition shrink-0" title="Скачать JSON для ИИ">.json</button>
+          <button type="button" id="admin-copy-txt-btn" onclick="copyAnalyticsForAi()" class="py-2 px-2.5 rounded-xl bg-white dark:bg-white/[0.10] hover:bg-slate-50 dark:hover:bg-white/[0.16] text-slate-800 dark:text-white text-[11px] font-bold active:scale-95 transition shrink-0" title="Скопировать отчёт в буфер">Копия</button>
+          <button type="button" id="admin-send-chat-btn" onclick="sendAnalyticsToTelegram('txt')" class="py-2 px-2.5 rounded-xl bg-[#16a34a]/12 hover:bg-[#16a34a]/20 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-[#15803d] dark:text-emerald-200 text-[11px] font-bold active:scale-95 transition shrink-0" title="Отправить файл отчёта в личный чат бота">В TG</button>
         </div>
-        <button type="button" id="admin-download-txt-btn" onclick="downloadAnalyticsExport('txt')" class="w-full py-2.5 px-4 rounded-xl bg-[#2077cf] hover:bg-[#1a66b5] text-white text-xs font-bold flex items-center justify-center gap-2 active:scale-[0.98] transition">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          <span>Скачать статистику (.txt для ИИ)</span>
-        </button>
-        <div class="grid grid-cols-3 gap-1.5">
-          <button type="button" id="admin-download-json-btn" onclick="downloadAnalyticsExport('json')" class="py-2 px-2 rounded-xl bg-white dark:bg-white/[0.10] hover:bg-slate-50 dark:hover:bg-white/[0.16] text-slate-800 dark:text-white text-[11px] font-bold flex items-center justify-center active:scale-95 transition">
-            <span>.json</span>
-          </button>
-          <button type="button" id="admin-copy-txt-btn" onclick="copyAnalyticsForAi()" class="py-2 px-2 rounded-xl bg-white dark:bg-white/[0.10] hover:bg-slate-50 dark:hover:bg-white/[0.16] text-slate-800 dark:text-white text-[11px] font-bold flex items-center justify-center active:scale-95 transition">
-            <span>Копировать</span>
-          </button>
-          <button type="button" id="admin-send-chat-btn" onclick="sendAnalyticsToTelegram('txt')" class="py-2 px-2 rounded-xl bg-[#16a34a]/12 hover:bg-[#16a34a]/20 dark:bg-emerald-500/20 dark:hover:bg-emerald-500/30 text-[#15803d] dark:text-emerald-200 text-[11px] font-bold flex items-center justify-center gap-1 active:scale-95 transition">
-            <span>В Telegram</span>
+        <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400 dark:text-sky-100/55">
+          <span>Лёгкий буфер · 0 мс задержки UI</span>
+          <div class="flex items-center gap-2.5 shrink-0">
+            <span id="admin-last-updated" class="font-mono">—</span>
+            <button type="button" id="admin-reset-btn" onclick="resetAnalyticsStats()" class="font-bold text-rose-500 dark:text-rose-300 hover:underline active:scale-95 transition">Очистить</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== МОДАЛЬНОЕ ОКНО: ОБРАТНЫЙ ФИДБЕК И РЕКОМЕНДАЦИИ ===== -->
+  <div id="feedback-modal" class="fixed inset-0 bg-[#0b1b30]/75 hidden items-end sm:items-center justify-center p-0 sm:p-4 z-50" onclick="if(event.target===this)closeFeedbackModal()">
+    <div class="modal-sheet bg-white dark:bg-[#0e223b] text-slate-900 dark:text-white w-full max-w-lg rounded-t-[28px] sm:rounded-[28px] p-0 shadow-2xl max-h-[92vh] flex flex-col overflow-hidden border-0">
+      <div class="bg-gradient-to-b from-[#2d86d8] to-[#1e64ad] dark:from-[#164473] dark:to-[#0f2c4d] text-white px-5 pt-3 sm:pt-4 pb-3.5 shrink-0">
+        <div class="w-10 h-1 rounded-full bg-white/30 mx-auto mb-2.5 sm:hidden"></div>
+        <div class="flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <h2 class="text-[16px] sm:text-[17px] font-extrabold tracking-tight text-white truncate">Идеи и фидбек</h2>
+            <p class="text-[11px] text-white/75 truncate mt-0.5">Пожелания, идеи новых функций и баг-репорты</p>
+          </div>
+          <button type="button" onclick="closeFeedbackModal()" class="w-8 h-8 rounded-full bg-white/[0.16] hover:bg-white/[0.26] text-white flex items-center justify-center text-sm font-bold active:scale-90 transition shrink-0" title="Закрыть">✕</button>
+        </div>
+      </div>
+
+      <div class="p-4 sm:p-5 overflow-y-auto flex-1 min-h-0 space-y-4 thin-scroll">
+        <!-- Статус антиспам-квоты -->
+        <div id="feedback-guard-banner" class="px-3.5 py-2.5 rounded-2xl bg-[#eef6ff] dark:bg-sky-500/[0.14] text-[11.5px] font-semibold text-[#145594] dark:text-sky-200 flex items-center gap-2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span id="feedback-guard-text" class="leading-snug">Проверка защиты от спама...</span>
+        </div>
+
+        <div id="feedback-form-fields" class="space-y-3.5">
+          <!-- Тип обращения -->
+          <div>
+            <span class="block text-[10.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/55 mb-1.5">Категория</span>
+            <div class="grid grid-cols-4 gap-1.5">
+              <button type="button" id="fb-cat-idea" onclick="selectFeedbackCategory('idea')" class="py-1.5 px-2 rounded-xl text-[11.5px] font-bold bg-[#2077cf] text-white shadow-xs transition active:scale-95 truncate">Идея</button>
+              <button type="button" id="fb-cat-bug" onclick="selectFeedbackCategory('bug')" class="py-1.5 px-2 rounded-xl text-[11.5px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95 truncate">Ошибка</button>
+              <button type="button" id="fb-cat-ux" onclick="selectFeedbackCategory('ux')" class="py-1.5 px-2 rounded-xl text-[11.5px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95 truncate">Дизайн</button>
+              <button type="button" id="fb-cat-other" onclick="selectFeedbackCategory('other')" class="py-1.5 px-2 rounded-xl text-[11.5px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95 truncate">Другое</button>
+            </div>
+          </div>
+
+          <!-- Оценка (необязательно) -->
+          <div class="flex items-center justify-between gap-2 px-3.5 py-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06]">
+            <span class="text-xs font-bold text-slate-700 dark:text-white/90">Оценка портала</span>
+            <div class="flex items-center gap-1" id="feedback-stars-row">
+              <button type="button" id="fb-star-1" onclick="setFeedbackRating(1)" class="p-1 text-slate-300 dark:text-white/25 transition active:scale-90" aria-label="1 звезда">★</button>
+              <button type="button" id="fb-star-2" onclick="setFeedbackRating(2)" class="p-1 text-slate-300 dark:text-white/25 transition active:scale-90" aria-label="2 звезды">★</button>
+              <button type="button" id="fb-star-3" onclick="setFeedbackRating(3)" class="p-1 text-slate-300 dark:text-white/25 transition active:scale-90" aria-label="3 звезды">★</button>
+              <button type="button" id="fb-star-4" onclick="setFeedbackRating(4)" class="p-1 text-slate-300 dark:text-white/25 transition active:scale-90" aria-label="4 звезды">★</button>
+              <button type="button" id="fb-star-5" onclick="setFeedbackRating(5)" class="p-1 text-slate-300 dark:text-white/25 transition active:scale-90" aria-label="5 звёзд">★</button>
+            </div>
+          </div>
+
+          <!-- Поле текста -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <label for="feedback-text-input" class="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/55">Ваше предложение</label>
+              <span id="feedback-char-counter" class="text-[10.5px] font-mono text-slate-400 dark:text-sky-100/60">0 / 800</span>
+            </div>
+            <textarea id="feedback-text-input" rows="4" maxlength="800" oninput="onFeedbackTextInput()" placeholder="Например: хотелось бы добавить фильтр по учителям или тёмные карточки для расписания..." class="w-full bg-[#f4f7fc] dark:bg-white/[0.07] border border-transparent focus:border-[#2077cf] rounded-2xl px-3.5 py-2.5 text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-sky-100/40 focus:outline-none resize-none transition"></textarea>
+            <!-- Скрытая ловушка (honeypot) для ботов -->
+            <input type="text" id="feedback-hp-input" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;" />
+          </div>
+
+          <button type="button" id="feedback-submit-btn" onclick="submitFeedbackForm()" class="w-full py-2.5 px-4 rounded-2xl bg-[#2077cf] hover:bg-[#1a66b5] disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-extrabold flex items-center justify-center gap-2 shadow-sm active:scale-[0.99] transition">
+            <span>Отправить рекомендацию</span>
           </button>
         </div>
-        <div class="pt-0.5 flex items-center justify-between text-[10.5px] text-slate-400 dark:text-sky-100/55">
-          <span>Лёгкий сбор в фоне · 0 мс задержки UI</span>
-          <button type="button" id="admin-reset-btn" onclick="resetAnalyticsStats()" class="font-bold text-rose-500 dark:text-rose-300 hover:underline active:scale-95 transition">Очистить</button>
+
+        <!-- Мои отправленные отзывы -->
+        <div id="feedback-my-section" class="space-y-2 pt-2 border-t border-slate-100 dark:border-white/[0.08]">
+          <span class="text-[10.5px] font-bold uppercase tracking-wider text-slate-400 dark:text-sky-100/55 block">Мои обращения</span>
+          <div id="feedback-my-list" class="space-y-2"></div>
         </div>
       </div>
     </div>
@@ -1260,7 +1387,7 @@
                     <h4 class="text-xs font-extrabold text-slate-900 dark:text-white truncate">Админ-панель</h4>
                     <span id="settings-admin-mode-badge" class="px-1.5 py-0.5 rounded-md bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300 text-[9.5px] font-bold shrink-0">Админ</span>
                   </div>
-                  <p class="text-[10.5px] text-slate-500 dark:text-sky-100/70 leading-snug mt-0.5 truncate">Сводка активности и экспорт для ИИ</p>
+                  <p class="text-[10.5px] text-slate-500 dark:text-sky-100/70 leading-snug mt-0.5 truncate">Заходы, клики, кто онлайн и экспорт ИИ</p>
                 </div>
               </div>
               <button type="button" id="settings-open-admin-btn" onclick="closeNotifModal(); openAdminAnalyticsModal();" class="px-3.5 py-1.5 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white text-xs font-bold shrink-0 active:scale-95 transition">Аналитика</button>
@@ -1275,6 +1402,23 @@
                 <span class="settings-switch-track w-10 h-[22px] bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-white/20 peer-checked:after:translate-x-[18px] after:content-[''] after:absolute after:top-[3px] after:left-[3px] after:bg-white after:rounded-full after:h-4 after:w-4 after:shadow-xs after:transition-all peer-checked:bg-[#22c55e]"></span>
               </span>
             </label>
+          </div>
+
+          <!-- Идеи и обратный фидбек -->
+          <div id="settings-feedback-card" class="p-3.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-300 flex items-center justify-center shrink-0">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  <path d="M8 10h8"/><path d="M8 14h5"/>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <h4 class="text-xs font-extrabold text-slate-900 dark:text-white truncate">Идеи и фидбек</h4>
+                <p class="text-[10.5px] text-slate-500 dark:text-sky-100/65 leading-snug mt-0.5 truncate">Рекомендации, баги и предложения</p>
+              </div>
+            </div>
+            <button id="settings-open-feedback-btn" type="button" onclick="closeNotifModal(); openFeedbackModal();" class="px-3.5 py-1.5 rounded-full bg-[#2077cf] hover:bg-[#1a66b5] text-white text-xs font-bold shrink-0 active:scale-95 transition">Написать</button>
           </div>
 
           <!-- Установка как приложение (PWA) -->
@@ -9236,9 +9380,20 @@
     // ========================================================
     // 📊 ЛЁГКАЯ ТЕЛЕМЕТРИЯ (0 МС UI) И АДМИН-АНАЛИТИКА
     // ========================================================
+    let adminModalTab = 'overview';
+    let adminUserFilter = 'all';
     let adminAnalyticsData = null;
+    let adminPollTimer = null;
     let adminFetchInFlight = false;
     let adminResetConfirmUntil = 0;
+
+    function formatRelativeAgo(sec) {
+      const s = Math.max(0, Number(sec) || 0);
+      if (s < 45) return 'сейчас';
+      if (s < 3600) return `${Math.max(1, Math.floor(s / 60))} мин назад`;
+      if (s < 86400) return `${Math.floor(s / 3600)} ч назад`;
+      return `${Math.floor(s / 86400)} дн назад`;
+    }
 
     function syncAdminUI() {
       const realAdmin = isRealAdmin();
@@ -9322,7 +9477,9 @@
       'add-task-btn': ['open_add_task', 'Открыл добавление Д/З'],
       'photo-download-btn': ['download_material', 'Скачал файл/фото'],
       'photo-send-chat-btn': ['send_to_chat', 'Отправил файл в чат'],
-      'photo-share-btn': ['share_material', 'Поделился файлом']
+      'photo-share-btn': ['share_material', 'Поделился файлом'],
+      'main-feedback-open-btn': ['open_feedback', 'Открыл форму отзывов'],
+      'settings-open-feedback-btn': ['open_feedback', 'Открыл форму отзывов']
     };
 
     const CLICK_ONCLICK_RULES = [
@@ -9336,6 +9493,7 @@
       ['openLeaderboardModal', 'open_leaderboard', 'Открыл рейтинг'],
       ['openNotifModal', 'open_settings', 'Настройки и профиль'],
       ['openSettingsModal', 'open_settings', 'Настройки и профиль'],
+      ['openFeedbackModal', 'open_feedback', 'Открыл отзывы и идеи'],
       ['openAddModal', 'open_add_task', 'Добавить Д/З'],
       ['toggleTask', 'toggle_task', 'Отметил выполнение Д/З'],
       ['completeTask', 'toggle_task', 'Отметил выполнение Д/З'],
@@ -9493,6 +9651,8 @@
             if (this.hiddenAt && (Date.now() - this.hiddenAt) >= 600000) {
               this.enqueue('visit', 'app_return', 'Вернулся в приложение');
               this.scheduleIdleFlush(400);
+            } else if (adminPollTimer) {
+              loadAdminAnalytics(false);
             }
             this.hiddenAt = 0;
           }
@@ -9520,7 +9680,12 @@
       modal.classList.remove('hidden');
       modal.classList.add('flex');
       triggerHaptic('light');
+      switchAdminTab(adminModalTab, true);
       AnalyticsTracker.flush(true).finally(() => loadAdminAnalytics(false));
+      if (adminPollTimer) clearInterval(adminPollTimer);
+      adminPollTimer = setInterval(() => {
+        if (!document.hidden) loadAdminAnalytics(false);
+      }, 10000);
     }
 
     function closeAdminAnalyticsModal() {
@@ -9530,6 +9695,57 @@
         modal.classList.add('hidden');
         modal.classList.remove('flex');
       }
+      if (adminPollTimer) {
+        clearInterval(adminPollTimer);
+        adminPollTimer = null;
+      }
+    }
+
+    function switchAdminTab(tab, silent = false) {
+      adminModalTab = (tab === 'users' || tab === 'feed' || tab === 'feedback') ? tab : 'overview';
+      if (!silent) soundFx.playTab();
+      const baseCls = 'py-1.5 px-1 rounded-full text-[11px] sm:text-xs transition active:scale-95 flex items-center justify-center gap-1 min-w-0';
+      ['overview', 'users', 'feed', 'feedback'].forEach((t) => {
+        const btn = document.getElementById(`admin-tab-${t}`);
+        const pane = document.getElementById(`admin-pane-${t}`);
+        const active = t === adminModalTab;
+        if (btn) {
+          btn.className = active
+            ? `${baseCls} font-bold bg-white text-[#145594] dark:text-slate-950 shadow-xs`
+            : `${baseCls} font-semibold text-white/85 hover:text-white`;
+        }
+        if (pane) pane.classList.toggle('hidden', !active);
+      });
+    }
+
+    let adminFeedbackFilter = 'all';
+
+    function setAdminFeedbackFilter(filterName) {
+      adminFeedbackFilter = ['new', 'in_progress', 'done'].includes(filterName) ? filterName : 'all';
+      soundFx.playTap?.();
+      ['all', 'new', 'in_progress', 'done'].forEach((f) => {
+        const btn = document.getElementById(`admin-ffilter-${f}`);
+        if (!btn) return;
+        const active = f === adminFeedbackFilter;
+        btn.className = active
+          ? 'px-3 py-1 rounded-full text-[11px] font-bold bg-[#2077cf] text-white shrink-0 transition active:scale-95'
+          : 'px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 shrink-0 transition active:scale-95';
+      });
+      renderAdminFeedbackList();
+    }
+
+    function setAdminUserFilter(filterName) {
+      adminUserFilter = (filterName === 'online' || filterName === 'offline') ? filterName : 'all';
+      soundFx.playTap?.();
+      ['all', 'online', 'offline'].forEach((f) => {
+        const btn = document.getElementById(`admin-ufilter-${f}`);
+        if (!btn) return;
+        const active = f === adminUserFilter;
+        btn.className = active
+          ? 'px-3 py-1 rounded-full text-[11px] font-bold bg-[#2077cf] text-white transition active:scale-95'
+          : 'px-3 py-1 rounded-full text-[11px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95';
+      });
+      renderAdminUsersList();
     }
 
     async function loadAdminAnalytics(manual = false) {
@@ -9547,7 +9763,7 @@
         adminAnalyticsData = await res.json();
         renderAdminAnalytics();
       } catch (err) {
-        if (manual) showToast('Не удалось загрузить статистику', 'error');
+        if (manual) showToast('Не удалось обновить аналитику', 'error');
       } finally {
         adminFetchInFlight = false;
       }
@@ -9570,29 +9786,149 @@
 
       const subtitleEl = document.getElementById('admin-analytics-subtitle');
       if (subtitleEl) {
-        subtitleEl.textContent = `Событий в логе: ${s.log_events_count || 0} · Учеников: ${s.active_users || 0} из ${s.registered_users || 0}`;
+        subtitleEl.textContent = s.registered_users
+          ? `В сети: ${s.online_now || 0} · В базе класса: ${s.registered_users}`
+          : 'Заходы, клики и живые статусы · 10-А';
       }
 
       const updatedEl = document.getElementById('admin-last-updated');
       if (updatedEl) {
         const d = new Date();
-        updatedEl.textContent = `Обновлено ${d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}`;
+        updatedEl.textContent = d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
       }
 
+      // Топ действий (Обзор)
       const topEl = document.getElementById('admin-top-actions-list');
       if (topEl) {
-        const actions = Array.isArray(data.top_actions) ? data.top_actions.slice(0, 5) : [];
+        const actions = Array.isArray(data.top_actions) ? data.top_actions.slice(0, 12) : [];
         if (!actions.length) {
-          topEl.innerHTML = '<div class="text-center py-4 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Пока нет записанных кликов</div>';
+          topEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Пока нет записанных кликов</div>';
         } else {
-          topEl.innerHTML = actions.map((item, idx) => `
-            <div class="px-3 py-2 rounded-xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-2 text-xs">
-              <span class="font-bold text-slate-700 dark:text-white/90 truncate">${idx + 1}. ${escapeHtml(item.label || item.key || 'Действие')}</span>
-              <span class="font-mono font-extrabold text-[#2077cf] dark:text-sky-300 shrink-0">${Number(item.clicks) || 0}</span>
-            </div>
-          `).join('');
+          const maxClicks = Math.max(1, Number(actions[0]?.clicks) || 1);
+          topEl.innerHTML = actions.map((item, idx) => {
+            const clicks = Number(item.clicks) || 0;
+            const pct = Math.max(8, Math.round((clicks / maxClicks) * 100));
+            return `
+              <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] space-y-1.5">
+                <div class="flex items-center justify-between gap-2 text-xs">
+                  <span class="font-bold text-slate-800 dark:text-white truncate">${idx + 1}. ${escapeHtml(item.label || item.key || 'Действие')}</span>
+                  <span class="font-mono font-extrabold text-[#2077cf] dark:text-sky-300 shrink-0">${clicks}</span>
+                </div>
+                <div class="w-full h-1.5 rounded-full bg-slate-200/80 dark:bg-white/[0.08] overflow-hidden">
+                  <div class="h-full rounded-full bg-gradient-to-r from-[#2077cf] to-[#38bdf8]" style="width:${pct}%"></div>
+                </div>
+              </div>
+            `;
+          }).join('');
         }
       }
+
+      renderAdminUsersList();
+      renderAdminFeedbackList();
+
+      // Лента активности
+      const feedEl = document.getElementById('admin-feed-list');
+      if (feedEl) {
+        const feed = Array.isArray(data.recent_feed) ? data.recent_feed : [];
+        if (!feed.length) {
+          feedEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">События появятся сразу после первых действий учеников</div>';
+        } else {
+          feedEl.innerHTML = feed.slice(0, 50).map((ev) => {
+            const typeBadge = ev.type === 'visit'
+              ? '<span class="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[9.5px] font-bold">Заход</span>'
+              : ev.type === 'leave'
+                ? '<span class="px-1.5 py-0.5 rounded-md bg-slate-500/15 text-slate-500 dark:text-slate-300 text-[9.5px] font-bold">Выход</span>'
+                : ev.type === 'db'
+                  ? '<span class="px-1.5 py-0.5 rounded-md bg-violet-500/15 text-violet-600 dark:text-violet-300 text-[9.5px] font-bold">БД</span>'
+                  : '<span class="px-1.5 py-0.5 rounded-md bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300 text-[9.5px] font-bold">Клик</span>';
+            const rawNick = String(ev.nick || '').trim().replace(/^@+/, '');
+            const nickLabel = rawNick ? `@${rawNick}` : '';
+            return `
+              <div class="px-3 py-2.5 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.05] flex items-center justify-between gap-2.5">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(ev.name || `ID ${ev.user_id}`)}</span>
+                    ${nickLabel ? `<span class="text-[10.5px] text-slate-400 dark:text-sky-100/50 truncate">${escapeHtml(nickLabel)}</span>` : ''}
+                    ${typeBadge}
+                  </div>
+                  <p class="text-[11px] text-slate-600 dark:text-sky-100/75 truncate mt-0.5">${escapeHtml(ev.label || 'Действие')} · ${escapeHtml(ev.platform || 'Web')}</p>
+                </div>
+                <span class="text-[10px] font-mono text-slate-400 dark:text-sky-100/50 shrink-0">${escapeHtml(formatRelativeAgo(ev.seconds_ago))}</span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+    }
+
+    function renderAdminUsersList() {
+      const listEl = document.getElementById('admin-users-list');
+      if (!listEl || !adminAnalyticsData) return;
+      const allUsers = Array.isArray(adminAnalyticsData.users) ? adminAnalyticsData.users : [];
+
+      const onlineCount = allUsers.filter((u) => u.presence === 'online' || u.presence === 'recent').length;
+      const offlineCount = Math.max(0, allUsers.length - onlineCount);
+      const allBtn = document.getElementById('admin-ufilter-all');
+      const onBtn = document.getElementById('admin-ufilter-online');
+      const offBtn = document.getElementById('admin-ufilter-offline');
+      if (allBtn) allBtn.textContent = `Все (${allUsers.length})`;
+      if (onBtn) onBtn.textContent = `Онлайн (${onlineCount})`;
+      if (offBtn) offBtn.textContent = `Оффлайн (${offlineCount})`;
+
+      const filtered = allUsers.filter((u) => {
+        if (adminUserFilter === 'online') return u.presence === 'online' || u.presence === 'recent';
+        if (adminUserFilter === 'offline') return u.presence !== 'online' && u.presence !== 'recent';
+        return true;
+      });
+
+      if (!filtered.length) {
+        listEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Нет учеников в этом фильтре</div>';
+        return;
+      }
+
+      listEl.innerHTML = filtered.map((u) => {
+        const dotClass = u.presence === 'online'
+          ? 'bg-emerald-400'
+          : u.presence === 'recent'
+            ? 'bg-amber-400'
+            : 'bg-slate-400 dark:bg-slate-500';
+        const hasSeen = u.seconds_ago !== null && u.seconds_ago !== undefined;
+        const statusText = u.presence === 'online'
+          ? 'Онлайн'
+          : u.presence === 'recent'
+            ? `Недавно · ${formatRelativeAgo(u.seconds_ago)}`
+            : (hasSeen ? formatRelativeAgo(u.seconds_ago) : 'Не заходил');
+        const statusColor = u.presence === 'online'
+          ? 'text-emerald-600 dark:text-emerald-300'
+          : u.presence === 'recent'
+            ? 'text-amber-600 dark:text-amber-300'
+            : 'text-slate-400 dark:text-sky-100/50';
+        const rawNick = String(u.nick || '').trim().replace(/^@+/, '');
+        const nickText = rawNick ? `@${rawNick}` : `ID ${u.user_id}`;
+
+        return `
+          <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <div class="relative shrink-0">
+                ${renderAvatarElement(u.user_id, 'w-9 h-9 text-xs', u.name)}
+                <span class="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white dark:ring-[#0e223b] ${dotClass}"></span>
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(u.name || `ID ${u.user_id}`)}</span>
+                  <span class="px-1.5 py-0.5 rounded-md bg-slate-200/70 dark:bg-white/[0.10] text-[9px] font-bold text-slate-600 dark:text-sky-100/80 shrink-0">${escapeHtml(u.platform || 'Web')}</span>
+                </div>
+                <div class="text-[10.5px] ${statusColor} font-semibold truncate">${escapeHtml(statusText)} · ${escapeHtml(nickText)}</div>
+                ${u.last_action ? `<div class="text-[10.5px] text-slate-500 dark:text-sky-100/65 truncate mt-0.5">${escapeHtml(u.last_action)}</div>` : ''}
+              </div>
+            </div>
+            <div class="text-right shrink-0 space-y-0.5">
+              <div class="text-[11px] font-extrabold font-mono text-slate-800 dark:text-white">${Number(u.visits) || 0} <span class="text-[9.5px] font-semibold text-slate-400">заход</span></div>
+              <div class="text-[11px] font-extrabold font-mono text-[#2077cf] dark:text-sky-300">${Number(u.clicks) || 0} <span class="text-[9.5px] font-semibold text-slate-400">клик</span></div>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     async function _fetchAnalyticsExportText(fmt = 'txt') {
@@ -9697,6 +10033,523 @@
         showToast('Не удалось очистить статистику', 'error');
       } finally {
         if (btn) btn.textContent = 'Очистить';
+      }
+    }
+
+    function renderAdminFeedbackList() {
+      const fb = adminAnalyticsData?.feedback || {};
+      const items = Array.isArray(fb.items) ? fb.items : [];
+      const counts = fb.counts || { all: items.length, new: 0, in_progress: 0, done: 0 };
+      const blockedSet = new Set((fb.blocked_users || []).map((x) => Number(x)));
+
+      const badgeEl = document.getElementById('admin-feedback-badge');
+      if (badgeEl) {
+        const nNew = Number(counts.new || 0);
+        badgeEl.textContent = String(nNew);
+        badgeEl.classList.toggle('hidden', nNew <= 0);
+      }
+
+      const shieldEl = document.getElementById('admin-feedback-shield-stats');
+      if (shieldEl) {
+        shieldEl.textContent = `Отбито спама: ${Number(fb.spam_blocked || 0)}`;
+      }
+
+      const fAll = document.getElementById('admin-ffilter-all');
+      const fNew = document.getElementById('admin-ffilter-new');
+      const fProg = document.getElementById('admin-ffilter-in_progress');
+      const fDone = document.getElementById('admin-ffilter-done');
+      if (fAll) fAll.textContent = `Все (${counts.all || 0})`;
+      if (fNew) fNew.textContent = `Новые (${counts.new || 0})`;
+      if (fProg) fProg.textContent = `В работе (${counts.in_progress || 0})`;
+      if (fDone) fDone.textContent = `Готово (${counts.done || 0})`;
+
+      const listEl = document.getElementById('admin-feedback-list');
+      if (!listEl) return;
+
+      const filtered = items.filter((it) => {
+        if (adminFeedbackFilter === 'all') return true;
+        return it.status === adminFeedbackFilter;
+      });
+
+      if (!filtered.length) {
+        listEl.innerHTML = '<div class="text-center py-6 text-xs text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Пока нет отзывов в этом фильтре</div>';
+        return;
+      }
+
+      const stBadgeMap = {
+        new: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+        in_progress: 'bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300',
+        done: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+        rejected: 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+      };
+      const catBadgeMap = {
+        idea: 'bg-indigo-500/12 text-indigo-700 dark:text-indigo-200',
+        bug: 'bg-rose-500/12 text-rose-600 dark:text-rose-300',
+        ux: 'bg-sky-500/12 text-[#145594] dark:text-sky-200',
+        other: 'bg-slate-500/12 text-slate-600 dark:text-white/75'
+      };
+
+      listEl.innerHTML = filtered.map((it) => {
+        const rawNick = String(it.nick || '').trim().replace(/^@+/, '');
+        const nickText = rawNick ? `@${rawNick}` : `ID ${it.user_id}`;
+        const starsHtml = it.rating > 0
+          ? `<span class="text-amber-400 text-[10.5px] font-bold tracking-tight shrink-0">${'★'.repeat(it.rating)}</span>`
+          : '';
+        const tgBadge = it.verified_tg
+          ? '<span class="px-1.5 py-0.5 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-300 text-[9px] font-bold shrink-0">TG✓</span>'
+          : `<span class="px-1.5 py-0.5 rounded-md bg-slate-200/70 dark:bg-white/[0.10] text-[9px] font-bold text-slate-600 dark:text-sky-100/80 shrink-0">${escapeHtml(it.platform || 'Web')}</span>`;
+        const isBanned = blockedSet.has(Number(it.user_id));
+        const canBan = Number(it.user_id) !== Number(userId);
+        const stCls = stBadgeMap[it.status] || stBadgeMap.new;
+        const catCls = catBadgeMap[it.category] || catBadgeMap.other;
+
+        return `
+          <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.06] space-y-2">
+            <div class="flex items-start justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                ${renderAvatarElement(it.user_id, 'w-8 h-8 text-[11px] shrink-0', it.name)}
+                <div class="min-w-0">
+                  <div class="flex items-center gap-1.5 flex-wrap">
+                    <span class="text-xs font-bold text-slate-900 dark:text-white truncate">${escapeHtml(it.name || `ID ${it.user_id}`)}</span>
+                    ${tgBadge}
+                    <span class="px-1.5 py-0.5 rounded-md text-[9.5px] font-bold ${catCls}">${escapeHtml(it.category_label || 'Отзыв')}</span>
+                    ${starsHtml}
+                  </div>
+                  <div class="text-[10px] text-slate-400 dark:text-sky-100/55 truncate">${escapeHtml(nickText)} · ${escapeHtml(formatRelativeAgo(it.seconds_ago))}</div>
+                </div>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${stCls}">${escapeHtml(it.status_label || 'Новый')}</span>
+            </div>
+            <p class="text-[12.5px] leading-relaxed text-slate-800 dark:text-white/95 break-words whitespace-pre-wrap">${escapeHtml(it.text || '')}</p>
+            <div class="flex items-center justify-between gap-2 pt-1.5 border-t border-slate-200/60 dark:border-white/[0.08] flex-wrap">
+              <div class="flex items-center gap-1 flex-wrap">
+                <button type="button" onclick="setAdminFeedbackStatus(${it.id}, 'new')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold ${it.status === 'new' ? 'bg-amber-500 text-white' : 'bg-white dark:bg-white/[0.10] text-slate-600 dark:text-white/80'} active:scale-95 transition">Новый</button>
+                <button type="button" onclick="setAdminFeedbackStatus(${it.id}, 'in_progress')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold ${it.status === 'in_progress' ? 'bg-[#2077cf] text-white' : 'bg-white dark:bg-white/[0.10] text-slate-600 dark:text-white/80'} active:scale-95 transition">В работе</button>
+                <button type="button" onclick="setAdminFeedbackStatus(${it.id}, 'done')" class="px-2 py-0.5 rounded-lg text-[10px] font-bold ${it.status === 'done' ? 'bg-emerald-500 text-white' : 'bg-white dark:bg-white/[0.10] text-slate-600 dark:text-white/80'} active:scale-95 transition">Готово</button>
+              </div>
+              <div class="flex items-center gap-1.5">
+                ${canBan ? `<button type="button" onclick="toggleAdminFeedbackBlock(${it.user_id}, ${!isBanned})" class="px-2 py-0.5 rounded-lg text-[10px] font-bold ${isBanned ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'} active:scale-95 transition">${isBanned ? 'Разбанить' : 'Бан'}</button>` : ''}
+                <button type="button" onclick="deleteAdminFeedback(${it.id})" class="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-rose-500/12 text-rose-600 dark:text-rose-300 active:scale-95 transition">Удалить</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function setAdminFeedbackStatus(feedbackId, newStatus) {
+      if (!isRealAdmin()) return;
+      soundFx.playTap?.();
+      try {
+        const res = await fetch(`/api/admin/feedback/${encodeURIComponent(feedbackId)}/status`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: Number(userId) || 0, status: newStatus })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast('Статус отзыва обновлён', 'success');
+        await loadAdminAnalytics(false);
+      } catch (err) {
+        showToast('Не удалось обновить статус', 'error');
+      }
+    }
+
+    async function deleteAdminFeedback(feedbackId) {
+      if (!isRealAdmin()) return;
+      soundFx.playTap?.();
+      try {
+        const res = await fetch(`/api/admin/feedback/${encodeURIComponent(feedbackId)}?user_id=${encodeURIComponent(userId)}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast('Отзыв удалён', 'info');
+        await loadAdminAnalytics(false);
+      } catch (err) {
+        showToast('Не удалось удалить отзыв', 'error');
+      }
+    }
+
+    async function toggleAdminFeedbackBlock(targetUserId, shouldBlock) {
+      if (!isRealAdmin()) return;
+      soundFx.playTap?.();
+      try {
+        const res = await fetch('/api/admin/feedback/block', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: Number(userId) || 0,
+            target_user_id: Number(targetUserId) || 0,
+            blocked: Boolean(shouldBlock)
+          })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        showToast(shouldBlock ? 'Пользователь заблокирован в отзывах' : 'Блокировка снята', 'info');
+        await loadAdminAnalytics(false);
+      } catch (err) {
+        showToast('Не удалось изменить блокировку', 'error');
+      }
+    }
+
+    // ========================================================
+    // 💡 ОБРАТНЫЙ ФИДБЕК И РЕКОМЕНДАЦИИ (С АНТИСПАМ-ЗАЩИТОЙ)
+    // ========================================================
+    let feedbackCategory = 'idea';
+    let feedbackRating = 0;
+    let feedbackChallenge = null;
+    let feedbackModalOpenedAt = 0;
+    let feedbackCooldownUntilMs = 0;
+    let feedbackCooldownTimer = null;
+    let feedbackSubmitting = false;
+
+    const _SHA256_K = new Int32Array([
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+    ]);
+    const _SHA256_W = new Int32Array(64);
+
+    function _sha256AsciiDigestBytes(str) {
+      const len = str.length;
+      const bitLen = len * 8;
+      const totalBytes = ((len + 9 + 63) >> 6) << 6;
+      const buf = new Uint8Array(totalBytes);
+      for (let i = 0; i < len; i++) buf[i] = str.charCodeAt(i) & 0xff;
+      buf[len] = 0x80;
+      const view = new DataView(buf.buffer);
+      view.setUint32(totalBytes - 4, bitLen >>> 0, false);
+      view.setUint32(totalBytes - 8, Math.floor(bitLen / 0x100000000) >>> 0, false);
+
+      let h0 = 0x6a09e667 | 0, h1 = 0xbb67ae85 | 0, h2 = 0x3c6ef372 | 0, h3 = 0xa54ff53a | 0;
+      let h4 = 0x510e527f | 0, h5 = 0x9b05688c | 0, h6 = 0x1f83d9ab | 0, h7 = 0x5be0cd19 | 0;
+      const W = _SHA256_W;
+      const K = _SHA256_K;
+
+      for (let off = 0; off < totalBytes; off += 64) {
+        for (let i = 0; i < 16; i++) W[i] = view.getInt32(off + (i << 2), false);
+        for (let i = 16; i < 64; i++) {
+          const w15 = W[i - 15], w2 = W[i - 2];
+          const s0 = ((w15 >>> 7) | (w15 << 25)) ^ ((w15 >>> 18) | (w15 << 14)) ^ (w15 >>> 3);
+          const s1 = ((w2 >>> 17) | (w2 << 15)) ^ ((w2 >>> 19) | (w2 << 13)) ^ (w2 >>> 10);
+          W[i] = (W[i - 16] + s0 + W[i - 7] + s1) | 0;
+        }
+        let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+        for (let i = 0; i < 64; i++) {
+          const S1 = ((e >>> 6) | (e << 26)) ^ ((e >>> 11) | (e << 21)) ^ ((e >>> 25) | (e << 7));
+          const ch = (e & f) ^ ((~e) & g);
+          const temp1 = (h + S1 + ch + K[i] + W[i]) | 0;
+          const S0 = ((a >>> 2) | (a << 30)) ^ ((a >>> 13) | (a << 19)) ^ ((a >>> 22) | (a << 10));
+          const maj = (a & b) ^ (a & c) ^ (b & c);
+          const temp2 = (S0 + maj) | 0;
+          h = g; g = f; f = e; e = (d + temp1) | 0;
+          d = c; c = b; b = a; a = (temp1 + temp2) | 0;
+        }
+        h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;
+        h4 = (h4 + e) | 0; h5 = (h5 + f) | 0; h6 = (h6 + g) | 0; h7 = (h7 + h) | 0;
+      }
+
+      const out = new Uint8Array(32);
+      const ov = new DataView(out.buffer);
+      ov.setInt32(0, h0, false); ov.setInt32(4, h1, false); ov.setInt32(8, h2, false); ov.setInt32(12, h3, false);
+      ov.setInt32(16, h4, false); ov.setInt32(20, h5, false); ov.setInt32(24, h6, false); ov.setInt32(28, h7, false);
+      return out;
+    }
+
+    function _hasLeadingZeroBits(bytes, bits) {
+      const fullBytes = bits >> 3;
+      for (let i = 0; i < fullBytes; i++) {
+        if (bytes[i] !== 0) return false;
+      }
+      const rem = bits & 7;
+      if (rem > 0) {
+        const mask = (0xff << (8 - rem)) & 0xff;
+        if ((bytes[fullBytes] & mask) !== 0) return false;
+      }
+      return true;
+    }
+
+    async function _solveFeedbackPoW(nonce, difficulty) {
+      const bits = Math.max(8, Math.min(20, Number(difficulty) || 14));
+      let counter = 0;
+      while (counter < 2000000) {
+        const end = Math.min(2000000, counter + 2000);
+        for (; counter < end; counter++) {
+          const cand = counter.toString(36);
+          const digest = _sha256AsciiDigestBytes(`${nonce}:${cand}`);
+          if (_hasLeadingZeroBits(digest, bits)) return cand;
+        }
+        await new Promise((r) => setTimeout(r, 0));
+      }
+      return '';
+    }
+
+    function selectFeedbackCategory(cat) {
+      feedbackCategory = ['idea', 'bug', 'ux', 'other'].includes(cat) ? cat : 'idea';
+      soundFx.playTap?.();
+      ['idea', 'bug', 'ux', 'other'].forEach((c) => {
+        const btn = document.getElementById(`fb-cat-${c}`);
+        if (!btn) return;
+        const active = c === feedbackCategory;
+        btn.className = active
+          ? 'py-1.5 px-2 rounded-xl text-[11.5px] font-bold bg-[#2077cf] text-white shadow-xs transition active:scale-95 truncate'
+          : 'py-1.5 px-2 rounded-xl text-[11.5px] font-semibold bg-[#f4f7fc] dark:bg-white/[0.08] text-slate-600 dark:text-white/80 transition active:scale-95 truncate';
+      });
+    }
+
+    function setFeedbackRating(stars) {
+      const val = Number(stars) || 0;
+      feedbackRating = (feedbackRating === val) ? 0 : Math.max(0, Math.min(5, val));
+      soundFx.playTap?.();
+      for (let i = 1; i <= 5; i++) {
+        const btn = document.getElementById(`fb-star-${i}`);
+        if (!btn) continue;
+        btn.className = i <= feedbackRating
+          ? 'p-1 text-amber-400 text-lg leading-none transition active:scale-90'
+          : 'p-1 text-slate-300 dark:text-white/25 text-lg leading-none transition active:scale-90';
+      }
+    }
+
+    function onFeedbackTextInput() {
+      const inp = document.getElementById('feedback-text-input');
+      const cnt = document.getElementById('feedback-char-counter');
+      if (!inp || !cnt) return;
+      const val = inp.value || '';
+      const cleanLen = val.replace(/\s+/g, '').length;
+      cnt.textContent = cleanLen < 8
+        ? `${val.length} / 800 (мин. 8 симв.)`
+        : `${val.length} / 800`;
+    }
+
+    function _updateFeedbackGuardBanner(eligible, reason, quota) {
+      const banner = document.getElementById('feedback-guard-banner');
+      const textEl = document.getElementById('feedback-guard-text');
+      const submitBtn = document.getElementById('feedback-submit-btn');
+      const ta = document.getElementById('feedback-text-input');
+      if (!banner || !textEl) return;
+
+      if (!eligible) {
+        banner.className = 'px-3.5 py-2.5 rounded-2xl bg-rose-500/12 text-[11.5px] font-semibold text-rose-600 dark:text-rose-300 flex items-center gap-2';
+        textEl.textContent = reason || 'Отправка отзывов недоступна';
+        if (submitBtn) submitBtn.disabled = true;
+        if (ta) ta.disabled = true;
+        return;
+      }
+
+      if (ta) ta.disabled = false;
+      const nowMs = Date.now();
+      const remSec = Math.max(0, Math.ceil((feedbackCooldownUntilMs - nowMs) / 1000));
+      const dailyRem = quota ? Number(quota.daily_remaining ?? 0) : 3;
+      const dailyLim = quota ? Number(quota.daily_limit ?? 3) : 3;
+
+      if (dailyRem <= 0) {
+        banner.className = 'px-3.5 py-2.5 rounded-2xl bg-amber-500/15 text-[11.5px] font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-2';
+        textEl.textContent = `Лимит на сегодня исчерпан (${dailyLim}/${dailyLim}). Спасибо за идеи!`;
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+      }
+
+      if (remSec > 0) {
+        const m = Math.floor(remSec / 60);
+        const s = remSec % 60;
+        const waitStr = m > 0 ? `${m} мин ${s} сек` : `${s} сек`;
+        banner.className = 'px-3.5 py-2.5 rounded-2xl bg-amber-500/15 text-[11.5px] font-semibold text-amber-700 dark:text-amber-300 flex items-center gap-2';
+        textEl.textContent = `Антиспам-пауза: следующий отзыв через ${waitStr}`;
+        if (submitBtn) submitBtn.disabled = true;
+        return;
+      }
+
+      banner.className = 'px-3.5 py-2.5 rounded-2xl bg-[#eef6ff] dark:bg-sky-500/[0.14] text-[11.5px] font-semibold text-[#145594] dark:text-sky-200 flex items-center gap-2';
+      textEl.textContent = `Защита от спама включена · Доступно сегодня: ${dailyRem} из ${dailyLim}`;
+      if (submitBtn && !feedbackSubmitting) submitBtn.disabled = false;
+    }
+
+    function _renderMyFeedbackItems(items) {
+      const listEl = document.getElementById('feedback-my-list');
+      if (!listEl) return;
+      if (!Array.isArray(items) || !items.length) {
+        listEl.innerHTML = '<div class="text-center py-4 text-[11.5px] text-slate-400 dark:text-sky-100/50 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.04]">Вы ещё не отправляли предложений</div>';
+        return;
+      }
+      const stBadgeMap = {
+        new: 'bg-amber-500/15 text-amber-700 dark:text-amber-300',
+        in_progress: 'bg-[#2077cf]/15 text-[#2077cf] dark:text-sky-300',
+        done: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300',
+        rejected: 'bg-rose-500/15 text-rose-600 dark:text-rose-300'
+      };
+      listEl.innerHTML = items.map((it) => {
+        const stCls = stBadgeMap[it.status] || stBadgeMap.new;
+        return `
+          <div class="p-3 rounded-2xl bg-[#f4f7fc] dark:bg-white/[0.05] space-y-1.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5 min-w-0">
+                <span class="px-2 py-0.5 rounded-md bg-white dark:bg-white/[0.10] text-[10px] font-bold text-slate-700 dark:text-white/90">${escapeHtml(it.category_label || 'Отзыв')}</span>
+                ${it.rating > 0 ? `<span class="text-amber-400 text-[10.5px] font-bold">${'★'.repeat(it.rating)}</span>` : ''}
+                <span class="text-[10px] text-slate-400 dark:text-sky-100/50 truncate">${escapeHtml(formatRelativeAgo(it.seconds_ago))}</span>
+              </div>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0 ${stCls}">${escapeHtml(it.status_label || 'Новый')}</span>
+            </div>
+            <p class="text-xs text-slate-700 dark:text-white/90 break-words whitespace-pre-wrap">${escapeHtml(it.text || '')}</p>
+            ${it.admin_note ? `<div class="text-[11px] text-[#2077cf] dark:text-sky-300 bg-[#eef6ff] dark:bg-sky-500/15 px-2.5 py-1.5 rounded-xl">Ответ админа: ${escapeHtml(it.admin_note)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function _refreshFeedbackModalState() {
+      const uid = Number(userId) || 0;
+      try {
+        const [stRes, mineRes] = await Promise.all([
+          fetch(`/api/feedback/status?user_id=${encodeURIComponent(uid)}`, { cache: 'no-store' }),
+          fetch(`/api/feedback/mine?user_id=${encodeURIComponent(uid)}`, { cache: 'no-store' })
+        ]);
+        const stData = await stRes.json().catch(() => ({}));
+        const mineData = await mineRes.json().catch(() => ({}));
+        const quota = stData.quota || mineData.quota || null;
+        feedbackCooldownUntilMs = quota?.cooldown_remaining ? (Date.now() + quota.cooldown_remaining * 1000) : 0;
+        const eligible = stData.eligible !== false && uid > 0 && uid !== 12345;
+        _updateFeedbackGuardBanner(eligible, stData.reason, quota);
+        _renderMyFeedbackItems(mineData.items || []);
+
+        if (feedbackCooldownTimer) clearInterval(feedbackCooldownTimer);
+        if (feedbackCooldownUntilMs > Date.now()) {
+          feedbackCooldownTimer = setInterval(() => {
+            if (Date.now() >= feedbackCooldownUntilMs) {
+              clearInterval(feedbackCooldownTimer);
+              feedbackCooldownTimer = null;
+            }
+            _updateFeedbackGuardBanner(eligible, stData.reason, quota);
+          }, 1000);
+        }
+
+        if (eligible && (!quota || Number(quota.daily_remaining ?? 0) > 0)) {
+          const chRes = await fetch(`/api/feedback/challenge?user_id=${encodeURIComponent(uid)}`, { cache: 'no-store' });
+          if (chRes.ok) {
+            feedbackChallenge = await chRes.json();
+            feedbackModalOpenedAt = Date.now();
+          }
+        }
+      } catch (err) {
+        _updateFeedbackGuardBanner(false, 'Не удалось проверить статус формы — проверьте соединение', null);
+      }
+    }
+
+    function openFeedbackModal() {
+      soundFx.playOpen();
+      const modal = document.getElementById('feedback-modal');
+      if (!modal) return;
+      feedbackModalOpenedAt = Date.now();
+      feedbackChallenge = null;
+      selectFeedbackCategory(feedbackCategory);
+      onFeedbackTextInput();
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      triggerHaptic('light');
+      _refreshFeedbackModalState();
+    }
+
+    function closeFeedbackModal() {
+      soundFx.playClose();
+      const modal = document.getElementById('feedback-modal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+      if (feedbackCooldownTimer) {
+        clearInterval(feedbackCooldownTimer);
+        feedbackCooldownTimer = null;
+      }
+    }
+
+    async function submitFeedbackForm() {
+      if (feedbackSubmitting) return;
+      const uid = Number(userId) || 0;
+      if (!uid || uid === 12345) {
+        showToast('Откройте приложение через бота @my_hw_manager_bot в Telegram', 'warning');
+        return;
+      }
+      const inp = document.getElementById('feedback-text-input');
+      const hp = document.getElementById('feedback-hp-input');
+      const btn = document.getElementById('feedback-submit-btn');
+      const rawText = (inp?.value || '').trim();
+      if (rawText.replace(/\s+/g, '').length < 8) {
+        showToast('Опишите идею или проблему чуть подробнее (от 8 символов)', 'warning');
+        inp?.focus();
+        return;
+      }
+
+      feedbackSubmitting = true;
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Проверка и отправка...</span>';
+      }
+
+      try {
+        if (!feedbackChallenge || !feedbackChallenge.challenge_token) {
+          const chRes = await fetch(`/api/feedback/challenge?user_id=${encodeURIComponent(uid)}`, { cache: 'no-store' });
+          if (!chRes.ok) {
+            const chErr = await chRes.json().catch(() => ({}));
+            throw new Error(chErr.detail || 'Не удалось получить токен проверки');
+          }
+          feedbackChallenge = await chRes.json();
+          feedbackModalOpenedAt = Date.now();
+        }
+
+        const minWaitMs = Math.max(2100, Math.round((Number(feedbackChallenge.min_wait_sec) || 2) * 1000) + 150);
+        const elapsedMs = Date.now() - feedbackModalOpenedAt;
+        if (elapsedMs < minWaitMs) {
+          await new Promise((r) => setTimeout(r, minWaitMs - elapsedMs));
+        }
+
+        const powNonce = await _solveFeedbackPoW(feedbackChallenge.nonce, feedbackChallenge.difficulty);
+        if (!powNonce) throw new Error('Не удалось пройти антибот-проверку');
+
+        const res = await fetch('/api/feedback', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: uid,
+            category: feedbackCategory,
+            rating: feedbackRating,
+            text: rawText,
+            platform: getClientPlatform(),
+            challenge_token: feedbackChallenge.challenge_token,
+            pow_nonce: powNonce,
+            website: hp?.value || '',
+            tg_init_data: window.Telegram?.WebApp?.initData || ''
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          feedbackChallenge = null;
+          throw new Error(data.detail || `Ошибка ${res.status}`);
+        }
+
+        if (inp) inp.value = '';
+        feedbackRating = 0;
+        for (let i = 1; i <= 5; i++) {
+          const starBtn = document.getElementById(`fb-star-${i}`);
+          if (starBtn) starBtn.className = 'p-1 text-slate-300 dark:text-white/25 text-lg leading-none transition active:scale-90';
+        }
+        onFeedbackTextInput();
+        feedbackChallenge = null;
+        AnalyticsTracker.enqueue('click', 'submit_feedback', `Отправил фидбек (${feedbackCategory})`);
+        soundFx.playSuccess?.();
+        triggerHaptic('success');
+        showToast('Спасибо! Ваша рекомендация отправлена', 'success', 4000);
+        await _refreshFeedbackModalState();
+      } catch (err) {
+        soundFx.playError?.();
+        showToast(err?.message || 'Не удалось отправить отзыв', 'error', 4200);
+      } finally {
+        feedbackSubmitting = false;
+        if (btn) {
+          btn.innerHTML = '<span>Отправить рекомендацию</span>';
+        }
+        await _refreshFeedbackModalState();
       }
     }
 
